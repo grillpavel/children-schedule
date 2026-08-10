@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900;
+}
+
+/* Pruhovaný overlay pro tvrdý konflikt — informace není nesena jen barvou. */
+.conflict-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(220, 38, 38, 0.35),
+    rgba(220, 38, 38, 0.35) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+/* Tisk: skryje panely, chat a nástroje; mřížka na jednu A4 na šířku. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-grid {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

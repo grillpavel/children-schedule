@@ -885,6 +885,10 @@ export type VerificationStatus =
 export type NsActivityMeta = {
   venueId: (keyof typeof NS_VENUES) | (keyof typeof NS_VENUES)[];
   sourceUrl?: string;
+  /** Odkaz na přihlášku; když chybí, použije se `sourceUrl` (C8-D5). */
+  applicationUrl?: string;
+  /** Uzávěrka přihlášek `YYYY-MM-DD` — DOPLNIT ověřenou hodnotou (BL-017). */
+  applicationDeadline?: string;
   source?: string;
   verification: VerificationStatus;
   isNew?: boolean;

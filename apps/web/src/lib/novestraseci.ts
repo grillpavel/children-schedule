@@ -67,10 +67,18 @@ const SESSION_GROUPS: SessionGroup[] = NS_CATALOG.sessionGroups.map((g) => {
   return venueId ? { ...g, venueId } : g;
 });
 
-/** Aktivitám doplní odkaz na stránku kroužku (NS_ACTIVITY_META.sourceUrl). */
+/** Aktivitám doplní odkaz na stránku/přihlášku a (šablonově) uzávěrku z META. */
 const ACTIVITIES = NS_CATALOG.activities.map((a) => {
-  const sourceUrl = NS_ACTIVITY_META[a.id]?.sourceUrl;
-  return sourceUrl ? { ...a, sourceUrl } : a;
+  const meta = NS_ACTIVITY_META[a.id];
+  const sourceUrl = meta?.sourceUrl;
+  const applicationUrl = meta?.applicationUrl ?? sourceUrl;
+  const applicationDeadline = meta?.applicationDeadline;
+  return {
+    ...a,
+    ...(sourceUrl ? { sourceUrl } : {}),
+    ...(applicationUrl ? { applicationUrl } : {}),
+    ...(applicationDeadline ? { applicationDeadline } : {}),
+  };
 });
 
 /** Reálný katalog Nové Strašecí a okolí (DDM Rakovník), školní rok 2026/2027. */

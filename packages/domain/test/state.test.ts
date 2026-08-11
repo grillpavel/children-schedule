@@ -82,6 +82,18 @@ describe('state IO', () => {
     if (parsed.ok) expect(parsed.value).toEqual(state);
   });
 
+  it('override s poznámkou rodiče přežije round-trip', () => {
+    const withNote: PlannerState = {
+      ...state,
+      overrides: [{ activityId: 'TEST_keramika', note: 'Zeptat se na kroužkovné' }],
+    };
+    const parsed = parsePlannerState(JSON.parse(serializePlannerState(withNote)));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.overrides[0]!.note).toBe('Zeptat se na kroužkovné');
+    }
+  });
+
   it('odmítne neznámý schemaVersion', () => {
     const bad = parsePlannerState({ ...state, schemaVersion: 99 });
     expect(bad.ok).toBe(false);

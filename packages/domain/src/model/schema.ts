@@ -105,6 +105,10 @@ export const activitySchema = z.object({
   description: z.string().optional(),
   requiresEquipment: z.string().optional(),
   sourceUrl: z.string().url().optional(),
+  /** Odkaz na přihlášku (C8-D5); fallback na `sourceUrl`/web poskytovatele. */
+  applicationUrl: z.string().url().optional(),
+  /** Uzávěrka přihlášek `YYYY-MM-DD` (C8-D5); chybí = neznámá. */
+  applicationDeadline: isoDate.optional(),
   lastVerifiedAt: isoDate,
 });
 
@@ -209,6 +213,12 @@ export const activityOverrideSchema = z.object({
   contactPhone: z.string().optional(),
   price: priceSchema.optional(),
   colorCss: z.string().optional(),
+  /** Soukromá poznámka rodiče ke kroužku (uživatelská vrstva, neověřená). */
+  note: z.string().optional(),
+  /** Datum poslední úpravy `YYYY-MM-DD` (C8-E3). */
+  editedAt: isoDate.optional(),
+  /** Podpis katalogových hodnot v době úpravy — pro detekci změny zdroje (C8-E3). */
+  baseSignature: z.string().optional(),
 });
 
 // ---------- Omezení ----------

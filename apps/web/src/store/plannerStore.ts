@@ -5,6 +5,7 @@ import { immer } from 'zustand/middleware/immer';
 import { current } from 'immer';
 import {
   applyDiff as applyDiffToSchedule,
+  activitySignature,
   type ActivityOverride,
   type Catalog,
   type CalendarException,
@@ -13,6 +14,7 @@ import {
   type Enrollment,
   type NamedSchedule,
   type PlannerState,
+  type Weekday,
 } from '@krouzky/domain';
 import {
   NOVE_STRASECI_CATALOG,
@@ -33,6 +35,10 @@ interface PlannerStore {
   hoveredGroupId: string | null;
   pendingDiff: Diff | null;
 
+  /** Požadavek souhrnu na přepnutí kalendáře na daný den (C8-B7). */
+  focusWeekday: Weekday | null;
+  focusNonce: number;
+
   history: PlannerState[];
   future: PlannerState[];
 
@@ -41,6 +47,7 @@ interface PlannerStore {
   selectCustomEntry(entryId: string | null): void;
   setHoveredGroup(groupId: string | null): void;
   setActiveChild(childId: string): void;
+  focusDay(weekday: Weekday): void;
 
   // ---- přímé uživatelské akce (potvrzené kliknutím) ----
   enrollGroup(activityId: string, sessionGroupId: string): void;
@@ -48,6 +55,7 @@ interface PlannerStore {
   changeVariant(enrollmentId: string, newGroupId: string): void;
   addCustomEntry(entry: CustomEntry): void;
   addCustomEntries(entries: CustomEntry[]): void;
+  updateCustomEntry(entry: CustomEntry): void;
   removeCustomEntry(entryId: string): void;
 
   // ---- uživatelské přepisy katalogových aktivit (CHANGE-4) ----
@@ -107,6 +115,9 @@ export const usePlannerStore = create<PlannerStore>()(
       hoveredGroupId: null,
       pendingDiff: null,
 
+      focusWeekday: null,
+      focusNonce: 0,
+
       history: [],
       future: [],
 
@@ -132,6 +143,12 @@ export const usePlannerStore = create<PlannerStore>()(
       setActiveChild: (childId) =>
         set((s) => {
           s.activeChildId = childId;
+        }),
+
+      focusDay: (weekday) =>
+        set((s) => {
+          s.focusWeekday = weekday;
+          s.focusNonce += 1;
         }),
 
       enrollGroup: (activityId, sessionGroupId) => {
@@ -191,6 +208,13 @@ export const usePlannerStore = create<PlannerStore>()(
           activeSchedule(draft).customEntries.push(...entries);
         }),
 
+      updateCustomEntry: (entry) =>
+        commit((draft) => {
+          const schedule = activeSchedule(draft);
+          const i = schedule.customEntries.findIndex((e) => e.id === entry.id);
+          if (i !== -1) schedule.customEntries[i] = entry;
+        }),
+
       removeCustomEntry: (entryId) =>
         commit((draft) => {
           const schedule = activeSchedule(draft);
@@ -214,11 +238,20 @@ export const usePlannerStore = create<PlannerStore>()(
               (override as Record<string, unknown>)[key] = value;
             }
           }
-          // Prázdný přepis (jen activityId) se odstraní.
-          if (Object.keys(override).length <= 1) {
+          // Prázdný přepis (jen metadata) se odstraní.
+          const META_KEYS = new Set(['activityId', 'editedAt', 'baseSignature']);
+          const hasRealOverride = Object.keys(override).some((k) => !META_KEYS.has(k));
+          if (!hasRealOverride) {
             draft.overrides = draft.overrides.filter(
               (o) => o.activityId !== activityId,
             );
+            return;
+          }
+          // Razítko úprav pro detekci změny zdroje (C8-E3).
+          const activity = get().catalog.activities.find((a) => a.id === activityId);
+          if (activity) {
+            override.baseSignature = activitySignature(activity);
+            override.editedAt = new Date().toISOString().slice(0, 10);
           }
         }),
 

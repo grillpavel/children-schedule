@@ -22,6 +22,11 @@ export interface ScheduleSummary {
   freeWeekdays: Weekday[];
   /** Nejdelší den: rozpětí od prvního začátku do posledního konce (min). */
   longestDay: { weekday: Weekday; spanMinutes: number } | undefined;
+  /**
+   * Délka sezony v celých měsících odvozená z platnosti termínů
+   * (nejdřívější `validFrom` … nejpozdější `validTo`); 0 při prázdném rozvrhu.
+   */
+  seasonMonths: number;
 }
 
 /**
@@ -82,5 +87,32 @@ export function scheduleSummary(
     }
   }
 
-  return { activityCount, costByPeriod, freeWeekdays, longestDay };
+  const seasonMonths = seasonMonthsFromPlaced(placed);
+
+  return { activityCount, costByPeriod, freeWeekdays, longestDay, seasonMonths };
 }
+
+/** Počet celých měsíců mezi dvěma ISO daty `YYYY-MM-DD` (inkluzivně), min 1. */
+function monthsInclusive(fromIso: string, toIso: string): number {
+  const [fy, fm] = fromIso.split('-').map(Number);
+  const [ty, tm] = toIso.split('-').map(Number);
+  if (!fy || !fm || !ty || !tm) return 1;
+  const diff = (ty - fy) * 12 + (tm - fm) + 1;
+  return Math.max(1, diff);
+}
+
+function seasonMonthsFromPlaced(
+  placed: { validFrom: string; validTo: string }[],
+): number {
+  if (placed.length === 0) return 0;
+  let earliest = placed[0]!.validFrom;
+  let latest = placed[0]!.validTo;
+  for (const p of placed) {
+    if (p.validFrom < earliest) earliest = p.validFrom;
+    if (p.validTo > latest) latest = p.validTo;
+  }
+  return monthsInclusive(earliest, latest);
+}
+
+export * from './deadlines.js';
+export * from './price.js';

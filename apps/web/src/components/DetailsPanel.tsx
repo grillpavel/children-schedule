@@ -1,8 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
 import {
   colorForActivity,
+  detectConflicts,
+  overrideSourceChanged,
+  pricePerLesson,
+  relevantExceptionDates,
+  scheduleSummary,
+  suggestVariantSwitches,
+  upcomingDeadlines,
+  weeklyOccurrences,
   type Activity,
   type ActivityCategory,
   type Address,
@@ -13,41 +22,91 @@ import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
 import { geocodeAddress } from '@/lib/geocode';
-import { ChatPanel } from './ChatPanel';
 import { ColorSwatches } from './ColorSwatches';
+import { CustomEntryDialog } from './CustomEntryDialog';
 
-/** Poloha na mapě (FR-8): malý keyless náhled OpenStreetMap + odkaz do Mapy.cz. */
+/**
+ * Poloha na mapě (Changes 10 C10-1): náhled OpenStreetMap + odkaz do Mapy.cz.
+ * Tlačítko „Zobrazit mapu“ nabídne u JAKÉKOLI adresy; chybí-li souřadnice
+ * (vlastní události, ručně zadané adresy), dohledá je na vyžádání geokódováním.
+ */
 function MapLink({ address }: { address: Address | undefined }) {
+  const [showMap, setShowMap] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+
   if (!address) {
     return <div className="text-sm text-slate-400">Poloha: neuvedeno</div>;
   }
-  const hasCoords = address.lat !== undefined && address.lon !== undefined;
-  const query = encodeURIComponent(`${address.street}, ${address.city}`);
+
+  const lat = coords?.lat ?? address.lat;
+  const lon = coords?.lon ?? address.lon;
+  const hasCoords = lat !== undefined && lon !== undefined;
+  const hasAddressText = Boolean(address.street || address.city);
+  const query = encodeURIComponent(
+    [address.street, address.city].filter(Boolean).join(', '),
+  );
   const osmLink = hasCoords
-    ? `https://www.openstreetmap.org/?mlat=${address.lat}&mlon=${address.lon}#map=17/${address.lat}/${address.lon}`
+    ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`
     : `https://www.openstreetmap.org/search?query=${query}`;
   const mapyLink = hasCoords
-    ? `https://mapy.cz/zakladni?x=${address.lon}&y=${address.lat}&z=17&source=coor&id=${address.lon},${address.lat}`
+    ? `https://mapy.cz/zakladni?x=${lon}&y=${lat}&z=17&source=coor&id=${lon},${lat}`
     : `https://mapy.cz/zakladni?q=${query}`;
+
+  const openMap = () => {
+    setFailed(false);
+    if (hasCoords) {
+      setShowMap(true);
+      return;
+    }
+    setLoading(true);
+    void geocodeAddress(address).then((c) => {
+      setLoading(false);
+      if (c) {
+        setCoords(c);
+        setShowMap(true);
+      } else {
+        setFailed(true);
+      }
+    });
+  };
 
   return (
     <div className="space-y-1">
-      {hasCoords && (
+      {showMap && hasCoords ? (
         <>
           <iframe
             title="Náhled mapy"
             className="h-32 w-full rounded border border-slate-200"
             loading="lazy"
             src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-              (address.lon as number) - 0.006
-            }%2C${(address.lat as number) - 0.004}%2C${
-              (address.lon as number) + 0.006
-            }%2C${(address.lat as number) + 0.004}&layer=mapnik&marker=${address.lat}%2C${address.lon}`}
+              (lon as number) - 0.006
+            }%2C${(lat as number) - 0.004}%2C${
+              (lon as number) + 0.006
+            }%2C${(lat as number) + 0.004}&layer=mapnik&marker=${lat}%2C${lon}`}
           />
           <p className="text-[10px] text-slate-400">
             Náhled načítá OpenStreetMap; poloha se odesílá třetí straně.
           </p>
         </>
+      ) : (
+        hasAddressText && (
+          <button
+            type="button"
+            onClick={openMap}
+            disabled={loading}
+            className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            title="Náhled mapy se načte z OpenStreetMap až po kliknutí."
+          >
+            {loading ? 'Načítám mapu…' : 'Zobrazit mapu'}
+          </button>
+        )
+      )}
+      {failed && (
+        <p className="text-[11px] text-slate-500">
+          Polohu se nepodařilo dohledat. Otevřete adresu v mapě přes odkaz níže.
+        </p>
       )}
       <div className="flex gap-3 text-sm">
         <a href={osmLink} target="_blank" rel="noreferrer" className="text-blue-600">
@@ -67,6 +126,22 @@ const PRICE_PERIOD_LABELS: Record<string, string> = {
   per_month: 'měsíc',
   per_session: 'lekce',
 };
+
+function toMonthlyCzk(amount: number, period: string): number {
+  if (!Number.isFinite(amount)) return Number.NaN;
+  switch (period) {
+    case 'per_month':
+      return amount;
+    case 'per_year':
+      return amount / 12;
+    case 'per_semester':
+      return amount / 5;
+    case 'per_session':
+      return amount * 4;
+    default:
+      return amount;
+  }
+}
 
 const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   sport: 'Sport',
@@ -95,6 +170,11 @@ function SelectedActivity() {
   const removeEnrollment = usePlannerStore((s) => s.removeEnrollment);
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
   const clearActivityOverride = usePlannerStore((s) => s.clearActivityOverride);
+  const selectActivity = usePlannerStore((s) => s.selectActivity);
+  const exceptions = usePlannerStore((s) => s.exceptions);
+  const districtCode = usePlannerStore((s) => s.state.districtCode);
+  const [variantChoice, setVariantChoice] = useState('');
+  const [descOpen, setDescOpen] = useState(false);
 
   if (!selectedActivityId) return null;
   const activity = catalog.activities.find((a) => a.id === selectedActivityId);
@@ -123,17 +203,148 @@ function SelectedActivity() {
   const effColorCss = override?.colorCss ?? colorForActivity(activity.id).css;
   const hasOverride = override !== undefined;
   const web = activity.sourceUrl ?? provider?.website;
+  const signupUrl = activity.applicationUrl ?? web;
   const email = provider?.contact.email;
   const contactPerson = provider?.contact.personName;
+  const monthly = toMonthlyCzk(effPrice.amount, effPrice.period);
+
+  const isEnrolled = enrolled.length > 0;
+  const chosenVariant = groups.some((g) => g.id === variantChoice)
+    ? variantChoice
+    : (groups[0]?.id ?? '');
+  const nameEdited = override?.name !== undefined;
+  const addressEdited = override?.address !== undefined;
+  const priceEdited = override?.price !== undefined;
+  const phoneEdited = override?.contactPhone !== undefined;
+  const anyEdited = nameEdited || addressEdited || priceEdited || phoneEdited;
+
+  // Rozsah lekcí odvozený z platnosti termínů a školních výjimek (Changes 8 C8-D2).
+  const rangeGroup = groups.find((g) => g.id === chosenVariant) ?? groups[0];
+  const holidayDates = relevantExceptionDates(exceptions, districtCode);
+  const lessonCount = rangeGroup
+    ? rangeGroup.sessions.reduce((sum, s) => {
+        const occ = weeklyOccurrences(s.weekday, s.validFrom, s.validTo, s.everyWeeks);
+        return sum + occ.filter((d) => !holidayDates.has(d)).length;
+      }, 0)
+    : 0;
+  const firstSession = rangeGroup?.sessions[0];
+  const lessonMinutes = firstSession
+    ? firstSession.endMinutes - firstSession.startMinutes
+    : 0;
+
+  // Délka sezony aktivity z platnosti termínu → podíl Kč/lekce (BL-018).
+  const activitySeasonMonths = (() => {
+    if (!rangeGroup || rangeGroup.sessions.length === 0) return 0;
+    let earliest = rangeGroup.sessions[0]!.validFrom;
+    let latest = rangeGroup.sessions[0]!.validTo;
+    for (const s of rangeGroup.sessions) {
+      if (s.validFrom < earliest) earliest = s.validFrom;
+      if (s.validTo > latest) latest = s.validTo;
+    }
+    const [fy, fm] = earliest.split('-').map(Number);
+    const [ty, tm] = latest.split('-').map(Number);
+    if (!fy || !fm || !ty || !tm) return 0;
+    return Math.max(1, (ty - fy) * 12 + (tm - fm) + 1);
+  })();
+  const perLesson = pricePerLesson(effPrice, lessonCount, activitySeasonMonths);
 
   return (
-    <section className="space-y-2 border-b border-slate-100 p-3">
-      <h2 className="text-base font-semibold">{effName}</h2>
-      <div className="text-sm text-slate-600">
-        {provider?.name} · {CATEGORY_LABELS[activity.category]}
+    <section className="border-b border-slate-100">
+      <div className="sticky top-0 z-10 space-y-2 border-b border-slate-100 bg-white p-3">
+        <button
+          type="button"
+          onClick={() => selectActivity(null)}
+          className="text-xs text-slate-500 hover:text-slate-700"
+        >
+          ← Zpět na souhrn
+        </button>
+        <h2 className="text-base font-semibold">
+          {effName}
+          {nameEdited && <EditedMark />}
+        </h2>
+        <div className="text-sm text-slate-600">
+          {provider?.name} · {CATEGORY_LABELS[activity.category]}
+        </div>
+
+      {/* Primární akce (Changes 8 C8-F3): přidat / odebrat + přihlásit se. */}
+      <div className="space-y-1 rounded border border-slate-200 bg-slate-50 p-2">
+        {isEnrolled ? (
+          <>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">
+                V rozvrhu
+              </span>
+              <span className="text-slate-500">Termín změníte níže.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => enrolled.forEach((e) => removeEnrollment(e.id))}
+              className="w-full rounded border border-red-200 px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+            >
+              Odebrat z rozvrhu
+            </button>
+          </>
+        ) : (
+          <>
+            {groups.length > 1 && (
+              <label className="block text-xs text-slate-500">
+                Termín
+                <select
+                  value={chosenVariant}
+                  onChange={(e) => setVariantChoice(e.target.value)}
+                  className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                >
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.label ??
+                        g.sessions
+                          .map(
+                            (s) =>
+                              `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`,
+                          )
+                          .join(', ')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              type="button"
+              disabled={!chosenVariant}
+              onClick={() => chosenVariant && enrollGroup(activity.id, chosenVariant)}
+              className="w-full rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              Přidat do rozvrhu
+            </button>
+          </>
+        )}
+        {signupUrl && (
+          <a
+            href={signupUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="block text-center text-sm text-blue-600"
+          >
+            Přihlásit se →
+          </a>
+        )}
+        </div>
       </div>
+
+      <div className="space-y-2 p-3">
       {activity.description && (
-        <p className="text-sm text-slate-600">{activity.description}</p>
+        <div>
+          <button
+            type="button"
+            onClick={() => setDescOpen((v) => !v)}
+            className="text-xs font-medium text-slate-500"
+          >
+            {descOpen ? '▾' : '▸'} Popis
+          </button>
+          {descOpen && (
+            <p className="mt-1 text-sm text-slate-600">{activity.description}</p>
+          )}
+        </div>
       )}
       {venue && (
         <div className="text-sm text-slate-600">
@@ -144,18 +355,42 @@ function SelectedActivity() {
         <div className="text-sm text-slate-600">
           {effAddress.street}, {effAddress.city}
           {effAddress.zip ? `, ${effAddress.zip}` : ''}
+          {addressEdited && <EditedMark />}
         </div>
       )}
-      <MapLink address={effAddress} />
+      <MapLink key={activity.id} address={effAddress} />
       <div className="text-sm text-slate-600">
-        {Number.isFinite(effPrice.amount)
-          ? `${effPrice.amount} Kč / ${PRICE_PERIOD_LABELS[effPrice.period]}`
+        {Number.isFinite(monthly)
+          ? `${Math.round(monthly)} Kč/měs (${effPrice.amount} Kč/${PRICE_PERIOD_LABELS[effPrice.period]})`
           : 'Cena neuvedena'}{' '}
         · {activity.ageMin}–{activity.ageMax} let
+        {priceEdited && <EditedMark />}
       </div>
       <div className="text-sm text-slate-600">
         Kapacita: {activity.capacity ?? 'neuvedeno'}
       </div>
+      {activity.applicationDeadline && (
+        <div className="text-sm font-medium text-slate-800">
+          Uzávěrka přihlášek: {activity.applicationDeadline}
+        </div>
+      )}
+      {(lessonMinutes > 0 || lessonCount > 0) && (
+        <div className="text-sm text-slate-600">
+          {lessonMinutes > 0 && <>Délka lekce: {lessonMinutes} min</>}
+          {lessonMinutes > 0 && lessonCount > 0 && ' · '}
+          {lessonCount > 0 && (
+            <span title="Počet výskytů termínu v sezoně po odečtení svátků a prázdnin.">
+              Lekcí za sezonu: {lessonCount}
+            </span>
+          )}
+          {perLesson !== undefined && (
+            <span title="Odvozená cena za jednu lekci z ceny a počtu lekcí.">
+              {' · '}
+              {Math.round(perLesson)} Kč/lekce
+            </span>
+          )}
+        </div>
+      )}
       {(contactPerson || effPhone || email || web) && (
         <div className="rounded border border-slate-200 bg-slate-50 p-2">
           <div className="mb-1 text-xs font-medium text-slate-500">
@@ -190,6 +425,36 @@ function SelectedActivity() {
       )}
       <div className="text-xs text-slate-400">
         Ověřeno: {activity.lastVerifiedAt}
+        {anyEdited && ' · upravené údaje nejsou ověřené'}
+      </div>
+      {override && overrideSourceChanged(activity, override) && (
+        <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+          Zdroj kroužku se od vaší úpravy
+          {override.editedAt ? ` (${override.editedAt})` : ''} změnil.
+          <button
+            type="button"
+            onClick={() => clearActivityOverride(activity.id)}
+            className="ml-1 underline hover:no-underline"
+          >
+            Přijmout nový údaj z katalogu
+          </button>
+        </div>
+      )}
+
+      <div className="pt-1">
+        <div className="mb-1 text-xs font-medium text-slate-500">Poznámka rodiče</div>
+        <textarea
+          key={`note-${activity.id}`}
+          defaultValue={override?.note ?? ''}
+          onBlur={(e) =>
+            setActivityOverride(activity.id, {
+              note: e.target.value.trim() || undefined,
+            })
+          }
+          rows={2}
+          placeholder="Vaše soukromá poznámka (nezveřejňuje se)"
+          className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+        />
       </div>
 
       <div className="pt-1">
@@ -253,6 +518,7 @@ function SelectedActivity() {
             Odebrat vše z rozvrhu
           </button>
         )}
+      </div>
       </div>
     </section>
   );
@@ -463,6 +729,18 @@ function clsxSel(selected: boolean): string {
   ].join(' ');
 }
 
+/** Značka uživatelské úpravy (Changes 8 C8-E2): hodnota není ověřená. */
+function EditedMark() {
+  return (
+    <span
+      className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700"
+      title="Tuto hodnotu jste upravili; není to ověřený údaj z katalogu."
+    >
+      upraveno vámi
+    </span>
+  );
+}
+
 /** Detail vlastní události v pravém sloupci (FR-7). */
 function CustomEntryDetail() {
   const selectedCustomEntryId = usePlannerStore((s) => s.selectedCustomEntryId);
@@ -473,6 +751,7 @@ function CustomEntryDetail() {
   );
   const removeCustomEntry = usePlannerStore((s) => s.removeCustomEntry);
   const selectCustomEntry = usePlannerStore((s) => s.selectCustomEntry);
+  const [editing, setEditing] = useState(false);
 
   if (!selectedCustomEntryId || !entry) return null;
 
@@ -493,7 +772,7 @@ function CustomEntryDetail() {
           {entry.location.street}, {entry.location.city}
         </div>
       )}
-      <MapLink address={entry.location} />
+      <MapLink key={entry.id} address={entry.location} />
       {entry.sessions[0]?.instructor && (
         <div className="text-sm text-slate-600">
           Lektor: {entry.sessions[0].instructor}
@@ -501,7 +780,9 @@ function CustomEntryDetail() {
       )}
       {entry.price && (
         <div className="text-sm text-slate-600">
-          {entry.price.amount} Kč / {PRICE_PERIOD_LABELS[entry.price.period]}
+          {Number.isFinite(toMonthlyCzk(entry.price.amount, entry.price.period))
+            ? `${Math.round(toMonthlyCzk(entry.price.amount, entry.price.period))} Kč/měs (${entry.price.amount} Kč/${PRICE_PERIOD_LABELS[entry.price.period]})`
+            : 'Cena neuvedena'}
         </div>
       )}
       {entry.contact?.phone && (
@@ -510,71 +791,429 @@ function CustomEntryDetail() {
         </a>
       )}
       {entry.note && <div className="text-sm text-slate-600">{entry.note}</div>}
-      <button
-        type="button"
-        onClick={() => {
-          removeCustomEntry(entry.id);
-          selectCustomEntry(null);
-        }}
-        className="mt-1 text-sm text-red-600"
-      >
-        Odebrat
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="mt-1 text-sm text-blue-600"
+        >
+          Upravit
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            removeCustomEntry(entry.id);
+            selectCustomEntry(null);
+          }}
+          className="mt-1 text-sm text-red-600"
+        >
+          Odebrat
+        </button>
+      </div>
+      {editing && (
+        <CustomEntryDialog editEntry={entry} onClose={() => setEditing(false)} />
+      )}
     </section>
   );
 }
 
 function Summary() {
   const view = useScheduleView();
+  const catalog = usePlannerStore((s) => s.catalog);
+  const schedule = usePlannerStore((s) => activeSchedule(s.state));
+  const activeChildId = usePlannerStore((s) => s.activeChildId);
+  const changeVariant = usePlannerStore((s) => s.changeVariant);
   const removeCustomEntry = usePlannerStore((s) => s.removeCustomEntry);
+  const focusDay = usePlannerStore((s) => s.focusDay);
+  const schedules = usePlannerStore((s) => s.state.schedules);
+  const activeScheduleId = usePlannerStore((s) => s.state.activeScheduleId);
+  const children = usePlannerStore((s) => s.state.children);
+  const schoolYear = usePlannerStore((s) => s.state.schoolYear);
+  const [openConflict, setOpenConflict] = useState<number | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [maxAfternoons, setMaxAfternoons] = useState<string>(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (window.sessionStorage.getItem('summaryMaxAfternoons') ?? ''),
+  );
+  const [maxMonthly, setMaxMonthly] = useState<string>(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (window.sessionStorage.getItem('summaryMaxMonthly') ?? ''),
+  );
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('summaryMaxAfternoons', maxAfternoons);
+    }
+  }, [maxAfternoons]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('summaryMaxMonthly', maxMonthly);
+    }
+  }, [maxMonthly]);
+  const enrollments = usePlannerStore((s) =>
+    activeSchedule(s.state).enrollments.filter((e) => e.childId === s.activeChildId),
+  );
   const customEntries = usePlannerStore((s) =>
     activeSchedule(s.state).customEntries.filter(
       (e) => e.childId === s.activeChildId,
     ),
   );
 
+  // Délka sezony odvozená z platnosti termínů; záložka 9 měsíců (říjen–květen).
+  const seasonMonths = view.summary.seasonMonths || 9;
+
+  const focusCatalog = () => {
+    const input = document.querySelector<HTMLInputElement>('[data-catalog-search]');
+    input?.focus();
+    input?.scrollIntoView({ block: 'center' });
+  };
+
+  // Prázdný stav (C8-A1/A2): žádné nuly, žádné grafy — vedení dál.
+  if (view.summary.activityCount === 0) {
+    return (
+      <section className="space-y-3 p-3">
+        <h3 className="text-sm font-semibold">Zatím žádné kroužky</h3>
+        <p className="text-sm text-slate-600">
+          Vyberte kroužek z katalogu a hned uvidíte obsazenost týdne, náklady i kolize.
+        </p>
+        <button
+          type="button"
+          onClick={focusCatalog}
+          className="w-full rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          Vybrat z katalogu
+        </button>
+        <ul className="list-disc pl-4 text-xs text-slate-500">
+          <li>Začněte filtrem podle dne, kdy máte volno.</li>
+          <li>Kroužky běží zpravidla od října do května.</li>
+        </ul>
+        <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+          Rozvrh existuje jen v tomto okně. Uložte si ho přes tlačítko Uložit.
+        </p>
+      </section>
+    );
+  }
+
+  // Metriky (C8-B1/B2): obsazená odpoledne z 5 a počet cest týdně.
+  const weekdayBlocks = view.blocks.filter((b) => b.weekday >= 1 && b.weekday <= 5);
+  const occupiedAfternoons = new Set(
+    weekdayBlocks
+      .filter((b) => b.endMinutes > 13 * 60 && b.startMinutes < 19 * 60)
+      .map((b) => b.weekday),
+  ).size;
+  const tripsPerWeek = weekdayBlocks.length;
+  const weeklyHours =
+    weekdayBlocks.reduce((sum, b) => sum + (b.endMinutes - b.startMinutes), 0) / 60;
+
+  // Neutrální rozpad obsazenosti po dnech (Changes 8 C8-B1), bez barevné škály.
+  const occupancyByDay = ([1, 2, 3, 4, 5] as const).map((wd) => ({
+    wd,
+    count: weekdayBlocks.filter((b) => b.weekday === wd).length,
+  }));
+
+  // Uzávěrky přihlášek (Changes 8 C8-B6); dnešek dodává app, ne doména.
+  const deadlines = upcomingDeadlines(
+    catalog,
+    schedule,
+    activeChildId,
+    new Date().toISOString().slice(0, 10),
+  );
+
+  // Poctivá cena (C8-B3): nikdy holý součet — započti položky bez ceny.
+  const pricedCount =
+    enrollments.filter((e) => {
+      const a = catalog.activities.find((x) => x.id === e.activityId);
+      return a ? Number.isFinite(a.price.amount) : false;
+    }).length +
+    customEntries.filter((e) => e.price && Number.isFinite(e.price.amount)).length;
+  const pricelessCount = view.summary.activityCount - pricedCount;
+  const monthlyTotal = view.summary.costByPeriod.reduce(
+    (sum, c) => sum + toMonthlyCzk(c.amountCzk, c.period),
+    0,
+  );
+
+  // Volitelné uživatelské stropy (Changes 8 C8-B5).
+  const afternoonLimit = Number(maxAfternoons);
+  const monthlyLimit = Number(maxMonthly);
+  const afternoonExceeded =
+    maxAfternoons !== '' &&
+    Number.isFinite(afternoonLimit) &&
+    occupiedAfternoons > afternoonLimit;
+  const monthlyExceeded =
+    maxMonthly !== '' &&
+    Number.isFinite(monthlyLimit) &&
+    Math.round(monthlyTotal) > monthlyLimit;
+
+  // Porovnání variant (Changes 8 C8-G1): klíčové metriky napříč rozvrhy.
+  const variantRows = schedules.map((sch) => {
+    const sum = scheduleSummary(sch, catalog, activeChildId);
+    const rep = detectConflicts({ schedule: sch, catalog, children, schoolYear });
+    const occupiedDays = 5 - sum.freeWeekdays.filter((d) => d >= 1 && d <= 5).length;
+    const monthly = sum.costByPeriod.reduce(
+      (acc, c) => acc + toMonthlyCzk(c.amountCzk, c.period),
+      0,
+    );
+    return {
+      id: sch.id,
+      name: sch.name,
+      count: sum.activityCount,
+      occupiedDays,
+      monthly: Math.round(monthly),
+      conflicts: rep.conflicts.length,
+    };
+  });
+
   return (
     <section className="space-y-3 p-3">
       <div>
         <h3 className="mb-1 text-sm font-semibold">Souhrn rozvrhu</h3>
-        <div className="text-sm text-slate-600">
-          {view.summary.activityCount} kroužků
+        <div
+          className="text-sm text-slate-600"
+          title="Odpoledne je obsazené, když mezi 13:00 a 19:00 je aspoň jedna událost (Po–Pá)."
+        >
+          Obsazená odpoledne: {occupiedAfternoons} z 5
         </div>
-        {view.summary.costByPeriod.map((c) => (
-          <div key={c.period} className="text-sm text-slate-600">
-            {c.amountCzk} Kč / {PRICE_PERIOD_LABELS[c.period]}
-          </div>
-        ))}
-        <div className="text-sm text-slate-600">
-          Volných všedních dnů: {view.summary.freeWeekdays.length}
+        <div
+          className="text-sm text-slate-600"
+          title="Cesta = jedna docházka v týdnu (jeden blok v rozvrhu, Po–Pá)."
+        >
+          Cest týdně: {tripsPerWeek}
         </div>
-        {view.summary.longestDay && (
+        <div className="text-xs text-slate-500" title="Součet délek lekcí za týden (Po–Pá).">
+          Hodin týdně: {Math.round(weeklyHours * 10) / 10}
+        </div>
+      </div>
+
+      {deadlines.length > 0 && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold">Uzávěrky</h3>
+          <ul className="space-y-0.5 text-sm">
+            {deadlines.map((d) => (
+              <li
+                key={d.activityId}
+                className={
+                  d.daysLeft < 0
+                    ? 'text-slate-400'
+                    : d.daysLeft <= 7
+                      ? 'text-red-700'
+                      : 'text-amber-700'
+                }
+              >
+                {d.name}: do {d.deadline}{' '}
+                {d.daysLeft < 0
+                  ? '(po termínu)'
+                  : d.daysLeft === 0
+                    ? '(dnes)'
+                    : `(za ${d.daysLeft} dní)`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div>
+        <h3 className="mb-1 text-sm font-semibold">Obsazenost týdne</h3>
+        <ul className="space-y-0.5 text-sm text-slate-600">
+          {occupancyByDay.map(({ wd, count }) => (
+            <li key={wd}>
+              <button
+                type="button"
+                onClick={() => focusDay(wd)}
+                title="Zobrazit tento den v kalendáři"
+                className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-slate-50"
+              >
+                <span className="w-6 shrink-0 text-slate-500">{WEEKDAYS[wd - 1]?.short}</span>
+                {count === 0 ? (
+                  <span className="text-slate-400">volno</span>
+                ) : (
+                  <>
+                    <span className="tracking-tight text-slate-700" aria-hidden>
+                      {'▪'.repeat(count)}
+                    </span>
+                    <span>
+                      {count} {count === 1 ? 'kroužek' : count <= 4 ? 'kroužky' : 'kroužků'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <h3 className="mb-1 text-sm font-semibold">Náklady</h3>
+        {view.summary.costByPeriod.length === 0 ? (
           <div className="text-sm text-slate-600">
-            Nejdelší den: {WEEKDAYS[view.summary.longestDay.weekday - 1]?.long} (
-            {Math.round(view.summary.longestDay.spanMinutes / 60)} h)
+            Žádná uvedená cena
+            {pricelessCount > 0 ? ` · ${pricelessCount} kroužků bez ceny` : ''}
           </div>
+        ) : (
+          <>
+            {view.summary.costByPeriod.map((c) => (
+              <div key={c.period} className="text-sm text-slate-600">
+                {c.amountCzk} Kč / {PRICE_PERIOD_LABELS[c.period]}
+                {pricelessCount > 0 ? ` · ${pricelessCount} kroužků bez ceny` : ''}
+              </div>
+            ))}
+            <div className="text-xs text-slate-500">
+              ≈ {Math.round(monthlyTotal)} Kč/měs (za {seasonMonths} měsíců sezony)
+            </div>
+          </>
         )}
       </div>
 
+      <div>
+        <h3 className="mb-1 text-sm font-semibold">Moje limity</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-xs text-slate-500">
+            Max. obsazených odpolední
+            <input
+              type="number"
+              min={0}
+              value={maxAfternoons}
+              onChange={(e) => setMaxAfternoons(e.target.value)}
+              placeholder="—"
+              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+            />
+          </label>
+          <label className="text-xs text-slate-500">
+            Max. Kč/měsíc
+            <input
+              type="number"
+              min={0}
+              value={maxMonthly}
+              onChange={(e) => setMaxMonthly(e.target.value)}
+              placeholder="—"
+              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+            />
+          </label>
+        </div>
+        {afternoonExceeded && (
+          <p className="mt-1 text-sm text-amber-700">
+            ● Překročen strop obsazených odpolední ({occupiedAfternoons} &gt; {afternoonLimit}).
+          </p>
+        )}
+        {monthlyExceeded && (
+          <p className="mt-1 text-sm text-amber-700">
+            ● Překročen měsíční rozpočet ({Math.round(monthlyTotal)} &gt; {monthlyLimit} Kč/měs).
+          </p>
+        )}
+      </div>
+
+      {schedules.length > 1 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setCompareOpen((v) => !v)}
+            className="mb-1 text-sm font-semibold text-slate-700"
+          >
+            {compareOpen ? '▾' : '▸'} Porovnání variant ({schedules.length})
+          </button>
+          {compareOpen && (
+            <table className="w-full border-collapse text-xs tabular-nums">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="py-1 pr-2 font-medium">Varianta</th>
+                  <th className="py-1 pr-2 font-medium" title="Počet kroužků">Kr.</th>
+                  <th className="py-1 pr-2 font-medium" title="Obsazené všední dny z 5">Dny</th>
+                  <th className="py-1 pr-2 font-medium" title="Odhad Kč/měsíc">Kč/měs</th>
+                  <th className="py-1 font-medium" title="Počet konfliktů">Konf.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {variantRows.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={r.id === activeScheduleId ? 'font-medium text-slate-900' : 'text-slate-600'}
+                  >
+                    <td className="py-1 pr-2">{r.name}</td>
+                    <td className="py-1 pr-2">{r.count}</td>
+                    <td className="py-1 pr-2">{r.occupiedDays}</td>
+                    <td className="py-1 pr-2">{r.monthly}</td>
+                    <td className={r.conflicts > 0 ? 'py-1 text-red-700' : 'py-1'}>{r.conflicts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       <div aria-live="polite">
-        <h3 className="mb-1 text-sm font-semibold">Konflikty a upozornění</h3>
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          Konflikty a upozornění
+          {view.conflicts.length > 0 && (
+            <span className="rounded-full bg-slate-200 px-1.5 text-[11px] text-slate-600">
+              {view.conflicts.length}
+            </span>
+          )}
+        </h3>
         {view.conflicts.length === 0 ? (
-          <p className="text-sm text-emerald-700">Žádné konflikty. 🎉</p>
+          <p className="text-sm text-slate-500">Zatím žádné konflikty.</p>
         ) : (
           <ul className="space-y-1">
-            {view.conflicts.map((c, i) => (
-              <li
-                key={i}
-                className={
-                  c.severity === 'hard'
-                    ? 'text-sm text-red-700'
-                    : 'text-sm text-amber-700'
-                }
-              >
-                {c.severity === 'hard' ? '⚠ ' : '● '}
-                {c.message}
-              </li>
-            ))}
+            {view.conflicts.map((c, i) => {
+              const canResolve = c.kind === 'time_overlap' && c.severity === 'hard';
+              const suggestions =
+                canResolve && openConflict === i
+                  ? suggestVariantSwitches(catalog, schedule, activeChildId, c)
+                  : [];
+              return (
+                <li
+                  key={i}
+                  className={
+                    c.severity === 'hard'
+                      ? 'text-sm text-red-700'
+                      : 'text-sm text-amber-700'
+                  }
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span>
+                      {c.severity === 'hard' ? '⚠ ' : '● '}
+                      {c.message}
+                    </span>
+                    {canResolve && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenConflict(openConflict === i ? null : i)}
+                        className="shrink-0 rounded border border-red-200 px-1.5 py-0.5 text-[11px] text-red-600 hover:bg-red-50"
+                      >
+                        Vyřešit
+                      </button>
+                    )}
+                  </div>
+                  {canResolve && openConflict === i && (
+                    <div className="mt-1 space-y-1 rounded border border-slate-200 bg-slate-50 p-2">
+                      {suggestions.length === 0 ? (
+                        <p className="text-xs text-slate-500">
+                          Žádná bezkolizní varianta těchto kroužků neexistuje. Zvolte jiný
+                          kroužek nebo jeden odeberte.
+                        </p>
+                      ) : (
+                        suggestions.map((sug) => (
+                          <button
+                            key={`${sug.enrollmentId}-${sug.toGroupId}`}
+                            type="button"
+                            onClick={() => {
+                              changeVariant(sug.enrollmentId, sug.toGroupId);
+                              setOpenConflict(null);
+                            }}
+                            className="block w-full rounded border border-slate-200 bg-white px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100"
+                          >
+                            Přepnout na {sug.toLabel}
+                            {sug.remainingOverlaps === 0
+                              ? ' (bez kolize)'
+                              : ` (zbyde ${sug.remainingOverlaps} kolizí)`}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         {view.skippedChecks.map((s, i) => (
@@ -608,35 +1247,14 @@ function Summary() {
 }
 
 export function DetailsPanel() {
-  const [tab, setTab] = useState<'info' | 'chat'>('info');
   return (
     <div className="flex h-full flex-col">
-      <div className="no-print flex border-b border-slate-100">
-        {(['info', 'chat'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={
-              tab === t
-                ? 'flex-1 border-b-2 border-slate-700 py-2 text-sm font-medium'
-                : 'flex-1 py-2 text-sm text-slate-500'
-            }
-          >
-            {t === 'info' ? 'Info' : 'Chat'}
-          </button>
-        ))}
-      </div>
       <div className="flex-1 overflow-y-auto">
-        {tab === 'info' ? (
-          <>
-            <SelectedActivity />
-            <CustomEntryDetail />
-            <Summary />
-          </>
-        ) : (
-          <ChatPanel />
-        )}
+        <>
+          <SelectedActivity />
+          <CustomEntryDetail />
+          <Summary />
+        </>
       </div>
     </div>
   );

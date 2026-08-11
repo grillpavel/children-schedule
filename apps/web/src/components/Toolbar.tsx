@@ -5,6 +5,7 @@ import {
   colorForActivity,
   parseIcs,
   parsePlannerState,
+  serializePlannerState,
   type CustomEntry,
   type IcsColorMode,
 } from '@krouzky/domain';
@@ -18,7 +19,15 @@ import {
 import { newId } from '@/lib/ids';
 import { ColorSwatches } from './ColorSwatches';
 
-export function Toolbar({ gridRef }: { gridRef: React.RefObject<HTMLDivElement> }) {
+export function Toolbar({
+  gridRef,
+  isDirty,
+  onMarkSaved,
+}: {
+  gridRef: React.RefObject<HTMLDivElement>;
+  isDirty: boolean;
+  onMarkSaved: (savedSignature?: string) => void;
+}) {
   const state = usePlannerStore((s) => s.state);
   const catalog = usePlannerStore((s) => s.catalog);
   const exceptions = usePlannerStore((s) => s.exceptions);
@@ -99,7 +108,10 @@ export function Toolbar({ gridRef }: { gridRef: React.RefObject<HTMLDivElement> 
     }
     try {
       const parsed = parsePlannerState(JSON.parse(text));
-      if (parsed.ok) loadState(parsed.value);
+      if (parsed.ok) {
+        loadState(parsed.value);
+        onMarkSaved(serializePlannerState(parsed.value));
+      }
       else alert(`Soubor nelze načíst: ${parsed.error}`);
     } catch {
       alert('Soubor není platný JSON ani .ics.');
@@ -149,6 +161,13 @@ export function Toolbar({ gridRef }: { gridRef: React.RefObject<HTMLDivElement> 
         />
       </label>
 
+      <div className="text-xs">
+        <span className={isDirty ? 'font-medium text-amber-700' : 'text-emerald-700'}>
+          {isDirty ? 'Neuloženo' : 'Uloženo'}
+        </span>
+        <span className="ml-2 text-slate-500">Rozvrh existuje jen v tomto okně.</span>
+      </div>
+
       <div className="ml-auto flex items-center gap-1">
         <button
           type="button"
@@ -186,16 +205,28 @@ export function Toolbar({ gridRef }: { gridRef: React.RefObject<HTMLDivElement> 
           className="rounded border border-slate-200 px-2 py-1 text-sm hover:bg-slate-50"
           title="Načíst rozvrh (.json) nebo kalendář (.ics)"
         >
-          Načíst
+          Otevřít
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            downloadStateJson(state, child);
+            onMarkSaved();
+          }}
+          className="rounded bg-slate-800 px-3 py-1 text-sm text-white hover:bg-slate-700"
+          title="Uložit rozvrh do souboru (.json)"
+        >
+          Uložit
         </button>
 
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="rounded bg-slate-800 px-3 py-1 text-sm text-white"
+            className="rounded border border-slate-200 px-3 py-1 text-sm hover:bg-slate-50"
           >
-            Export ▾
+            Další ▾
           </button>
           {menuOpen && (
             <div className="absolute right-0 z-30 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
@@ -224,15 +255,7 @@ export function Toolbar({ gridRef }: { gridRef: React.RefObject<HTMLDivElement> 
                 Tisk
               </MenuItem>
               <MenuItem
-                onClick={() => {
-                  downloadStateJson(state, child);
-                  setMenuOpen(false);
-                }}
-              >
-                Rozvrh jako soubor (.json)
-              </MenuItem>
-              <div className="my-1 border-t border-slate-100" />
-              <MenuItem onClick={() => exportIcs('expanded')}>
+                onClick={() => exportIcs('expanded')}>
                 Mám problém s importem (rozbalené)
               </MenuItem>
             </div>

@@ -4,6 +4,66 @@
 
 :root {
   color-scheme: light;
+
+  /* Barevné tokeny (Changes 9 C9-T1/T3). Semantické -text varianty splňují 4.5:1. */
+  --bg-app: #f2f4f7;
+  --bg-surface: #ffffff;
+  --border-subtle: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --accent: #2563eb;
+  --success: #059669;
+  --success-text: #047857;
+  --warning: #d97706;
+  --warning-text: #b45309;
+  --danger: #dc2626;
+  --now-line: #ef4444;
+  --focus-ring: #2563eb;
+
+  /* Liquid Glass (Changes 9 C9-B/T2). Opacita nesmí garantovat kontrast (C9-B2). */
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --border-glass: rgba(255, 255, 255, 0.35);
+}
+
+/* Skleněný povrch jen pro ambientní kontejnery/přechodné vrstvy (C9-G). */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-color: var(--border-glass);
+}
+
+/* Čtyři povinné cesty vypnutí skla (C9-B3). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+[data-glass='off'] .glass {
+  background: var(--bg-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (prefers-contrast: more) {
+  .glass {
+    background: var(--bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: var(--text-primary);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 html,
@@ -13,6 +73,52 @@ body {
 
 body {
   @apply bg-slate-100 text-slate-900;
+  /* Pořadí fontů: Inter s fallbackem, ne naopak (C9-Y4). */
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* Viditelný focus ring pro klávesovou obsluhu (C9-A1). */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Na skle přidej vnější bílý stín, aby byl focus ring viditelný na světlém i tmavém podkladu (C9-A1). */
+.glass:focus-visible,
+.glass :focus-visible {
+  box-shadow: 0 0 0 1px #fff;
+}
+
+@keyframes blockIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Pruhovaný overlay pro tvrdý konflikt — informace není nesena jen barvou. */
@@ -44,6 +150,33 @@ body {
   .print-grid {
     width: 100% !important;
     height: auto !important;
+    border: 1px solid rgb(203 213 225) !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+
+  .print-summary {
+    margin-top: 4mm !important;
+    break-inside: avoid;
+  }
+
+  .print-summary-table thead {
+    display: table-header-group;
+  }
+
+  .print-summary-table tr {
+    break-inside: avoid;
+  }
+
+  .print-summary-table th,
+  .print-summary-table td {
+    padding: 1.5mm 2mm !important;
+    vertical-align: top;
+  }
+
+  body {
+    background: #fff !important;
+    color: #0f172a !important;
   }
 }
 

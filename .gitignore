@@ -21,3 +21,6 @@ coverage/
 .env.local
 .vscode/*
 !.vscode/extensions.json
+
+# Local secrets / one-off scripts (never commit tokens)
+push-to-github.sh

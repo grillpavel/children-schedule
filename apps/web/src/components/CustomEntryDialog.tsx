@@ -5,6 +5,7 @@ import type { CustomEntry, PricePeriod, Weekday } from '@krouzky/domain';
 import { usePlannerStore } from '@/store/plannerStore';
 import { newId } from '@/lib/ids';
 import { WEEKDAYS } from '@/lib/grid';
+import { geocodeAddress } from '@/lib/geocode';
 
 interface TimeRow {
   weekday: Weekday;
@@ -17,24 +18,55 @@ function toMinutes(hhmm: string): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
-export function CustomEntryDialog({ onClose }: { onClose: () => void }) {
+function toHhmm(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+export function CustomEntryDialog({
+  onClose,
+  editEntry,
+}: {
+  onClose: () => void;
+  editEntry?: CustomEntry;
+}) {
   const addCustomEntry = usePlannerStore((s) => s.addCustomEntry);
+  const updateCustomEntry = usePlannerStore((s) => s.updateCustomEntry);
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const schoolYear = usePlannerStore((s) => s.state.schoolYear);
+  const isEdit = editEntry !== undefined;
+  const first = editEntry?.sessions[0];
 
-  const [name, setName] = useState('');
-  const [rows, setRows] = useState<TimeRow[]>([
-    { weekday: 1, start: '16:00', end: '17:00' },
-  ]);
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
-  const [note, setNote] = useState('');
-  const [instructor, setInstructor] = useState('');
-  const [priceAmount, setPriceAmount] = useState('');
-  const [pricePeriod, setPricePeriod] = useState<PricePeriod>('per_month');
-  const [everyWeeks, setEveryWeeks] = useState(1);
-  const [repeatFrom, setRepeatFrom] = useState(schoolYear.start);
-  const [repeatTo, setRepeatTo] = useState(schoolYear.end);
+  const [name, setName] = useState(editEntry?.name ?? '');
+  const [rows, setRows] = useState<TimeRow[]>(
+    editEntry
+      ? editEntry.sessions.map((s) => ({
+          weekday: s.weekday,
+          start: toHhmm(s.startMinutes),
+          end: toHhmm(s.endMinutes),
+        }))
+      : [{ weekday: 1, start: '16:00', end: '17:00' }],
+  );
+  const [address, setAddress] = useState(
+    editEntry?.location
+      ? [editEntry.location.street, editEntry.location.city]
+          .filter(Boolean)
+          .join(', ')
+      : '',
+  );
+  const [phone, setPhone] = useState(editEntry?.contact?.phone ?? '');
+  const [note, setNote] = useState(editEntry?.note ?? '');
+  const [instructor, setInstructor] = useState(first?.instructor ?? '');
+  const [priceAmount, setPriceAmount] = useState(
+    editEntry?.price ? String(editEntry.price.amount) : '',
+  );
+  const [pricePeriod, setPricePeriod] = useState<PricePeriod>(
+    editEntry?.price?.period ?? 'per_month',
+  );
+  const [everyWeeks, setEveryWeeks] = useState(first?.everyWeeks ?? 1);
+  const [repeatFrom, setRepeatFrom] = useState(first?.validFrom ?? schoolYear.start);
+  const [repeatTo, setRepeatTo] = useState(first?.validTo ?? schoolYear.end);
 
   const updateRow = (i: number, patch: Partial<TimeRow>) =>
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -57,12 +89,13 @@ export function CustomEntryDialog({ onClose }: { onClose: () => void }) {
     const street = (streetPart ?? '').trim();
     const city = (cityPart ?? '').trim();
     const amount = Number(priceAmount);
+    const location = street || city ? { street, city } : undefined;
     const entry: CustomEntry = {
-      id: newId('cust'),
-      childId: activeChildId,
+      id: editEntry?.id ?? newId('cust'),
+      childId: editEntry?.childId ?? activeChildId,
       name: name.trim(),
-      sessions: rows.map((r) => ({
-        id: newId('cs'),
+      sessions: rows.map((r, i) => ({
+        id: editEntry?.sessions[i]?.id ?? newId('cs'),
         weekday: r.weekday,
         startMinutes: toMinutes(r.start),
         endMinutes: toMinutes(r.end),
@@ -71,21 +104,32 @@ export function CustomEntryDialog({ onClose }: { onClose: () => void }) {
         ...(everyWeeks > 1 ? { everyWeeks } : {}),
         ...(instructor.trim() ? { instructor: instructor.trim() } : {}),
       })),
-      ...(street || city ? { location: { street, city } } : {}),
+      ...(location ? { location } : {}),
       ...(phone ? { contact: { phone: phone.trim() } } : {}),
       ...(priceAmount && Number.isFinite(amount)
         ? { price: { amount, period: pricePeriod } }
         : {}),
       ...(note ? { note: note.trim() } : {}),
     };
-    addCustomEntry(entry);
+    if (isEdit) updateCustomEntry(entry);
+    else addCustomEntry(entry);
+    // Dohledá souřadnice, aby náhled mapy fungoval hned i po exportu (C10-1).
+    if (location) {
+      void geocodeAddress(location).then((coords) => {
+        if (coords) {
+          updateCustomEntry({ ...entry, location: { ...location, ...coords } });
+        }
+      });
+    }
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 shadow-xl">
-        <h2 className="mb-3 text-lg font-semibold">Vlastní událost</h2>
+        <h2 className="mb-3 text-lg font-semibold">
+          {isEdit ? 'Upravit událost' : 'Vlastní událost'}
+        </h2>
 
         <label className="mb-2 block text-sm">
           Název
@@ -246,7 +290,7 @@ export function CustomEntryDialog({ onClose }: { onClose: () => void }) {
             disabled={!valid}
             className="rounded bg-slate-800 px-3 py-1 text-sm text-white disabled:opacity-40"
           >
-            Přidat
+            {isEdit ? 'Uložit' : 'Přidat'}
           </button>
         </div>
       </div>

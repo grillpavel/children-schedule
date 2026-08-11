@@ -1,3 +1,7 @@
+## Changes 10
+- nezobrazuje se mapa v kalendáři na macu i po zadání adresy, se žádná mapa nezobrazí, pro plánování zcela prioritní.
+- vlastní událost musí být zpětně editovatelná, když se vytvoří vlastní událost, tak jí lze pouze odstranit, ale nelze editovat, to je špatně.
+
 ## Changes 5
 - přidej import - to zo lze vyexportovat jako ics nebo json, tak je zapotřebí možnost import pro dodatečné úpravy
 - všechna data a informace se nezobrazují po importu do apliakce kalendář na mac os, např. nejsou zde vidět adresy a další validuj všechno 

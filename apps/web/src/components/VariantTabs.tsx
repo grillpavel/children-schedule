@@ -63,7 +63,7 @@ export function VariantTabs() {
                 onClick={() => {
                   if (confirm(`Smazat rozvrh „${s.name}"?`)) remove(s.id);
                 }}
-                className="text-slate-400 hover:text-red-600"
+                className="text-slate-600 hover:text-red-600"
                 aria-label="Smazat rozvrh"
               >
                 ×

@@ -24,3 +24,9 @@ coverage/
 
 # Local secrets / one-off scripts (never commit tokens)
 push-to-github.sh
+
+# E2E (Playwright) — výsledky a reporty se negenerují do gitu
+test/.results/
+test/.report/
+blob-report/
+playwright/.cache/

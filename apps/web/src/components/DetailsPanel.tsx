@@ -4,14 +4,6 @@ import { useEffect, useState } from 'react';
 
 import {
   colorForActivity,
-  detectConflicts,
-  overrideSourceChanged,
-  pricePerLesson,
-  relevantExceptionDates,
-  scheduleSummary,
-  suggestVariantSwitches,
-  upcomingDeadlines,
-  weeklyOccurrences,
   type Activity,
   type ActivityCategory,
   type Address,
@@ -26,96 +18,46 @@ import { ColorSwatches } from './ColorSwatches';
 import { CustomEntryDialog } from './CustomEntryDialog';
 
 /**
- * Poloha na mapě (Changes 10 C10-1): náhled OpenStreetMap + odkaz do Mapy.cz.
- * Tlačítko „Zobrazit mapu“ nabídne u JAKÉKOLI adresy; chybí-li souřadnice
- * (vlastní události, ručně zadané adresy), dohledá je na vyžádání geokódováním.
+ * Poloha na mapě (Changes 11): odkaz na Mapy.cz (Seznam) a na nativní mapy podle
+ * platformy — Apple Mapy na Apple zařízeních, jinde Google Mapy. Bez vloženého náhledu.
  */
 function MapLink({ address }: { address: Address | undefined }) {
-  const [showMap, setShowMap] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [isApple, setIsApple] = useState(false);
+  useEffect(() => {
+    setIsApple(/iPhone|iPad|iPod|Macintosh/i.test(navigator.userAgent));
+  }, []);
 
-  if (!address) {
-    return <div className="text-sm text-slate-400">Poloha: neuvedeno</div>;
+  const hasAddressText = Boolean(address?.street || address?.city);
+  if (!address || (!hasAddressText && address.lat === undefined)) {
+    return <div className="text-sm text-slate-600">Poloha: neuvedeno</div>;
   }
 
-  const lat = coords?.lat ?? address.lat;
-  const lon = coords?.lon ?? address.lon;
+  const lat = address.lat;
+  const lon = address.lon;
   const hasCoords = lat !== undefined && lon !== undefined;
-  const hasAddressText = Boolean(address.street || address.city);
   const query = encodeURIComponent(
     [address.street, address.city].filter(Boolean).join(', '),
   );
-  const osmLink = hasCoords
-    ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`
-    : `https://www.openstreetmap.org/search?query=${query}`;
   const mapyLink = hasCoords
     ? `https://mapy.cz/zakladni?x=${lon}&y=${lat}&z=17&source=coor&id=${lon},${lat}`
     : `https://mapy.cz/zakladni?q=${query}`;
-
-  const openMap = () => {
-    setFailed(false);
-    if (hasCoords) {
-      setShowMap(true);
-      return;
-    }
-    setLoading(true);
-    void geocodeAddress(address).then((c) => {
-      setLoading(false);
-      if (c) {
-        setCoords(c);
-        setShowMap(true);
-      } else {
-        setFailed(true);
-      }
-    });
-  };
+  const appleLink = hasCoords
+    ? `https://maps.apple.com/?ll=${lat},${lon}&q=${query || `${lat},${lon}`}`
+    : `https://maps.apple.com/?q=${query}`;
+  const googleLink = hasCoords
+    ? `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
+    : `https://www.google.com/maps/search/?api=1&query=${query}`;
+  const nativeLink = isApple ? appleLink : googleLink;
+  const nativeLabel = isApple ? 'Apple Mapy' : 'Google Mapy';
 
   return (
-    <div className="space-y-1">
-      {showMap && hasCoords ? (
-        <>
-          <iframe
-            title="Náhled mapy"
-            className="h-32 w-full rounded border border-slate-200"
-            loading="lazy"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-              (lon as number) - 0.006
-            }%2C${(lat as number) - 0.004}%2C${
-              (lon as number) + 0.006
-            }%2C${(lat as number) + 0.004}&layer=mapnik&marker=${lat}%2C${lon}`}
-          />
-          <p className="text-[10px] text-slate-400">
-            Náhled načítá OpenStreetMap; poloha se odesílá třetí straně.
-          </p>
-        </>
-      ) : (
-        hasAddressText && (
-          <button
-            type="button"
-            onClick={openMap}
-            disabled={loading}
-            className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-            title="Náhled mapy se načte z OpenStreetMap až po kliknutí."
-          >
-            {loading ? 'Načítám mapu…' : 'Zobrazit mapu'}
-          </button>
-        )
-      )}
-      {failed && (
-        <p className="text-[11px] text-slate-500">
-          Polohu se nepodařilo dohledat. Otevřete adresu v mapě přes odkaz níže.
-        </p>
-      )}
-      <div className="flex gap-3 text-sm">
-        <a href={osmLink} target="_blank" rel="noreferrer" className="text-blue-600">
-          📍 OpenStreetMap
-        </a>
-        <a href={mapyLink} target="_blank" rel="noreferrer" className="text-blue-600">
-          Otevřít v Mapy.cz
-        </a>
-      </div>
+    <div className="flex flex-wrap gap-3 text-sm">
+      <a href={mapyLink} target="_blank" rel="noreferrer" className="text-blue-600">
+        📍 Mapy.cz
+      </a>
+      <a href={nativeLink} target="_blank" rel="noreferrer" className="text-blue-600">
+        Otevřít v {nativeLabel}
+      </a>
     </div>
   );
 }
@@ -171,8 +113,6 @@ function SelectedActivity() {
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
   const clearActivityOverride = usePlannerStore((s) => s.clearActivityOverride);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
-  const exceptions = usePlannerStore((s) => s.exceptions);
-  const districtCode = usePlannerStore((s) => s.state.districtCode);
   const [variantChoice, setVariantChoice] = useState('');
   const [descOpen, setDescOpen] = useState(false);
 
@@ -215,38 +155,6 @@ function SelectedActivity() {
   const nameEdited = override?.name !== undefined;
   const addressEdited = override?.address !== undefined;
   const priceEdited = override?.price !== undefined;
-  const phoneEdited = override?.contactPhone !== undefined;
-  const anyEdited = nameEdited || addressEdited || priceEdited || phoneEdited;
-
-  // Rozsah lekcí odvozený z platnosti termínů a školních výjimek (Changes 8 C8-D2).
-  const rangeGroup = groups.find((g) => g.id === chosenVariant) ?? groups[0];
-  const holidayDates = relevantExceptionDates(exceptions, districtCode);
-  const lessonCount = rangeGroup
-    ? rangeGroup.sessions.reduce((sum, s) => {
-        const occ = weeklyOccurrences(s.weekday, s.validFrom, s.validTo, s.everyWeeks);
-        return sum + occ.filter((d) => !holidayDates.has(d)).length;
-      }, 0)
-    : 0;
-  const firstSession = rangeGroup?.sessions[0];
-  const lessonMinutes = firstSession
-    ? firstSession.endMinutes - firstSession.startMinutes
-    : 0;
-
-  // Délka sezony aktivity z platnosti termínu → podíl Kč/lekce (BL-018).
-  const activitySeasonMonths = (() => {
-    if (!rangeGroup || rangeGroup.sessions.length === 0) return 0;
-    let earliest = rangeGroup.sessions[0]!.validFrom;
-    let latest = rangeGroup.sessions[0]!.validTo;
-    for (const s of rangeGroup.sessions) {
-      if (s.validFrom < earliest) earliest = s.validFrom;
-      if (s.validTo > latest) latest = s.validTo;
-    }
-    const [fy, fm] = earliest.split('-').map(Number);
-    const [ty, tm] = latest.split('-').map(Number);
-    if (!fy || !fm || !ty || !tm) return 0;
-    return Math.max(1, (ty - fy) * 12 + (tm - fm) + 1);
-  })();
-  const perLesson = pricePerLesson(effPrice, lessonCount, activitySeasonMonths);
 
   return (
     <section className="border-b border-slate-100">
@@ -279,7 +187,7 @@ function SelectedActivity() {
             <button
               type="button"
               onClick={() => enrolled.forEach((e) => removeEnrollment(e.id))}
-              className="w-full rounded border border-red-200 px-2 py-1 text-sm text-red-600 hover:bg-red-50"
+              className="w-full rounded border border-red-200 px-2 py-1 text-sm text-red-700 hover:bg-red-50"
             >
               Odebrat z rozvrhu
             </button>
@@ -332,157 +240,11 @@ function SelectedActivity() {
       </div>
 
       <div className="space-y-2 p-3">
-      {activity.description && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setDescOpen((v) => !v)}
-            className="text-xs font-medium text-slate-500"
-          >
-            {descOpen ? '▾' : '▸'} Popis
-          </button>
-          {descOpen && (
-            <p className="mt-1 text-sm text-slate-600">{activity.description}</p>
-          )}
-        </div>
-      )}
-      {venue && (
-        <div className="text-sm text-slate-600">
-          Místo konání: <span className="font-medium">{venue.name}</span>
-        </div>
-      )}
-      {effAddress && (
-        <div className="text-sm text-slate-600">
-          {effAddress.street}, {effAddress.city}
-          {effAddress.zip ? `, ${effAddress.zip}` : ''}
-          {addressEdited && <EditedMark />}
-        </div>
-      )}
-      <MapLink key={activity.id} address={effAddress} />
-      <div className="text-sm text-slate-600">
-        {Number.isFinite(monthly)
-          ? `${Math.round(monthly)} Kč/měs (${effPrice.amount} Kč/${PRICE_PERIOD_LABELS[effPrice.period]})`
-          : 'Cena neuvedena'}{' '}
-        · {activity.ageMin}–{activity.ageMax} let
-        {priceEdited && <EditedMark />}
-      </div>
-      <div className="text-sm text-slate-600">
-        Kapacita: {activity.capacity ?? 'neuvedeno'}
-      </div>
-      {activity.applicationDeadline && (
-        <div className="text-sm font-medium text-slate-800">
-          Uzávěrka přihlášek: {activity.applicationDeadline}
-        </div>
-      )}
-      {(lessonMinutes > 0 || lessonCount > 0) && (
-        <div className="text-sm text-slate-600">
-          {lessonMinutes > 0 && <>Délka lekce: {lessonMinutes} min</>}
-          {lessonMinutes > 0 && lessonCount > 0 && ' · '}
-          {lessonCount > 0 && (
-            <span title="Počet výskytů termínu v sezoně po odečtení svátků a prázdnin.">
-              Lekcí za sezonu: {lessonCount}
-            </span>
-          )}
-          {perLesson !== undefined && (
-            <span title="Odvozená cena za jednu lekci z ceny a počtu lekcí.">
-              {' · '}
-              {Math.round(perLesson)} Kč/lekce
-            </span>
-          )}
-        </div>
-      )}
-      {(contactPerson || effPhone || email || web) && (
-        <div className="rounded border border-slate-200 bg-slate-50 p-2">
-          <div className="mb-1 text-xs font-medium text-slate-500">
-            Kontakt a odkazy
-          </div>
-          <div className="space-y-0.5 text-sm">
-            {contactPerson && (
-              <div className="text-slate-600">👤 {contactPerson}</div>
-            )}
-            {effPhone && (
-              <a href={`tel:${effPhone}`} className="block text-blue-600">
-                📞 {effPhone}
-              </a>
-            )}
-            {email && (
-              <a href={`mailto:${email}`} className="block text-blue-600">
-                ✉️ {email}
-              </a>
-            )}
-            {web && (
-              <a
-                href={web}
-                target="_blank"
-                rel="noreferrer"
-                className="block text-blue-600"
-              >
-                🌐 Více informací (web)
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-      <div className="text-xs text-slate-400">
-        Ověřeno: {activity.lastVerifiedAt}
-        {anyEdited && ' · upravené údaje nejsou ověřené'}
-      </div>
-      {override && overrideSourceChanged(activity, override) && (
-        <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-          Zdroj kroužku se od vaší úpravy
-          {override.editedAt ? ` (${override.editedAt})` : ''} změnil.
-          <button
-            type="button"
-            onClick={() => clearActivityOverride(activity.id)}
-            className="ml-1 underline hover:no-underline"
-          >
-            Přijmout nový údaj z katalogu
-          </button>
-        </div>
-      )}
-
-      <div className="pt-1">
-        <div className="mb-1 text-xs font-medium text-slate-500">Poznámka rodiče</div>
-        <textarea
-          key={`note-${activity.id}`}
-          defaultValue={override?.note ?? ''}
-          onBlur={(e) =>
-            setActivityOverride(activity.id, {
-              note: e.target.value.trim() || undefined,
-            })
-          }
-          rows={2}
-          placeholder="Vaše soukromá poznámka (nezveřejňuje se)"
-          className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-        />
-      </div>
-
-      <div className="pt-1">
-        <div className="mb-1 text-xs font-medium text-slate-500">Barva kroužku</div>
-        <ColorSwatches
-          value={effColorCss}
-          onPick={(css) => setActivityOverride(activity.id, { colorCss: css })}
-        />
-      </div>
-
-      <ActivityEditor
-        key={activity.id}
-        activity={activity}
-        provider={provider}
-        effName={effName}
-        effAddress={effAddress}
-        effPhone={effPhone}
-        effPrice={effPrice}
-        hasOverride={hasOverride}
-        onChange={(patch) => setActivityOverride(activity.id, patch)}
-        onReset={() => clearActivityOverride(activity.id)}
-      />
-
       <div className="pt-1">
         <div className="mb-1 text-xs font-medium text-slate-500">
           Varianty docházky
         </div>
-        <p className="mb-1 text-[11px] text-slate-400">
+        <p className="mb-1 text-[11px] text-slate-600">
           Můžete vybrat i víc termínů najednou.
         </p>
         <div className="space-y-1">
@@ -519,6 +281,92 @@ function SelectedActivity() {
           </button>
         )}
       </div>
+      {activity.description && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setDescOpen((v) => !v)}
+            className="text-xs font-medium text-slate-500"
+          >
+            {descOpen ? '▾' : '▸'} Popis
+          </button>
+          {descOpen && (
+            <p className="mt-1 text-sm text-slate-600">{activity.description}</p>
+          )}
+        </div>
+      )}
+      {venue && (
+        <div className="text-sm text-slate-600">
+          Místo konání: <span className="font-medium">{venue.name}</span>
+        </div>
+      )}
+      {effAddress && (
+        <div className="text-sm text-slate-600">
+          {effAddress.street}, {effAddress.city}
+          {effAddress.zip ? `, ${effAddress.zip}` : ''}
+          {addressEdited && <EditedMark />}
+        </div>
+      )}
+      <MapLink key={activity.id} address={effAddress} />
+      <div className="text-sm text-slate-600">
+        {Number.isFinite(monthly)
+          ? `${Math.round(monthly)} Kč/měs (${effPrice.amount} Kč/${PRICE_PERIOD_LABELS[effPrice.period]})`
+          : 'Cena neuvedena'}{' '}
+        · {activity.ageMin}–{activity.ageMax} let
+        {priceEdited && <EditedMark />}
+      </div>
+      {(contactPerson || effPhone || email || web) && (
+        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+          <div className="mb-1 text-xs font-medium text-slate-500">
+            Kontakt a odkazy
+          </div>
+          <div className="space-y-0.5 text-sm">
+            {contactPerson && (
+              <div className="text-slate-600">👤 {contactPerson}</div>
+            )}
+            {effPhone && (
+              <a href={`tel:${effPhone}`} className="block text-blue-600">
+                📞 {effPhone}
+              </a>
+            )}
+            {email && (
+              <a href={`mailto:${email}`} className="block text-blue-600">
+                ✉️ {email}
+              </a>
+            )}
+            {web && (
+              <a
+                href={web}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-blue-600"
+              >
+                🌐 Více informací (web)
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="pt-1">
+        <div className="mb-1 text-xs font-medium text-slate-500">Barva kroužku</div>
+        <ColorSwatches
+          value={effColorCss}
+          onPick={(css) => setActivityOverride(activity.id, { colorCss: css })}
+        />
+      </div>
+
+      <ActivityEditor
+        key={activity.id}
+        activity={activity}
+        provider={provider}
+        effName={effName}
+        effAddress={effAddress}
+        effPhone={effPhone}
+        effPrice={effPrice}
+        hasOverride={hasOverride}
+        onChange={(patch) => setActivityOverride(activity.id, patch)}
+        onReset={() => clearActivityOverride(activity.id)}
+      />
       </div>
     </section>
   );
@@ -817,51 +665,18 @@ function CustomEntryDetail() {
   );
 }
 
-function Summary() {
+/** Připnutá hlavička pravého sloupce (Changes 11): a) Obsazenost týdne,
+    b) Souhrn týdne, c) Náklady celkem: částka/rok — vždy viditelné. */
+function PinnedSummary() {
   const view = useScheduleView();
   const catalog = usePlannerStore((s) => s.catalog);
-  const schedule = usePlannerStore((s) => activeSchedule(s.state));
-  const activeChildId = usePlannerStore((s) => s.activeChildId);
-  const changeVariant = usePlannerStore((s) => s.changeVariant);
-  const removeCustomEntry = usePlannerStore((s) => s.removeCustomEntry);
   const focusDay = usePlannerStore((s) => s.focusDay);
-  const schedules = usePlannerStore((s) => s.state.schedules);
-  const activeScheduleId = usePlannerStore((s) => s.state.activeScheduleId);
-  const children = usePlannerStore((s) => s.state.children);
-  const schoolYear = usePlannerStore((s) => s.state.schoolYear);
-  const [openConflict, setOpenConflict] = useState<number | null>(null);
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [maxAfternoons, setMaxAfternoons] = useState<string>(() =>
-    typeof window === 'undefined'
-      ? ''
-      : (window.sessionStorage.getItem('summaryMaxAfternoons') ?? ''),
-  );
-  const [maxMonthly, setMaxMonthly] = useState<string>(() =>
-    typeof window === 'undefined'
-      ? ''
-      : (window.sessionStorage.getItem('summaryMaxMonthly') ?? ''),
-  );
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('summaryMaxAfternoons', maxAfternoons);
-    }
-  }, [maxAfternoons]);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('summaryMaxMonthly', maxMonthly);
-    }
-  }, [maxMonthly]);
   const enrollments = usePlannerStore((s) =>
     activeSchedule(s.state).enrollments.filter((e) => e.childId === s.activeChildId),
   );
   const customEntries = usePlannerStore((s) =>
-    activeSchedule(s.state).customEntries.filter(
-      (e) => e.childId === s.activeChildId,
-    ),
+    activeSchedule(s.state).customEntries.filter((e) => e.childId === s.activeChildId),
   );
-
-  // Délka sezony odvozená z platnosti termínů; záložka 9 měsíců (říjen–květen).
-  const seasonMonths = view.summary.seasonMonths || 9;
 
   const focusCatalog = () => {
     const input = document.querySelector<HTMLInputElement>('[data-catalog-search]');
@@ -869,10 +684,9 @@ function Summary() {
     input?.scrollIntoView({ block: 'center' });
   };
 
-  // Prázdný stav (C8-A1/A2): žádné nuly, žádné grafy — vedení dál.
   if (view.summary.activityCount === 0) {
     return (
-      <section className="space-y-3 p-3">
+      <section className="space-y-2 p-3">
         <h3 className="text-sm font-semibold">Zatím žádné kroužky</h3>
         <p className="text-sm text-slate-600">
           Vyberte kroužek z katalogu a hned uvidíte obsazenost týdne, náklady i kolize.
@@ -884,18 +698,10 @@ function Summary() {
         >
           Vybrat z katalogu
         </button>
-        <ul className="list-disc pl-4 text-xs text-slate-500">
-          <li>Začněte filtrem podle dne, kdy máte volno.</li>
-          <li>Kroužky běží zpravidla od října do května.</li>
-        </ul>
-        <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-          Rozvrh existuje jen v tomto okně. Uložte si ho přes tlačítko Uložit.
-        </p>
       </section>
     );
   }
 
-  // Metriky (C8-B1/B2): obsazená odpoledne z 5 a počet cest týdně.
   const weekdayBlocks = view.blocks.filter((b) => b.weekday >= 1 && b.weekday <= 5);
   const occupiedAfternoons = new Set(
     weekdayBlocks
@@ -905,22 +711,11 @@ function Summary() {
   const tripsPerWeek = weekdayBlocks.length;
   const weeklyHours =
     weekdayBlocks.reduce((sum, b) => sum + (b.endMinutes - b.startMinutes), 0) / 60;
-
-  // Neutrální rozpad obsazenosti po dnech (Changes 8 C8-B1), bez barevné škály.
   const occupancyByDay = ([1, 2, 3, 4, 5] as const).map((wd) => ({
     wd,
     count: weekdayBlocks.filter((b) => b.weekday === wd).length,
   }));
 
-  // Uzávěrky přihlášek (Changes 8 C8-B6); dnešek dodává app, ne doména.
-  const deadlines = upcomingDeadlines(
-    catalog,
-    schedule,
-    activeChildId,
-    new Date().toISOString().slice(0, 10),
-  );
-
-  // Poctivá cena (C8-B3): nikdy holý součet — započti položky bez ceny.
   const pricedCount =
     enrollments.filter((e) => {
       const a = catalog.activities.find((x) => x.id === e.activityId);
@@ -932,86 +727,10 @@ function Summary() {
     (sum, c) => sum + toMonthlyCzk(c.amountCzk, c.period),
     0,
   );
-
-  // Volitelné uživatelské stropy (Changes 8 C8-B5).
-  const afternoonLimit = Number(maxAfternoons);
-  const monthlyLimit = Number(maxMonthly);
-  const afternoonExceeded =
-    maxAfternoons !== '' &&
-    Number.isFinite(afternoonLimit) &&
-    occupiedAfternoons > afternoonLimit;
-  const monthlyExceeded =
-    maxMonthly !== '' &&
-    Number.isFinite(monthlyLimit) &&
-    Math.round(monthlyTotal) > monthlyLimit;
-
-  // Porovnání variant (Changes 8 C8-G1): klíčové metriky napříč rozvrhy.
-  const variantRows = schedules.map((sch) => {
-    const sum = scheduleSummary(sch, catalog, activeChildId);
-    const rep = detectConflicts({ schedule: sch, catalog, children, schoolYear });
-    const occupiedDays = 5 - sum.freeWeekdays.filter((d) => d >= 1 && d <= 5).length;
-    const monthly = sum.costByPeriod.reduce(
-      (acc, c) => acc + toMonthlyCzk(c.amountCzk, c.period),
-      0,
-    );
-    return {
-      id: sch.id,
-      name: sch.name,
-      count: sum.activityCount,
-      occupiedDays,
-      monthly: Math.round(monthly),
-      conflicts: rep.conflicts.length,
-    };
-  });
+  const yearlyTotal = Math.round(monthlyTotal * 12);
 
   return (
     <section className="space-y-3 p-3">
-      <div>
-        <h3 className="mb-1 text-sm font-semibold">Souhrn rozvrhu</h3>
-        <div
-          className="text-sm text-slate-600"
-          title="Odpoledne je obsazené, když mezi 13:00 a 19:00 je aspoň jedna událost (Po–Pá)."
-        >
-          Obsazená odpoledne: {occupiedAfternoons} z 5
-        </div>
-        <div
-          className="text-sm text-slate-600"
-          title="Cesta = jedna docházka v týdnu (jeden blok v rozvrhu, Po–Pá)."
-        >
-          Cest týdně: {tripsPerWeek}
-        </div>
-        <div className="text-xs text-slate-500" title="Součet délek lekcí za týden (Po–Pá).">
-          Hodin týdně: {Math.round(weeklyHours * 10) / 10}
-        </div>
-      </div>
-
-      {deadlines.length > 0 && (
-        <div>
-          <h3 className="mb-1 text-sm font-semibold">Uzávěrky</h3>
-          <ul className="space-y-0.5 text-sm">
-            {deadlines.map((d) => (
-              <li
-                key={d.activityId}
-                className={
-                  d.daysLeft < 0
-                    ? 'text-slate-400'
-                    : d.daysLeft <= 7
-                      ? 'text-red-700'
-                      : 'text-amber-700'
-                }
-              >
-                {d.name}: do {d.deadline}{' '}
-                {d.daysLeft < 0
-                  ? '(po termínu)'
-                  : d.daysLeft === 0
-                    ? '(dnes)'
-                    : `(za ${d.daysLeft} dní)`}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       <div>
         <h3 className="mb-1 text-sm font-semibold">Obsazenost týdne</h3>
         <ul className="space-y-0.5 text-sm text-slate-600">
@@ -1025,7 +744,7 @@ function Summary() {
               >
                 <span className="w-6 shrink-0 text-slate-500">{WEEKDAYS[wd - 1]?.short}</span>
                 {count === 0 ? (
-                  <span className="text-slate-400">volno</span>
+                  <span className="text-slate-600">volno</span>
                 ) : (
                   <>
                     <span className="tracking-tight text-slate-700" aria-hidden>
@@ -1043,6 +762,25 @@ function Summary() {
       </div>
 
       <div>
+        <h3 className="mb-1 text-sm font-semibold">Souhrn týdne</h3>
+        <div
+          className="text-sm text-slate-600"
+          title="Odpoledne je obsazené, když mezi 13:00 a 19:00 je aspoň jedna událost (Po–Pá)."
+        >
+          Obsazená odpoledne: {occupiedAfternoons} z 5
+        </div>
+        <div
+          className="text-sm text-slate-600"
+          title="Cesta = jedna docházka v týdnu (Po–Pá)."
+        >
+          Cest týdně: {tripsPerWeek}
+        </div>
+        <div className="text-xs text-slate-500" title="Součet délek lekcí za týden (Po–Pá).">
+          Hodin týdně: {Math.round(weeklyHours * 10) / 10}
+        </div>
+      </div>
+
+      <div>
         <h3 className="mb-1 text-sm font-semibold">Náklady</h3>
         {view.summary.costByPeriod.length === 0 ? (
           <div className="text-sm text-slate-600">
@@ -1050,198 +788,46 @@ function Summary() {
             {pricelessCount > 0 ? ` · ${pricelessCount} kroužků bez ceny` : ''}
           </div>
         ) : (
-          <>
-            {view.summary.costByPeriod.map((c) => (
-              <div key={c.period} className="text-sm text-slate-600">
-                {c.amountCzk} Kč / {PRICE_PERIOD_LABELS[c.period]}
-                {pricelessCount > 0 ? ` · ${pricelessCount} kroužků bez ceny` : ''}
-              </div>
-            ))}
-            <div className="text-xs text-slate-500">
-              ≈ {Math.round(monthlyTotal)} Kč/měs (za {seasonMonths} měsíců sezony)
-            </div>
-          </>
+          <div className="text-sm text-slate-600">
+            Celkem {yearlyTotal.toLocaleString('cs-CZ')} Kč/rok
+            {pricelessCount > 0 ? ` · ${pricelessCount} kroužků bez ceny` : ''}
+          </div>
         )}
       </div>
+    </section>
+  );
+}
 
+function ScheduleNotices() {
+  const removeCustomEntry = usePlannerStore((s) => s.removeCustomEntry);
+  const customEntries = usePlannerStore((s) =>
+    activeSchedule(s.state).customEntries.filter(
+      (e) => e.childId === s.activeChildId,
+    ),
+  );
+
+  // Konflikty se v pravém sloupci nezobrazují (C12); kolize je vidět v mřížce.
+  if (customEntries.length === 0) return null;
+
+  return (
+    <section className="space-y-3 p-3">
       <div>
-        <h3 className="mb-1 text-sm font-semibold">Moje limity</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-slate-500">
-            Max. obsazených odpolední
-            <input
-              type="number"
-              min={0}
-              value={maxAfternoons}
-              onChange={(e) => setMaxAfternoons(e.target.value)}
-              placeholder="—"
-              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
-          </label>
-          <label className="text-xs text-slate-500">
-            Max. Kč/měsíc
-            <input
-              type="number"
-              min={0}
-              value={maxMonthly}
-              onChange={(e) => setMaxMonthly(e.target.value)}
-              placeholder="—"
-              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
-          </label>
-        </div>
-        {afternoonExceeded && (
-          <p className="mt-1 text-sm text-amber-700">
-            ● Překročen strop obsazených odpolední ({occupiedAfternoons} &gt; {afternoonLimit}).
-          </p>
-        )}
-        {monthlyExceeded && (
-          <p className="mt-1 text-sm text-amber-700">
-            ● Překročen měsíční rozpočet ({Math.round(monthlyTotal)} &gt; {monthlyLimit} Kč/měs).
-          </p>
-        )}
+        <h3 className="mb-1 text-sm font-semibold">Vlastní události</h3>
+        <ul className="space-y-1">
+          {customEntries.map((e) => (
+            <li key={e.id} className="flex items-center justify-between text-sm">
+              <span>✎ {e.name}</span>
+              <button
+                type="button"
+                onClick={() => removeCustomEntry(e.id)}
+                className="text-red-600"
+              >
+                Odebrat
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-
-      {schedules.length > 1 && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setCompareOpen((v) => !v)}
-            className="mb-1 text-sm font-semibold text-slate-700"
-          >
-            {compareOpen ? '▾' : '▸'} Porovnání variant ({schedules.length})
-          </button>
-          {compareOpen && (
-            <table className="w-full border-collapse text-xs tabular-nums">
-              <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-1 pr-2 font-medium">Varianta</th>
-                  <th className="py-1 pr-2 font-medium" title="Počet kroužků">Kr.</th>
-                  <th className="py-1 pr-2 font-medium" title="Obsazené všední dny z 5">Dny</th>
-                  <th className="py-1 pr-2 font-medium" title="Odhad Kč/měsíc">Kč/měs</th>
-                  <th className="py-1 font-medium" title="Počet konfliktů">Konf.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {variantRows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className={r.id === activeScheduleId ? 'font-medium text-slate-900' : 'text-slate-600'}
-                  >
-                    <td className="py-1 pr-2">{r.name}</td>
-                    <td className="py-1 pr-2">{r.count}</td>
-                    <td className="py-1 pr-2">{r.occupiedDays}</td>
-                    <td className="py-1 pr-2">{r.monthly}</td>
-                    <td className={r.conflicts > 0 ? 'py-1 text-red-700' : 'py-1'}>{r.conflicts}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      <div aria-live="polite">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
-          Konflikty a upozornění
-          {view.conflicts.length > 0 && (
-            <span className="rounded-full bg-slate-200 px-1.5 text-[11px] text-slate-600">
-              {view.conflicts.length}
-            </span>
-          )}
-        </h3>
-        {view.conflicts.length === 0 ? (
-          <p className="text-sm text-slate-500">Zatím žádné konflikty.</p>
-        ) : (
-          <ul className="space-y-1">
-            {view.conflicts.map((c, i) => {
-              const canResolve = c.kind === 'time_overlap' && c.severity === 'hard';
-              const suggestions =
-                canResolve && openConflict === i
-                  ? suggestVariantSwitches(catalog, schedule, activeChildId, c)
-                  : [];
-              return (
-                <li
-                  key={i}
-                  className={
-                    c.severity === 'hard'
-                      ? 'text-sm text-red-700'
-                      : 'text-sm text-amber-700'
-                  }
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span>
-                      {c.severity === 'hard' ? '⚠ ' : '● '}
-                      {c.message}
-                    </span>
-                    {canResolve && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenConflict(openConflict === i ? null : i)}
-                        className="shrink-0 rounded border border-red-200 px-1.5 py-0.5 text-[11px] text-red-600 hover:bg-red-50"
-                      >
-                        Vyřešit
-                      </button>
-                    )}
-                  </div>
-                  {canResolve && openConflict === i && (
-                    <div className="mt-1 space-y-1 rounded border border-slate-200 bg-slate-50 p-2">
-                      {suggestions.length === 0 ? (
-                        <p className="text-xs text-slate-500">
-                          Žádná bezkolizní varianta těchto kroužků neexistuje. Zvolte jiný
-                          kroužek nebo jeden odeberte.
-                        </p>
-                      ) : (
-                        suggestions.map((sug) => (
-                          <button
-                            key={`${sug.enrollmentId}-${sug.toGroupId}`}
-                            type="button"
-                            onClick={() => {
-                              changeVariant(sug.enrollmentId, sug.toGroupId);
-                              setOpenConflict(null);
-                            }}
-                            className="block w-full rounded border border-slate-200 bg-white px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100"
-                          >
-                            Přepnout na {sug.toLabel}
-                            {sug.remainingOverlaps === 0
-                              ? ' (bez kolize)'
-                              : ` (zbyde ${sug.remainingOverlaps} kolizí)`}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {view.skippedChecks.map((s, i) => (
-          <p key={i} className="mt-1 text-xs text-slate-400">
-            ⓘ {s.reason}
-          </p>
-        ))}
-      </div>
-
-      {customEntries.length > 0 && (
-        <div>
-          <h3 className="mb-1 text-sm font-semibold">Vlastní události</h3>
-          <ul className="space-y-1">
-            {customEntries.map((e) => (
-              <li key={e.id} className="flex items-center justify-between text-sm">
-                <span>✎ {e.name}</span>
-                <button
-                  type="button"
-                  onClick={() => removeCustomEntry(e.id)}
-                  className="text-red-600"
-                >
-                  Odebrat
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
   );
 }
@@ -1249,12 +835,13 @@ function Summary() {
 export function DetailsPanel() {
   return (
     <div className="flex h-full flex-col">
+      <div className="shrink-0 border-b border-slate-200 bg-white">
+        <PinnedSummary />
+      </div>
       <div className="flex-1 overflow-y-auto">
-        <>
-          <SelectedActivity />
-          <CustomEntryDetail />
-          <Summary />
-        </>
+        <SelectedActivity />
+        <CustomEntryDetail />
+        <ScheduleNotices />
       </div>
     </div>
   );

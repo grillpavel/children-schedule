@@ -46,6 +46,7 @@ export interface IcsDownloadInput {
   calendarTitle?: string;
   colorMode?: IcsColorMode;
   overrides?: readonly ActivityOverride[];
+  sequence?: number;
 }
 
 export function downloadIcs(input: IcsDownloadInput): void {
@@ -61,6 +62,7 @@ export function downloadIcs(input: IcsDownloadInput): void {
     ...(input.calendarTitle ? { calendarTitle: input.calendarTitle } : {}),
     ...(input.colorMode ? { colorMode: input.colorMode } : {}),
     ...(input.overrides ? { overrides: input.overrides } : {}),
+    ...(input.sequence !== undefined ? { sequence: input.sequence } : {}),
   });
   download(
     icsFileName(input.child, input.calendarTitle),

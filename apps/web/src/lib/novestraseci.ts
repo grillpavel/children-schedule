@@ -67,12 +67,16 @@ const SESSION_GROUPS: SessionGroup[] = NS_CATALOG.sessionGroups.map((g) => {
   return venueId ? { ...g, venueId } : g;
 });
 
+/** Ověřená uzávěrka přihlášek pro školní rok 2026/2027 (jednotná pro ročník). */
+const APPLICATION_DEADLINE_2026_2027 = '2027-06-30';
+
 /** Aktivitám doplní odkaz na stránku/přihlášku a (šablonově) uzávěrku z META. */
 const ACTIVITIES = NS_CATALOG.activities.map((a) => {
   const meta = NS_ACTIVITY_META[a.id];
   const sourceUrl = meta?.sourceUrl;
   const applicationUrl = meta?.applicationUrl ?? sourceUrl;
-  const applicationDeadline = meta?.applicationDeadline;
+  // Ověřená jednotná uzávěrka ročníku 2026/2027; META ji může přebít per kroužek.
+  const applicationDeadline = meta?.applicationDeadline ?? APPLICATION_DEADLINE_2026_2027;
   return {
     ...a,
     ...(sourceUrl ? { sourceUrl } : {}),

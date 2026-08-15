@@ -2,6 +2,32 @@
 
 import type { Address } from '@krouzky/domain';
 
+/** Přibližné středy měst pro offline fallback (bez sítě). */
+const TOWN_CENTERS: Record<string, { lat: number; lon: number }> = {
+  'nove straseci': { lat: 50.152, lon: 13.899 },
+  rakovnik: { lat: 50.1039, lon: 13.7335 },
+  kladno: { lat: 50.1477, lon: 14.1027 },
+};
+
+function normalizeCity(city: string): string {
+  return city
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Offline odhad souřadnic ze středu známého města (bez sítě).
+ * Vrací `undefined` pro neznámé město — pak zůstane bez souřadnic.
+ */
+export function offlineGeocode(
+  address: Address,
+): { lat: number; lon: number } | undefined {
+  if (!address.city) return undefined;
+  return TOWN_CENTERS[normalizeCity(address.city)];
+}
+
 /**
  * Doplní `lat`/`lon` k adrese přes keyless Nominatim (OpenStreetMap),
  * aby se po ruční úpravě adresy aktualizoval náhled mapy.

@@ -42,6 +42,8 @@ export interface IcsExportOptions {
   colorMode?: IcsColorMode;
   /** Uživatelské přepisy katalogových aktivit (název, adresa, kontakt, cena, barva). */
   overrides?: readonly ActivityOverride[];
+  /** Číslo revize kalendáře (RFC 5545 SEQUENCE); roste s počtem úprav. Výchozí 0. */
+  sequence?: number;
 }
 
 /** Vnitřní tvar jedné události připravené k zápisu do ICS. */
@@ -55,6 +57,8 @@ interface ResolvedEvent {
   validTo: string;
   summary: string;
   location: string | undefined;
+  /** Souřadnice místa (pokud je adresa geokódovaná) pro X-APPLE-STRUCTURED-LOCATION. */
+  geo: { lat: number; lon: number } | undefined;
   url: string | undefined;
   descriptionLines: string[];
   /** CSS3 klíčové slovo pro vlastnost `COLOR`. */
@@ -91,6 +95,14 @@ const CATEGORY_CS: Record<ActivityCategory, string> = {
 /** Celá adresa `Ulice, Město, PSČ` (prázdné části vynechá). */
 function formatAddress(a: Address): string {
   return [a.street, a.city, a.zip].filter(Boolean).join(', ');
+}
+
+/** Souřadnice z adresy, jen když jsou obě konečné. */
+function geoOf(a: Address | undefined): { lat: number; lon: number } | undefined {
+  if (a && Number.isFinite(a.lat) && Number.isFinite(a.lon)) {
+    return { lat: a.lat as number, lon: a.lon as number };
+  }
+  return undefined;
 }
 
 /** Bohatý popis události — aby po importu (např. Apple Kalendář) bylo vše vidět. */
@@ -174,6 +186,7 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
         validTo: session.validTo,
         summary,
         location: addressText,
+        geo: geoOf(address),
         url: web,
         descriptionLines: buildDescription({
           description: activity.description,
@@ -208,6 +221,7 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
         validTo: session.validTo,
         summary: entry.name,
         location: addressText,
+        geo: geoOf(address),
         url: undefined,
         descriptionLines: buildDescription({
           description: entry.note,
@@ -246,6 +260,13 @@ function alarmLines(minutesBefore: number, summary: string): string[] {
 function eventBodyLines(event: ResolvedEvent, alarm: number | null): string[] {
   const lines: string[] = [`SUMMARY:${escapeText(event.summary)}`];
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
+  if (event.geo) {
+    // X-APPLE-STRUCTURED-LOCATION (C6-A4): Apple Kalendář pak umí navigaci na místo.
+    const addr = (event.location ?? '').replace(/"/g, "'");
+    lines.push(
+      `X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="${addr}";X-APPLE-RADIUS=72;X-TITLE="${addr}":geo:${event.geo.lat},${event.geo.lon}`,
+    );
+  }
   if (event.url) lines.push(`URL:${event.url}`);
   if (event.descriptionLines.length > 0) {
     lines.push(`DESCRIPTION:${escapeText(event.descriptionLines.join('\n'))}`);
@@ -284,9 +305,10 @@ function buildRecurringEvent(
     'BEGIN:VEVENT',
     `UID:krouzky-${childSlug}-${event.sessionId}@krouzky-planner.local`,
     `DTSTAMP:${options.dtstamp}`,
+    `SEQUENCE:${options.sequence ?? 0}`,
     `DTSTART;TZID=${TZID}:${localDateTime(dtstartDate, event.startMinutes)}`,
     `DTEND;TZID=${TZID}:${localDateTime(dtstartDate, event.endMinutes)}`,
-    `RRULE:FREQ=WEEKLY;${interval}BYDAY=${BYDAY[event.weekday]};UNTIL=${untilUtc}`,
+    `RRULE:FREQ=WEEKLY;${interval}BYDAY=${BYDAY[event.weekday]};UNTIL=${untilUtc};WKST=MO`,
   ];
 
   if (exdates.length > 0) {
@@ -320,6 +342,7 @@ function buildExpandedEvents(
       'BEGIN:VEVENT',
       `UID:krouzky-${childSlug}-${event.sessionId}-${compactDate(occ)}@krouzky-planner.local`,
       `DTSTAMP:${options.dtstamp}`,
+      `SEQUENCE:${options.sequence ?? 0}`,
       `DTSTART;TZID=${TZID}:${localDateTime(occ, event.startMinutes)}`,
       `DTEND;TZID=${TZID}:${localDateTime(occ, event.endMinutes)}`,
       ...eventBodyLines(event, alarm),

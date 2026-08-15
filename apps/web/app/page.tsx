@@ -1,20 +1,29 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import clsx from 'clsx';
 import { serializePlannerState } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { Toolbar } from '@/components/Toolbar';
 import { VariantTabs } from '@/components/VariantTabs';
 import { CatalogPanel } from '@/components/CatalogPanel';
-import { ScheduleGrid } from '@/components/ScheduleGrid';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
+
+// Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
+// serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
+// jen na klientu.
+const ScheduleGrid = dynamic(
+  () => import('@/components/ScheduleGrid').then((m) => m.ScheduleGrid),
+  { ssr: false },
+);
 
 type MobileTab = 'catalog' | 'grid' | 'details';
 
 export default function Page() {
   const state = usePlannerStore((s) => s.state);
+  const catalog = usePlannerStore((s) => s.catalog);
   const historyLength = usePlannerStore((s) => s.history.length);
   const undo = usePlannerStore((s) => s.undo);
   const redo = usePlannerStore((s) => s.redo);
@@ -33,7 +42,9 @@ export default function Page() {
   const [savedSignature, setSavedSignature] = useState(stateSignature);
   const [showChangeToast, setShowChangeToast] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isWide, setIsWide] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
   const [glassOff, setGlassOff] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -44,6 +55,15 @@ export default function Page() {
   useEffect(() => {
     const media = window.matchMedia('(max-width: 899.98px)');
     const sync = () => setIsMobile(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+
+  // Třísloupcový layout platí až od 1440 px (C9-L1). Mezi 900–1440 je Info slide-over.
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1440px)');
+    const sync = () => setIsWide(media.matches);
     sync();
     media.addEventListener('change', sync);
     return () => media.removeEventListener('change', sync);
@@ -71,17 +91,18 @@ export default function Page() {
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
 
-  // Escape zavře vybraný detail / mobilní sheet (C9-A4).
+  // Escape zavře vybraný detail / mobilní sheet / Souhrn drawer (C9-A4).
   useEffect(() => {
-    if (!hasSelection) return;
+    if (!hasSelection && !mediumInfoOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       selectActivity(null);
       selectCustomEntry(null);
+      setMediumInfoOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hasSelection, selectActivity, selectCustomEntry]);
+  }, [hasSelection, mediumInfoOpen, selectActivity, selectCustomEntry]);
 
   // Ochrana proti ztrátě dat — nic se neukládá.
   useEffect(() => {
@@ -128,7 +149,7 @@ export default function Page() {
       <VariantTabs />
 
       {/* Desktop: tři sloupce. Mobil: jeden panel podle spodní navigace. */}
-      <main className="flex flex-1 overflow-hidden">
+      <main className="relative flex flex-1 overflow-hidden">
         <aside
           className={clsx(
             'no-print w-72 shrink-0 overflow-hidden border-r border-slate-200 bg-white desk:block',
@@ -146,19 +167,63 @@ export default function Page() {
         >
           <ScheduleGrid
             gridRef={gridRef}
-            onAddFirstActivity={() => setMobileTab('catalog')}
+            onAddFirstActivity={() => {
+              setMobileTab('catalog');
+              const first = catalog.activities[0];
+              if (first) selectActivity(first.id);
+              requestAnimationFrame(() => {
+                document
+                  .querySelector<HTMLInputElement>('[data-catalog-search]')
+                  ?.focus();
+              });
+            }}
           />
         </section>
 
+        {/* Info je stálý sloupec jen na širokém desktopu (≥1440, C9-L1);
+            na mobilu je to záložka a mezi 900–1440 slide-over níže. */}
         <aside
           className={clsx(
-            hasScheduleContent ? 'w-80 desk:w-80' : 'w-60 desk:w-60',
-            'no-print shrink-0 overflow-hidden border-l border-slate-200 bg-white desk:block',
-            mobileTab === 'details' ? 'block w-full' : 'hidden',
+            'no-print overflow-hidden border-l border-slate-200 bg-white',
+            isWide
+              ? clsx('block shrink-0', hasScheduleContent ? 'w-80' : 'w-60')
+              : isMobile
+                ? mobileTab === 'details'
+                  ? 'block w-full'
+                  : 'hidden'
+                : 'hidden',
           )}
         >
-          <DetailsPanel />
+          {/* Mount jen v aktivním slotu, ať je DetailsPanel v DOM právě jednou (C12). */}
+          {(isWide || (isMobile && mobileTab === 'details')) && <DetailsPanel />}
         </aside>
+
+        {/* Info slide-over pro střední šířky 900–1440 (C9-L1): overlay uvnitř
+            <main>, aby nezakrýval nástrojovou lištu; otevře výběr nebo „Souhrn". */}
+        {!isMobile && !isWide && (hasSelection || mediumInfoOpen) && (
+          <div
+            data-testid="info-drawer"
+            className="no-print absolute inset-y-0 right-0 z-40 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex shrink-0 justify-end border-b border-slate-200 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  selectActivity(null);
+                  selectCustomEntry(null);
+                  setMediumInfoOpen(false);
+                }}
+                className="rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
+                aria-label="Zavřít detail"
+              >
+                Zavřít
+              </button>
+            </div>
+            <aside className="flex-1 overflow-y-auto" aria-label="Detail kroužku">
+              <DetailsPanel />
+            </aside>
+          </div>
+        )}
       </main>
 
       {/* Mobilní spodní navigace */}
@@ -183,6 +248,18 @@ export default function Page() {
           </button>
         ))}
       </nav>
+
+      {/* Info slide-over pro střední šířky 900–1440 (C9-L1): Info není stálý
+          sloupec, otevře se přes obsah při výběru nebo tlačítkem „Souhrn". */}
+      {!isMobile && !isWide && !(hasSelection || mediumInfoOpen) && (
+        <button
+          type="button"
+          onClick={() => setMediumInfoOpen(true)}
+          className="no-print fixed right-0 top-1/2 z-30 -translate-y-1/2 rounded-l-md bg-slate-800 px-2 py-4 text-xs font-medium text-white shadow-lg hover:bg-slate-700"
+        >
+          Souhrn
+        </button>
+      )}
 
       {/* Mobilní spodní sheet detailu (C8-F7): při výběru nad mřížkou. */}
       {isMobile && hasSelection && mobileTab !== 'details' && (

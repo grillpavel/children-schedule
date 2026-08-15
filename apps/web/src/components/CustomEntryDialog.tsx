@@ -5,7 +5,7 @@ import type { CustomEntry, PricePeriod, Weekday } from '@krouzky/domain';
 import { usePlannerStore } from '@/store/plannerStore';
 import { newId } from '@/lib/ids';
 import { WEEKDAYS } from '@/lib/grid';
-import { geocodeAddress } from '@/lib/geocode';
+import { geocodeAddress, offlineGeocode } from '@/lib/geocode';
 
 interface TimeRow {
   weekday: Weekday;
@@ -89,7 +89,11 @@ export function CustomEntryDialog({
     const street = (streetPart ?? '').trim();
     const city = (cityPart ?? '').trim();
     const amount = Number(priceAmount);
-    const location = street || city ? { street, city } : undefined;
+    const baseLocation = street || city ? { street, city } : undefined;
+    // Offline střed města hned, aby X-APPLE-STRUCTURED-LOCATION fungovalo i bez sítě (C6-A4).
+    const location = baseLocation
+      ? { ...baseLocation, ...(offlineGeocode(baseLocation) ?? {}) }
+      : undefined;
     const entry: CustomEntry = {
       id: editEntry?.id ?? newId('cust'),
       childId: editEntry?.childId ?? activeChildId,

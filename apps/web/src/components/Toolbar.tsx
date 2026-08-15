@@ -32,12 +32,15 @@ export function Toolbar({
   const catalog = usePlannerStore((s) => s.catalog);
   const exceptions = usePlannerStore((s) => s.exceptions);
   const activeChildId = usePlannerStore((s) => s.activeChildId);
+  const setActiveChild = usePlannerStore((s) => s.setActiveChild);
+  const addChild = usePlannerStore((s) => s.addChild);
   const setChildAge = usePlannerStore((s) => s.setChildAge);
   const loadState = usePlannerStore((s) => s.loadState);
   const addCustomEntries = usePlannerStore((s) => s.addCustomEntries);
   const undo = usePlannerStore((s) => s.undo);
   const redo = usePlannerStore((s) => s.redo);
   const canUndo = usePlannerStore((s) => s.history.length > 0);
+  const editCount = usePlannerStore((s) => s.history.length);
   const canRedo = usePlannerStore((s) => s.future.length > 0);
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
@@ -65,9 +68,29 @@ export function Toolbar({
       districtCode: state.districtCode,
       colorMode,
       overrides: state.overrides,
+      sequence: editCount,
       ...(calTitle.trim() ? { calendarTitle: calTitle.trim() } : {}),
       ...(mode ? { mode } : {}),
     });
+    setMenuOpen(false);
+  };
+
+  // C6-C2: každé dítě do vlastního souboru jedním kliknutím (samostatný kalendář).
+  const exportAllChildrenIcs = () => {
+    const schedule = activeSchedule(state);
+    for (const c of state.children) {
+      downloadIcs({
+        child: c,
+        schedule,
+        catalog,
+        schoolYear: state.schoolYear,
+        exceptions,
+        districtCode: state.districtCode,
+        colorMode,
+        overrides: state.overrides,
+        sequence: editCount,
+      });
+    }
     setMenuOpen(false);
   };
 
@@ -120,13 +143,40 @@ export function Toolbar({
 
   return (
     <header className="no-print flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
-      <label className="flex items-center gap-1 text-sm text-slate-600">
+      <div className="flex min-w-0 items-center gap-1 text-sm text-slate-600">
+        {state.children.length > 1 ? (
+          <select
+            value={activeChildId}
+            onChange={(e) => setActiveChild(e.target.value)}
+            aria-label="Dítě"
+            className="min-w-0 rounded border border-slate-200 px-2 py-0.5 text-sm"
+          >
+            {state.children.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="truncate">{child.name}</span>
+        )}
+        <button
+          type="button"
+          onClick={addChild}
+          className="shrink-0 rounded border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50"
+          title="Přidat další dítě (samostatný rozvrh a export)"
+        >
+          + Přidat dítě
+        </button>
+      </div>
+
+      <label className="flex min-w-0 items-center gap-1 text-sm text-slate-600">
         Kalendář
         <input
           value={calTitle}
           onChange={(e) => setCalTitle(e.target.value)}
           placeholder="Název kalendáře"
-          className="w-40 rounded border border-slate-200 px-2 py-0.5 text-sm"
+          className="w-28 min-w-0 rounded border border-slate-200 px-2 py-0.5 text-sm"
           aria-label="Název kalendáře"
         />
       </label>
@@ -146,7 +196,7 @@ export function Toolbar({
             }
           />
         ) : (
-          <span className="text-xs text-slate-400">Barva: vyberte kroužek</span>
+          <span className="text-xs text-slate-600">Barva: vyberte kroužek</span>
         )}
       </div>
       <label className="flex items-center gap-1 text-sm text-slate-600">
@@ -168,15 +218,16 @@ export function Toolbar({
         <span className="ml-2 text-slate-500">Rozvrh existuje jen v tomto okně.</span>
       </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
         <button
           type="button"
           onClick={undo}
           disabled={!canUndo}
           className="rounded px-2 py-1 text-sm disabled:opacity-30"
           title="Zpět (Cmd/Ctrl+Z)"
+          aria-label="Zpět (Cmd/Ctrl+Z)"
         >
-          ↶
+          <span aria-hidden>↶</span>
         </button>
         <button
           type="button"
@@ -184,8 +235,9 @@ export function Toolbar({
           disabled={!canRedo}
           className="rounded px-2 py-1 text-sm disabled:opacity-30"
           title="Vpřed (Cmd/Ctrl+Shift+Z)"
+          aria-label="Vpřed (Cmd/Ctrl+Shift+Z)"
         >
-          ↷
+          <span aria-hidden>↷</span>
         </button>
 
         <input
@@ -245,6 +297,11 @@ export function Toolbar({
               </div>
               <div className="my-1 border-t border-slate-100" />
               <MenuItem onClick={() => exportIcs()}>Kalendář (.ics)</MenuItem>
+              {state.children.length > 1 && (
+                <MenuItem onClick={exportAllChildrenIcs}>
+                  Kalendář — všechny děti (.ics)
+                </MenuItem>
+              )}
               <MenuItem onClick={() => void exportPng()}>Obrázek (.png)</MenuItem>
               <MenuItem
                 onClick={() => {

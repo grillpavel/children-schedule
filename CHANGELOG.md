@@ -6,6 +6,143 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Changes 12: konflikty pryč z pravého sloupce, jeden panel v DOM, varianty pod „Přihlásit" (CHANGE-44)
+
+Tři UX úpravy z testování. Scope: **app `@krouzky/web`** (+ úpravy testů).
+
+- **FR-1** Sekce „Konflikty a upozornění" (včetně akce „Vyřešit") se z pravého sloupce odstranila; kolize zůstává vidět v mřížce (překrývající se události vedle sebe). Doménová `suggestVariantSwitches` zůstává (BL-027).
+- **FR-2** `DetailsPanel` se v `page.tsx` vykresloval na 3 místech (aside + drawer + mobilní sheet) → v aktivním slotu se teď mountuje jen jeden → každý odkaz na mapu je v detailu právě jednou.
+- **FR-3** Blok „Varianty docházky" přesunut na začátek těla detailu (hned pod hlavičku s „Přihlásit se"), místo na konec.
+- Dark-mode kontrast: doplněno mapování `.text-red-600` (tlačítko „Odebrat vše z rozvrhu" mělo na tmavém povrchu 3.02:1) → T-310 zůstává čisté.
+
+Spec: `.github/specs/design_review_43.md`. Nový **BL-027**. Testy: T-143 + T-309 přepsány (kolize v mřížce, ne v panelu), T-148 kotva rolování, T-150→**T-155** (oprava kolize ID s persistence.spec z CHANGE-43), nové T-156/T-157. Plná sada `--workers=1` zelená (desktop + mobil); `tsc` (web) čisté; vizuální baseline přegenerovány; app HTTP 200. `pnpm`/`eslint` nejsou v prostředí na PATH.
+
+### Changes 11: filtr pořadatele, oprava CTA, připnutý souhrn, celodenní osa (CHANGE-43)
+
+Čtyři vady z uživatelského testování. Scope: **app `@krouzky/web`** (+ úpravy testů).
+
+- **FR-1** Levý sloupec má filtr podle pořadatele (`catalog.providers`); počítá se do „aktivních filtrů" a resetuje „Zrušit filtry".
+- **FR-2** „Přidat první kroužek" na desktopu zaměří hledání v katalogu a vybere první kroužek (otevře detail) — dřív jen přepínal mobilní záložku, tj. mrtvé tlačítko.
+- **FR-3/4** Pravý sloupec: **připnutá** hlavička (a) Obsazenost týdne, b) Souhrn týdne, c) Náklady celkem: částka/rok) + rolovací tělo. Detail zeštíhlen na 6 skupin (název+info+výběr dne+přidat/odebrat/upravit, barva, popis, kontakt, cena, adresa+mapy). Odebráno z detailu: kapacita, uzávěrka, „ověřeno", Kč/lekce, drift, poznámka rodiče; ze souhrnu: Uzávěrky, Moje limity, Porovnání variant. Konflikty zůstávají (rolovací). Ruší zobrazení uzávěrky z CHANGE-42 FR-1 (data zůstávají).
+- **FR-5** Mapa: Mapy.cz + nativní mapy podle platformy (Apple/Google); vložený náhled OpenStreetMap odstraněn (ruší náhled z CHANGE-33).
+- **FR-6** Osa kalendáře je opět celodenní (00–24); výchozí okno ukazuje denní hodiny (~07–21), noc dosažitelná rolováním; ruší tvrdý ořez 07–21 z CHANGE-36.
+
+Spec: `.github/specs/design_review_42.md`. Nové **BL-023..BL-026** (odložené odebrané funkce). Nové/upravené testy T-104 (přepis), T-121, T-136, T-140, T-148, T-149, T-155 (mapy). Dotčené vrstvy zelené na desktop (81 passed) + mobile-small; `tsc` (web) čisté; vizuální baseline (`info-dark`, prázdné stavy) přegenerovány; app HTTP 200. `pnpm`/`eslint` v prostředí nejsou na PATH.
+
+### Ověřená uzávěrka 26/27 a oprava Info slide-overu (CHANGE-42)
+
+Dokončení T-140 + reálná UX oprava. Scope: **app `@krouzky/web`** (+ testy).
+
+- **FR-1** (T-140/C8-D5, BL-017) Adaptér `novestraseci` plní ověřenou uzávěrku ročníku `2027-06-30` (jednotná pro 26/27; META přebije per kroužek). `DetailsPanel` zobrazí datum česky (`formatCzDate` → `30. 6. 2027`). `test.fixme` u T-140 odstraněn.
+- **FR-2** Info slide-over (900–1440) přesunut dovnitř `<main>` jako `absolute` overlay (main `relative`) → už **nezakrývá nástrojovou lištu** (dřív `fixed inset-y-0` přes Uložit/Další). Testy `panel`/`catalog`/`schedule` na středních šířkách míří na `info-drawer` a otevírají Souhrn.
+
+Spec: `.github/specs/design_review_41.md`. Uzavírá **BL-017**. Celá sada `--workers=1`: 445 passed, 0 failed; `tsc` (web) čisté; vizuální baseline (medium `empty-info`/`info-dark`) přegenerovány; app HTTP 200.
+### Souběžný export všech dětí (CHANGE-41)
+
+Dokončení správy více dětí. Scope: **app `@krouzky/web`** (+ E2E T-610).
+
+- **FR-1** (T-610/C6-C2) Export menu má při >1 dítěti akci „Kalendář — všechny děti (.ics)": jedním kliknutím stáhne samostatný `.ics` na každé dítě (`downloadIcs` v cyklu přes `state.children`; `generateIcs` filtruje podle `child.id`). Různé názvy souborů, každý s vlastním `X-WR-CALNAME`.
+
+Spec: `.github/specs/design_review_40.md`. Uzavírá souběžný export z **BL-020** (zbývají krajské jarní prázdniny). `tsc --noEmit` (web) čisté; E2E T-609+T-610 zelené (desktop+mobil).
+
+### X-APPLE strukturovaná lokace a správa více dětí (CHANGE-40)
+
+Oprava červených L6. Scope: **engine `@krouzky/domain` + app `@krouzky/web`**.
+
+- **FR-1** (T-603/C6-A4) `generateIcs` emituje `X-APPLE-STRUCTURED-LOCATION;…:geo:lat,lon`, když má adresa `lat`/`lon` → Apple Kalendář umí navigaci na místo. Doménový test doplněn (vitest 84).
+- **FR-2** (T-603) `CustomEntryDialog.save` doplní **offline střed města** (`offlineGeocode`: Nové Strašecí/Rakovník/Kladno) hned při uložení, takže souřadnice existují i bez sítě; online Nominatim je pak zpřesní.
+- **FR-3** (T-609/C6-C2) Store má `addChild()` (undo, aktivuje nové dítě); Toolbar dostal přepínač dětí (`<select>` při >1) a tlačítko „+ Přidat dítě". Export běží nad aktivním dítětem (samostatný soubor na dítě).
+- T-140 (uzávěrka) zůstává `test.fixme` — chybí **ověřená** `applicationDeadline` (BL-017), odhad ústava zakazuje.
+
+Spec: `.github/specs/design_review_39.md`. Uzavírá zbytek **BL-020** (X-APPLE + více dětí). `tsc --noEmit` (domain+web) čisté; doména vitest 84; E2E ics+panel+funkční bez regrese; app HTTP 200.
+
+### Responzivita a klávesová obsluha mřížky (CHANGE-39)
+
+Oprava červených L2/L3 proti cílovému stavu Changes 9. Scope: **app `@krouzky/web`** (+ úpravy responsivních/a11y testů).
+
+- **FR-1** (T-201/C9-L1) Tři stálé sloupce až od 1440 px (`isWide` = matchMedia `min-width:1440`); mezi 900–1440 je Info **slide-over** (`info-drawer`) otevíraný výběrem nebo tlačítkem „Souhrn", zavíraný křížkem/Escape.
+- **FR-2** (T-202/C9-M1) Přepínač rozvrhu je `role="tablist"`/`role="tab"`, vždy viditelný na mobilu, výchozí vybraná je **Agenda**.
+- **FR-3** (T-205/C9-M6) Globální `button{min-height:24px;min-width:24px}` → dotykové cíle ≥ 24×24 (dřív `Varianta A`, denní hlavičky, kategorie, `‹`/`›` měly 20/22 px).
+- **FR-4** (T-207/C9-Y5) Toolbar: akční skupina `flex-wrap`, vstup názvu kalendáře zúžen + `min-w-0` → při zoomu 200 % žádný vodorovný scroll.
+- **FR-5** (T-304/C9-A4) Buňky mřížky mají roving `tabIndex` + `aria-label` a `role=grid` obsluhuje šipky ←/→ (přesun fokusu mezi dny).
+- Testy: T-210 platí jen od 1440 px; T-308/T-309/T-401/T-402 na středních šířkách otevřou Souhrn slide-over (nový design). Oprava `test/helpers/ics-raw.ts` (`unfold` měl `return` mimo funkci).
+
+Spec: `.github/specs/design_review_38.md`. Uzavírá část **BL-019** (T-201/202/205/207/304). `tsc --noEmit` (web) čisté; E2E `responsive`+`a11y`+`visual` zelené napříč profily; vizuální baseline přegenerovány; app HTTP 200. `@playwright/test` musí být `^1.62.1` (1.47.x rozbíjí `emulateMedia({contrast})`).
+
+### Dark mode — tmavý motiv podle `prefers-color-scheme` (CHANGE-38)
+
+Doplnění tmavého motivu (T-310). Scope: **app `@krouzky/web`** (+ zpřesnění T-310).
+
+- **FR-1** `@media (prefers-color-scheme: dark)` na konci `globals.css` mapuje tokeny a plochy (`bg-white`, `bg-slate-50/100/200/800/900` + `hover:` varianty), text (`slate-900..500`, `blue-600`), ohraničení a akcenty (emerald/amber/red) na tmavou paletu → `body` má tmavé pozadí (`#0f172a`).
+- **FR-2** V tmavém režimu axe nula porušení A/AA (stav s vybraným a zapsaným kroužkem).
+- **FR-3** Dark `hover:` přepisy dostaly `!important` — Tailwind hover varianty jinak vyhrály (hover na „Odebrat z rozvrhu" byl `#fef2f2` s tmavě-červeným textem = 1.73:1; po opravě `#450a0a`).
+- Test T-310 posune myš na `(0,0)` a emuluje `reducedMotion` před axe (audit nezávisí na pozici myši ani na fade).
+
+Spec: `.github/specs/design_review_37.md`. Uzavírá část **BL-019** (T-310). `tsc --noEmit` (web) čisté; E2E T-310 zelené (desktop+mobile-small, stabilně); vizuální baseline `info-dark.png` přegenerovány; `pnpm` v prostředí není na PATH.
+
+### Kontrast a přístupnost mřížky — axe nula porušení (CHANGE-37)
+
+Oprava a11y nálezů T-300/T-301. Scope: **app `@krouzky/web`** (+ zpřesnění a11y testů).
+
+- **FR-1** Text ztmaven na `slate-600` / `red-700` (bylo `slate-400` ≈ 2.5:1, `view-range` na slate-100, `red-600` na `red-50`) → vše ≥ 4.5:1.
+- **FR-2** Mřížka má strukturu `role="grid" > role="row" > role="gridcell"` (bylo grid→gridcell, kritická ARIA vada).
+- **FR-3** Select kategorie dostal `aria-label`.
+- **FR-4** Toast `@keyframes toastIn` bez `opacity` (jen posun); dekorativní symboly `↶ ●` mimo přístupný název (undo/redo mají `aria-label`).
+- Testy: T-300/T-301 emulují `reducedMotion` (determinismus axe); T-301 vylučuje neškodné `incomplete` (`nonBmp`, `elmPartiallyObscur*`), cílí jen na sklo.
+
+Spec: `.github/specs/design_review_36.md`. Uzavírá část **BL-019** (T-300/301). `tsc --noEmit` (web) čisté; E2E T-300/T-301 zelené (desktop+mobil, stabilně); vizuální baseline přegenerovány; `pnpm` v prostředí není na PATH.
+
+### Denní osa, „Zrušit filtry“ a svátky v exportu (CHANGE-36)
+
+Oprava tří reálných nálezů z E2E. Scope: **engine `@krouzky/domain` + app `@krouzky/web`**.
+
+- **FR-1** (T-104/C6-E2) Osa mřížky pokrývá `07:00–21:00` místo 00:00–24:00 (`grid.ts`).
+- **FR-2** (T-116/C7-E1) Prázdný výsledek katalogu s aktivním filtrem nabídne tlačítko „Zrušit filtry“.
+- **FR-3** (T-606/C6-A9) Nový `schoolYearHolidays()` (doména) staví státní svátky ČR (pevné + velikonoční);
+  store jimi inicializuje `exceptions`, takže ICS export vylučuje svátky přes `EXDATE`. Root cause: `store.exceptions` bylo `[]`.
+
+Spec: `.github/specs/design_review_35.md`. Uzavírá **BL-022**, posouvá **BL-020** (zbývá X-APPLE T-603, více dětí T-609, krajské prázdniny).
+`tsc --noEmit` (domain+web) čisté; `vitest` 83 zelených (+2 holidays); E2E T-104/T-116/T-606 zelené; `pnpm` v prostředí není na PATH.
+
+### ICS revize (WKST/SEQUENCE) a determinismus přepisů (CHANGE-35)
+
+Oprava tří reálných nálezů z E2E. Scope: **engine `@krouzky/domain` + app `@krouzky/web`**.
+
+- **FR-1** (T-608/C6-A8) `RRULE` nese `WKST=MO`.
+- **FR-2** (T-607/C6-A7) Každý VEVENT nese `SEQUENCE:<n>`; app předává `n = history.length`, takže po změně roste.
+- **FR-3** (T-152/C8-E5) `setActivityOverride` ukládá přepis v kanonickém pořadí klíčů schématu →
+  export→import→export je bajtově shodný. Root cause: objekt vznikal inkrementálně, zod ho po importu přeuspořádal.
+
+Spec: `.github/specs/design_review_34.md`. Uzavírá **BL-021**, částečně **BL-020** (zbývá X-APPLE/EXDATE/více dětí).
+`tsc --noEmit` (domain+web) čisté; `vitest` 81 zelených; E2E T-152/T-607/T-608 zelené; `pnpm` v prostředí není na PATH.
+
+### Testy: kompletní E2E sada Playwright (bez CHANGE-id — tooling)
+
+Přírůstek testovací infrastruktury, **žádná změna enginu `@krouzky/domain` ani app**, proto
+bez `CHANGE-id` a beze změny verze. Sada dle `.github/copilot-instructions.md` a
+[test/docs/test-spec.md](test/docs/test-spec.md).
+
+- Napsány vrstvy L0 smoke, L1 funkčnost (katalog/rozvrh/panel/perzistence), L2 responzivita,
+  L3 přístupnost (axe), L4 vizuální regrese (baseline), L5 výkon (CDP throttling, statické
+  kontroly skla) a L6 export ICS (nad syrovým textem). Ověřeno na profilech desktop a mobile-small.
+- Sada je záměrně z části červená — červené testy popisují cílový stav a odhalily reálné mezery,
+  ne chyby testů. Nálezy zaznamenány do backlogu: **BL-020** (mezery ICS exportu: X-APPLE lokace,
+  EXDATE svátků, SEQUENCE, WKST=MO, více dětí), **BL-021** (round-trip JSON není bajtově shodný —
+  pořadí klíčů `overrides`), **BL-022** (osa mřížky 00:00–24:00, chybějící „Zrušit filtry"),
+  doplnění **BL-019** (kontrast/dark/šipky/dotykové cíle) a **BL-017** (chybějící `applicationDeadline`).
+- Souhrn a doporučení: [test/docs/test-report.md](test/docs/test-report.md).
+
+### Kalendářová mřížka jen na klientu — oprava hydratace (CHANGE-34)
+
+Oprava chyby odhalené E2E testem T-000. Scope: **pouze app `@krouzky/web`**.
+
+- **FR-1** `ScheduleGrid` se importuje přes `next/dynamic` s `ssr: false`. Root cause:
+  mřížka odvozuje zobrazený týden z aktuálního data; SSR použil serverový čas a klient
+  svůj → `Text content did not match` (hydratační nesoulad) a chyba v konzoli.
+
+Spec: `.github/specs/design_review_33.md`.
+`tsc --noEmit` (web) čisté; `vitest` (81) beze změny; E2E T-000 na profilu desktop `1 passed`;
+`pnpm` v prostředí není na PATH.
 
 ### Changes 10: mapa u každé adresy + editace vlastní události (CHANGE-33)
 

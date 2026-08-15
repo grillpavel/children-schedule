@@ -84,7 +84,7 @@ export function MonthView({
               key={iso}
               className={clsx(
                 'min-h-[76px] p-1 align-top text-[10px]',
-                holiday || !inSchoolYear ? 'bg-slate-100 text-slate-400' : 'bg-white',
+                holiday || !inSchoolYear ? 'bg-slate-100 text-slate-600' : 'bg-white',
               )}
               title={holiday}
             >

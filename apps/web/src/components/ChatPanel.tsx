@@ -11,7 +11,7 @@ export function ChatPanel() {
       <p className="text-sm font-medium text-slate-600">
         Chat bude dostupný v příští verzi (M0 je bez LLM).
       </p>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-600">
         Zatím sestavte rozvrh ručně — vyberte kroužky vlevo a vyexportujte do
         kalendáře.
       </p>

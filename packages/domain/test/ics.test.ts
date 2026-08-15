@@ -60,6 +60,14 @@ describe('generateIcs', () => {
     }
   });
 
+  it('emituje X-APPLE-STRUCTURED-LOCATION se souřadnicemi, když má adresa lat/lon', () => {
+    const unfolded = generate().replace(/\r\n[ \t]/g, '');
+    expect(unfolded).toContain('X-APPLE-STRUCTURED-LOCATION');
+    expect(unfolded).toMatch(
+      /X-APPLE-STRUCTURED-LOCATION[^\r\n]*:geo:-?\d+(\.\d+)?,-?\d+(\.\d+)?/,
+    );
+  });
+
   it('obsahuje povinný VTIMEZONE Europe/Prague', () => {
     expect(generate()).toContain('BEGIN:VTIMEZONE');
     expect(generate()).toContain('TZID:Europe/Prague');

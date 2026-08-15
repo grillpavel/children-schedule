@@ -13,6 +13,8 @@ import { MonthView } from './MonthView';
 import {
   GRID_HEIGHT_PX,
   HOUR_MARKS,
+  DAY_WINDOW_START_MIN,
+  DAY_WINDOW_END_MIN,
   WEEKDAYS,
   dateRangeLabel,
   formatTime,
@@ -98,6 +100,8 @@ export function ScheduleGrid({
   const [mode, setMode] = useState<ViewMode>('week');
   const [mobileAgendaMode, setMobileAgendaMode] = useState<'agenda' | 'calendar'>('agenda');
   const [isMobile, setIsMobile] = useState(false);
+  const [focusedCol, setFocusedCol] = useState(0);
+  const cellRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
   const [nowMinutes, setNowMinutes] = useState<number>(() => {
     const d = new Date();
@@ -137,15 +141,21 @@ export function ScheduleGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce]);
 
-  // Vycentruj aktuální čas do prostřed viewportu (FR-1).
+  // Osa je celodenní (C11); po zobrazení mřížky odroluj na denní okno a
+  // vycentruj aktuální čas, pokud je přes den (jinak střed okna 07–21).
+  const hasBlocks = view.blocks.length > 0;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const centered = topPx(nowMinutes) + 26 - el.clientHeight / 2;
+    const focus =
+      nowMinutes >= DAY_WINDOW_START_MIN && nowMinutes <= DAY_WINDOW_END_MIN
+        ? nowMinutes
+        : (DAY_WINDOW_START_MIN + DAY_WINDOW_END_MIN) / 2;
+    const centered = topPx(focus) + 26 - el.clientHeight / 2;
     el.scrollTop = Math.max(0, centered);
-    // závislé jen na režimu — nechceme přerolovat při každé minutě
+    // závislé jen na režimu a zobrazení mřížky — nepřerolovat každou minutu
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, hasBlocks]);
 
   const dates = visibleDates(mode, anchorDate);
   const holidayDates = useMemo(
@@ -234,7 +244,7 @@ export function ScheduleGrid({
             ›
           </button>
         </div>
-        <span className="text-sm text-slate-500" data-testid="view-range">
+        <span className="text-sm text-slate-600" data-testid="view-range">
           {dateRangeLabel(mode, anchorDate)}
         </span>
       </div>
@@ -243,10 +253,16 @@ export function ScheduleGrid({
         Rozvrh — {view.childName} · {view.scheduleName}
       </div>
 
-      {isMobile && view.blocks.length > 0 && (
-        <div className="no-print mb-2 flex items-center gap-1 rounded-lg border border-slate-200 p-1 text-sm">
+      {isMobile && (
+        <div
+          role="tablist"
+          aria-label="Zobrazení rozvrhu"
+          className="no-print mb-2 flex items-center gap-1 rounded-lg border border-slate-200 p-1 text-sm"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={mobileAgendaMode === 'agenda'}
             onClick={() => setMobileAgendaMode('agenda')}
             className={clsx(
               'flex-1 rounded px-2 py-1',
@@ -257,6 +273,8 @@ export function ScheduleGrid({
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={mobileAgendaMode === 'calendar'}
             onClick={() => setMobileAgendaMode('calendar')}
             className={clsx(
               'flex-1 rounded px-2 py-1',
@@ -330,7 +348,7 @@ export function ScheduleGrid({
               <div ref={scrollRef} className="flex flex-1 overflow-y-auto">
                 {/* Časová osa 00:00–24:00 */}
                 <div
-                  className="relative w-12 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-400"
+                  className="relative w-12 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-600"
                   style={{ height: GRID_HEIGHT_PX + 26 }}
                 >
                   {HOUR_MARKS.map((m) => (
@@ -346,15 +364,31 @@ export function ScheduleGrid({
 
                 {/* Dny */}
                 <div
-                  className="grid flex-1"
-                  style={{
-                    height: GRID_HEIGHT_PX + 26,
-                    gridTemplateColumns: `repeat(${dates.length}, minmax(0, 1fr))`,
-                  }}
+                  className="flex-1"
+                  style={{ height: GRID_HEIGHT_PX + 26 }}
                   role="grid"
                   aria-label="Rozvrh"
+                  onKeyDown={(e) => {
+                    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                    e.preventDefault();
+                    setFocusedCol((c) => {
+                      const next =
+                        e.key === 'ArrowRight'
+                          ? Math.min(c + 1, dates.length - 1)
+                          : Math.max(c - 1, 0);
+                      cellRefs.current[next]?.focus();
+                      return next;
+                    });
+                  }}
                 >
-                  {dates.map((date) => {
+                  <div
+                    role="row"
+                    className="grid h-full"
+                    style={{
+                      gridTemplateColumns: `repeat(${dates.length}, minmax(0, 1fr))`,
+                    }}
+                  >
+                  {dates.map((date, idx) => {
                     const weekday = isoWeekdayOf(date);
                     const info = WEEKDAYS[weekday - 1]!;
                     const iso = isoDateOf(date);
@@ -369,6 +403,12 @@ export function ScheduleGrid({
                       <div
                         key={iso}
                         role="gridcell"
+                        ref={(el) => {
+                          cellRefs.current[idx] = el;
+                        }}
+                        tabIndex={idx === focusedCol ? 0 : -1}
+                        aria-label={`${info.long} ${date.getDate()}.${date.getMonth() + 1}.`}
+                        onFocus={() => setFocusedCol(idx)}
                         className={clsx(
                           'relative border-r border-slate-100 last:border-r-0',
                           holiday && 'bg-slate-50',
@@ -380,7 +420,7 @@ export function ScheduleGrid({
                             isToday
                               ? 'bg-red-50 text-red-700'
                               : holiday
-                                ? 'bg-slate-100 text-slate-400'
+                                ? 'bg-slate-100 text-slate-600'
                                 : 'bg-slate-50 text-slate-600',
                           )}
                           title={holiday ? 'Svátek nebo prázdniny' : undefined}
@@ -470,6 +510,7 @@ export function ScheduleGrid({
                               <span
                                 className="absolute right-0.5 top-0.5 text-amber-300"
                                 title="Upozornění"
+                                aria-hidden
                               >
                                 ●
                               </span>
@@ -484,6 +525,7 @@ export function ScheduleGrid({
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
             </div>

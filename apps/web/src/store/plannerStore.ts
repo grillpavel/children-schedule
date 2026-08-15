@@ -6,6 +6,7 @@ import { current } from 'immer';
 import {
   applyDiff as applyDiffToSchedule,
   activitySignature,
+  schoolYearHolidays,
   type ActivityOverride,
   type Catalog,
   type CalendarException,
@@ -84,6 +85,7 @@ interface PlannerStore {
   // ---- perzistence do souboru ----
   loadState(state: PlannerState): void;
   setChildAge(childId: string, age: number): void;
+  addChild(): void;
 }
 
 function activeSchedule(state: PlannerState): NamedSchedule {
@@ -104,10 +106,13 @@ export const usePlannerStore = create<PlannerStore>()(
       });
     };
 
+    const initialState = buildNovestraseciState();
+
     return {
-      state: buildNovestraseciState(),
+      state: initialState,
       catalog: NOVE_STRASECI_CATALOG,
-      exceptions: [],
+      // Výchozí výjimky = státní svátky školního roku → EXDATE v exportu (C6-A9).
+      exceptions: schoolYearHolidays(initialState.schoolYear),
 
       activeChildId: 'child-1',
       selectedActivityId: null,
@@ -253,6 +258,24 @@ export const usePlannerStore = create<PlannerStore>()(
             override.baseSignature = activitySignature(activity);
             override.editedAt = new Date().toISOString().slice(0, 10);
           }
+          // Kanonické pořadí klíčů (dle schématu) → bajtově shodný round-trip (C8-E5, BL-021).
+          const src = override as Record<string, unknown>;
+          const canonical: Record<string, unknown> = { activityId };
+          for (const k of [
+            'name',
+            'address',
+            'contactPhone',
+            'price',
+            'colorCss',
+            'note',
+            'editedAt',
+            'baseSignature',
+          ]) {
+            if (src[k] !== undefined) canonical[k] = src[k];
+          }
+          draft.overrides = draft.overrides.map((o) =>
+            o.activityId === activityId ? (canonical as typeof o) : o,
+          );
         }),
 
       clearActivityOverride: (activityId) =>
@@ -368,6 +391,24 @@ export const usePlannerStore = create<PlannerStore>()(
           const child = draft.children.find((c) => c.id === childId);
           if (child) child.age = age;
         }),
+
+      // Víc dětí = samostatný rozvrh i export na dítě (C6-C2).
+      addChild: () => {
+        const id = newId('child');
+        commit((draft) => {
+          const first = draft.children[0];
+          draft.children.push({
+            id,
+            name: `Dítě ${draft.children.length + 1}`,
+            age: first?.age ?? 9,
+            schoolEndByWeekday: {},
+            ...(first?.schoolAddress ? { schoolAddress: first.schoolAddress } : {}),
+          });
+        });
+        set((s) => {
+          s.activeChildId = id;
+        });
+      },
     };
   }),
 );

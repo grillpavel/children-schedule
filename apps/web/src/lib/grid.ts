@@ -3,9 +3,14 @@ import type { Weekday } from '@krouzky/domain';
 /** Výška jedné hodiny v mřížce (px) — pixelový layout kvůli rolování. */
 export const HOUR_PX = 44;
 
-/** Celodenní osa 00:00–24:00. */
+/** Osa pokrývá celý den; výchozí viewport ukazuje denní okno (~07–21),
+    noční hodiny jsou dosažitelné rolováním a záznam lze přidat i mimo (C11). */
 export const DAY_START_MIN = 0;
 export const DAY_END_MIN = 24 * 60;
+
+/** Nativně zobrazené denní okno (na které se po načtení odroluje). */
+export const DAY_WINDOW_START_MIN = 7 * 60;
+export const DAY_WINDOW_END_MIN = 21 * 60;
 
 /** Výchozí svislé odrolování — odpoledne, kdy bývá většina kroužků. */
 export const DEFAULT_SCROLL_MIN = 13 * 60;
@@ -31,9 +36,9 @@ export const WEEKDAYS: readonly WeekdayInfo[] = [
   { value: 7, short: 'Ne', long: 'Neděle' },
 ];
 
-/** Hodinové značky pro levý sloupec (00:00 … 24:00). */
+/** Hodinové značky pro levý sloupec (00:00 … 23:00). */
 export const HOUR_MARKS: number[] = Array.from(
-  { length: (DAY_END_MIN - DAY_START_MIN) / 60 + 1 },
+  { length: (DAY_END_MIN - DAY_START_MIN) / 60 },
   (_, i) => DAY_START_MIN + i * 60,
 );
 

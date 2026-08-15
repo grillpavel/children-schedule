@@ -26,6 +26,13 @@
   --border-glass: rgba(255, 255, 255, 0.35);
 }
 
+/* Dotykové cíle: každý ovládací prvek ≥ 24×24 (Changes 9 C9-M6, T-205). */
+button:not(.no-min-target) {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+
 /* Skleněný povrch jen pro ambientní kontejnery/přechodné vrstvy (C9-G). */
 .glass {
   background: var(--bg-glass);
@@ -102,11 +109,9 @@ body {
 
 @keyframes toastIn {
   from {
-    opacity: 0;
     transform: translateY(8px) scale(0.98);
   }
   to {
-    opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
@@ -182,4 +187,71 @@ body {
 
 .print-only {
   display: none;
+}
+
+/* Dark mode (Changes 9 C9-A6). Přemapuje použité Tailwind utility na tmavé varianty.
+   Umístěno na konci souboru, aby přebilo pozdější `body { @apply … }`. Kontrast ověřen
+   axe v E2E T-310; barvy laděné na ≥ 4.5:1 na tmavém povrchu. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg-app: #0f172a;
+    --bg-surface: #1e293b;
+    --border-subtle: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+    --bg-glass: rgba(15, 23, 42, 0.82);
+    --border-glass: rgba(148, 163, 184, 0.28);
+  }
+  body {
+    background: #0f172a;
+    color: #f1f5f9;
+  }
+
+  /* Povrchy */
+  .bg-white { background-color: #1e293b; }
+  .bg-white\/90 { background-color: rgba(30, 41, 59, 0.9); }
+  .bg-white\/15 { background-color: rgba(226, 232, 240, 0.15); }
+  .bg-slate-50 { background-color: #1e293b; }
+  .bg-slate-100 { background-color: #334155; }
+  .bg-slate-200 { background-color: #475569; }
+  .bg-slate-800 { background-color: #475569; }
+  .bg-slate-900 { background-color: #0f172a; }
+  .hover\:bg-slate-50:hover { background-color: #273549 !important; }
+  .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+  .hover\:bg-slate-200:hover { background-color: #475569 !important; }
+  .hover\:bg-slate-700:hover { background-color: #334155 !important; }
+
+  /* Text */
+  .text-slate-900 { color: #f1f5f9; }
+  .text-slate-800 { color: #e2e8f0; }
+  .text-slate-700 { color: #e2e8f0; }
+  .text-slate-600 { color: #cbd5e1; }
+  .text-slate-500 { color: #94a3b8; }
+  .text-blue-600 { color: #60a5fa; }
+  .hover\:text-slate-700:hover { color: #e2e8f0 !important; }
+  .hover\:text-slate-800:hover { color: #f1f5f9 !important; }
+
+  /* Ohraničení */
+  .border-slate-100 { border-color: #334155; }
+  .border-slate-200 { border-color: #334155; }
+  .border-slate-300 { border-color: #475569; }
+  .border-slate-400 { border-color: #64748b; }
+  .hover\:border-slate-300:hover { border-color: #475569 !important; }
+
+  /* Akcentní barvy — laděné na kontrast na tmavém povrchu */
+  .bg-emerald-100 { background-color: #064e3b; }
+  .text-emerald-700 { color: #6ee7b7; }
+  .bg-emerald-50\/60 { background-color: rgba(6, 78, 59, 0.4); }
+  .bg-amber-100 { background-color: #451a03; }
+  .text-amber-700 { color: #fcd34d; }
+  .text-amber-800 { color: #fcd34d; }
+  .bg-amber-50 { background-color: #292014; }
+  .border-amber-200 { border-color: #78350f; }
+  .bg-red-50 { background-color: #450a0a; }
+  .hover\:bg-red-50:hover { background-color: #450a0a !important; }
+  .border-red-200 { border-color: #7f1d1d; }
+  .text-red-700 { color: #fca5a5; }
+  .text-red-600 { color: #fca5a5; }
 }

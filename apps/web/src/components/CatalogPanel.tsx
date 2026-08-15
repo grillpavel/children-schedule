@@ -168,6 +168,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
 
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ActivityCategory | ''>('');
+  const [providerFilter, setProviderFilter] = useState('');
   const [weekdayFilter, setWeekdayFilter] = useState<Weekday[]>([]);
   const [ageOnly, setAgeOnly] = useState(false);
   const [fitOnly, setFitOnly] = useState(false);
@@ -178,6 +179,20 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const [collapsedSubs, setCollapsedSubs] = useState<Record<string, boolean>>({});
   const listRef = useRef<HTMLDivElement>(null);
   const collapseStateInitializedRef = useRef(false);
+
+  const hasActiveFilters = Boolean(
+    query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore,
+  );
+  const resetFilters = () => {
+    setQuery('');
+    setCategory('');
+    setProviderFilter('');
+    setWeekdayFilter([]);
+    setAgeOnly(false);
+    setFitOnly(false);
+    setStartAfter('');
+    setEndBefore('');
+  };
 
   const selectedEnrollmentIds = useMemo(() => {
     const set = new Set<string>();
@@ -271,6 +286,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     const haystack = normalizeCz(`${a.name} ${provider} ${CATEGORY_LABELS[a.category]}`);
     if (normalizedQuery && !haystack.includes(normalizedQuery)) return false;
     if (category && a.category !== category) return false;
+    if (providerFilter && a.providerId !== providerFilter) return false;
     if (ageOnly && child && (child.age < a.ageMin || child.age > a.ageMax)) {
       return false;
     }
@@ -413,7 +429,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
           · {groups.length} {pluralizeVariants(groups.length)}
         </div>
         {active && groups.length > 1 && (
-          <div className="mt-1 text-[11px] text-slate-400">
+          <div className="mt-1 text-[11px] text-slate-600">
             Vyberte termín kliknutím do mřížky:
             {groups.map((g) => (
               <span key={g.id} className="ml-1">
@@ -451,6 +467,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
             value={category}
             onChange={(e) => setCategory(e.target.value as ActivityCategory | '')}
             className="rounded border border-slate-200 px-2 py-1 text-sm"
+            aria-label="Kategorie kroužku"
           >
             <option value="">Všechny kategorie</option>
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
@@ -467,6 +484,21 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
             Další filtry
           </button>
         </div>
+        <select
+          value={providerFilter}
+          onChange={(e) => setProviderFilter(e.target.value)}
+          className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+          aria-label="Pořadatel kroužku"
+        >
+          <option value="">Všichni pořadatelé</option>
+          {[...catalog.providers]
+            .sort((a, b) => a.name.localeCompare(b.name, 'cs'))
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+        </select>
         <div className="flex flex-wrap gap-1">
           {WEEKDAYS.map((d) => {
             const active = weekdayFilter.includes(d.value);
@@ -534,11 +566,22 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
 
       <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3">
         {filtered.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            {category
-              ? `Pro tento filtr nic v katalogu není.`
-              : `Vyberte věk dítěte a uvidíte, co je pro něj vhodné.`}
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">
+              {category
+                ? `Pro tento filtr nic v katalogu není.`
+                : `Vyberte věk dítěte a uvidíte, co je pro něj vhodné.`}
+            </p>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="rounded border border-slate-200 px-2 py-1 text-sm hover:bg-slate-50"
+              >
+                Zrušit filtry
+              </button>
+            )}
+          </div>
         ) : (
           <>
             {inSchedule.length > 0 && (
@@ -612,7 +655,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                         className="flex w-full items-center justify-between rounded bg-white py-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
                       >
                         <span>{rootCollapsed ? '▸' : '▾'} {group.label}</span>
-                        <span className="text-slate-400">({group.items.length})</span>
+                        <span className="text-slate-600">({group.items.length})</span>
                       </button>
                       {!rootCollapsed && (
                         <div className="space-y-2 pl-1">
@@ -633,7 +676,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                                       className="flex w-full items-center justify-between rounded py-0.5 text-left text-xs font-medium text-slate-500"
                                     >
                                       <span>{subCollapsed ? '▸' : '▾'} {sub.subLabel}</span>
-                                      <span className="text-slate-400">({sub.subItems.length})</span>
+                                      <span className="text-slate-600">({sub.subItems.length})</span>
                                     </button>
                                     {!subCollapsed && sub.subItems.map(renderActivityCard)}
                                   </div>

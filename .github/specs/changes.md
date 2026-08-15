@@ -1,3 +1,20 @@
+## Changes 12
+- Nezobrazuj ve třetím sloupci konflitky
+- n2x, 3x i vicekrát se zobrazuje mapy.vz Otevřít v Apple Mapy -> má být pouze 1, když jsou všechny adresy stejné!
+- varianta docházky se bude zobrazovat pdo přihlásit
+
+## Changes 11
+- přidat filtr řazení dle pořadatele. V levém sloupci další filtr, přidat nmožnost filtrovat podle pořadatele - podle toho kdo kroužek nabízi, jako DDM (dům dětí a mládeže), SCNS, SOKOL, ...)
+- nefunkční tlačítko 'přidat první kroužek' - nefunguje, nedělá nic
+- Pravý sloupec - tyto změny (zobrazování od zhora dolu):
+    a) obsazenost týden
+    b) souhrn týdne
+    c) náklady celkem: částka/rok
+    a),b) a c) se zobrazuje vždy -> je zafixováno, ostatní položky pod tím se rolují pod toto
+    d) 1. Název vybraného kroužku + info + výběr dny + přidat nebo odebrat, updatovat (upravit), 2. barva kroužku, 3. popis, 4. kontakt, 5. cena kroužku, 6. adresa + link na seznam mapy, v iOS link na nativní mapy, v androidu link na nativní mapy
+    to je vše. Nic víc
+- zobrazení kalendáře (prostřední sloupec): zobrazují se pouze hodiny 07:00 - 21:00, zobrazení pouze v horní polovině prostředního sloupce, zobrazuj kalendář před celou výšku prostředního sloupce, nativně zobrazuj hodiny 07:00 - 21:00, ale možnost přidat záznamy i mimo tyto hodiny a posuvníkem, kolečkem na myši případně prstem na dotykovém pamelu posunout na hodiny mimo tento rámce
+
 ## Changes 10
 - nezobrazuje se mapa v kalendáři na macu i po zadání adresy, se žádná mapa nezobrazí, pro plánování zcela prioritní.
 - vlastní událost musí být zpětně editovatelná, když se vytvoří vlastní událost, tak jí lze pouze odstranit, ale nelze editovat, to je špatně.

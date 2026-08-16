@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import clsx from 'clsx';
 import { serializePlannerState } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
+import { loadAutosave, saveAutosave } from '@/lib/autosave';
 import { Toolbar } from '@/components/Toolbar';
 import { VariantTabs } from '@/components/VariantTabs';
 import { CatalogPanel } from '@/components/CatalogPanel';
@@ -27,6 +28,7 @@ export default function Page() {
   const historyLength = usePlannerStore((s) => s.history.length);
   const undo = usePlannerStore((s) => s.undo);
   const redo = usePlannerStore((s) => s.redo);
+  const hydrate = usePlannerStore((s) => s.hydrate);
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
   const selectedCustomEntryId = usePlannerStore((s) => s.selectedCustomEntryId);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
@@ -104,16 +106,17 @@ export default function Page() {
     return () => window.removeEventListener('keydown', onKey);
   }, [hasSelection, mediumInfoOpen, selectActivity, selectCustomEntry]);
 
-  // Ochrana proti ztrátě dat — nic se neukládá.
+  // Autosave (BL-030): obnova po připojení + uložení při každé změně stavu.
+  // Subscribe místo efektu nad `state`, aby výchozí mount-render nepřepsal obnovu.
   useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isDirty) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [isDirty]);
+    const restored = loadAutosave();
+    if (restored) {
+      hydrate(restored);
+      setSavedSignature(serializePlannerState(restored));
+    }
+    const unsubscribe = usePlannerStore.subscribe((s) => saveAutosave(s.state));
+    return unsubscribe;
+  }, [hydrate]);
 
   const markSaved = (signature?: string) => {
     setSavedSignature(signature ?? stateSignature);

@@ -6,6 +6,29 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Personalizace Child + doporučovací engine, fáze 1 (CHANGE-45)
+
+BL-029 základ. Scope: **engine `@krouzky/domain`** (0.2.0 → **0.3.0**) + defaulty ve store `@krouzky/web`.
+
+- **FR-1** `Child` získal volitelné personalizační vstupy: `interests: ActivityCategory[]` (default `[]`), `availability: { weekday, startMinutes, endMinutes }[]` (default `[]`), `budgetMonthlyCzk?`. `schemaVersion` 3 → **4** s migrací (starší stavy se doplní defaulty).
+- **FR-2** Čistá `activityFit(activity, child, schedule, catalog, today)` → `{ score 0..1, reasons[] }`: věk, zájem, dostupnost, bezkolizní zařaditelnost, rozpočet. Deterministická (`today` je parametr, žádné `Date.now`/`Math.random`).
+- **FR-3** Čistá `buildRecommendations(child, catalog, schedule, today, opts?)` → top-N dle skóre; vylučuje zapsané i vybrané kategorie; stabilní řazení (skóre desc, název asc).
+- **FR-4** `reasons` jsou vysvětlitelné české popisky bez procent („✓ Vhodné pro věk", „✓ Bez kolize", …).
+- **FR-5** Store inicializuje nová pole defaulty; aplikace i export fungují beze změny chování (fáze 1 nemá UI pro tato pole).
+
+Nový modul `src/matching/`. Testy: `matching.test.ts` (10) + migrace v3→v4 v `state.test.ts`; celý domain vitest zelený (95). Pořadí klíčů `Child` sjednoceno se store literály (byte-shodný round-trip T-152). Spec: `.github/specs/design_review_44.md` (fáze 1 IMPLEMENTED). `apps/web` `tsc` čisté; plná E2E zelená (desktop + mobile-small); app HTTP 200. UI doporučení = fáze 2 (BL-029).
+
+### Autosave stavu do prohlížeče (CHANGE-50)
+
+BL-030. Scope: **app `@krouzky/web`** (doména beze změny) + testy T-151/T-159.
+
+- **FR-1** Změny rozvrhu se automaticky ukládají do `localStorage` (`krouzky:autosave:v1`); po reloadu se stav obnoví. Ukládání přes `usePlannerStore.subscribe` (registrace až po obnově → mount-render obnovu nepřepíše).
+- **FR-2** Obnova novou store akcí `hydrate` nezakladá položku do historie (undo nesmalže obnovená data).
+- **FR-3** Verzovaná migrace přes `parsePlannerState` (stejná cesta jako import souboru); nedostupný/poškozený `localStorage` je best-effort.
+- **FR-4** `beforeunload` varování odstraněno (data se již neztrácejí); pruh lišty přeznačen na „Ukládá se do prohlížeče; Uložit vytvoří záložní soubor.".
+
+Nový modul `src/lib/autosave.ts`. Testy: T-151 zúžen na indikátor „Neuloženo" (bez `beforeunload`), nový T-159 ověřuje přežití reloadu. Spec: `.github/specs/design_review_49.md`. Plná sada `--workers=1` zelená (desktop + mobile-small + tablet-portrait, 234 passed); `tsc` (web) čisté; vizuál beze změny; app HTTP 200. Indikátor „Uloženo/Neuloženo" nadále = stav exportu do souboru.
+
 ### Mobilní lišta: akce do jednoho menu „Další ▾“ (CHANGE-49)
 
 BL-031 poslední kus. Scope: **app `@krouzky/web`** (+ testy T-101/T-150/T-152/T-154, nový T-158).

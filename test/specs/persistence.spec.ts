@@ -54,20 +54,12 @@ test('T-150: Uložit i Otevřít jsou na první úrovni, export je pod menu', as
   await expect(menu.getByText('Otevřít', { exact: true })).toHaveCount(0);
 });
 
-test('T-151: změna zapne indikátor „Neuloženo" a spustí varování při zavření', async ({ page }, testInfo) => {
+test('T-151: změna zapne indikátor „Neuloženo"', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await expect(page.getByText('Uloženo', { exact: true })).toBeVisible();
 
   await enrollFirst(page, width);
   await expect(page.getByText('Neuloženo', { exact: true })).toBeVisible();
-
-  // beforeunload musí být zrušitelné (prohlížeč pak zobrazí varování).
-  const warned = await page.evaluate(() => {
-    const e = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(e);
-    return e.defaultPrevented;
-  });
-  expect(warned, 'beforeunload zabráněno → varování o ztrátě dat').toBe(true);
 });
 
 test('T-152: export → import → export dá bajtově shodný JSON včetně overrides a termínu', async ({ page }, testInfo) => {
@@ -166,5 +158,18 @@ test('T-158: na mobilu jsou Kalendář/Otevřít/Uložit v menu „Další ▾"'
   await expect(menu.getByRole('button', { name: 'Otevřít', exact: true })).toBeVisible();
   await expect(menu.getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
   await expect(menu.getByText('Kalendář (.ics)')).toBeVisible();
+});
+
+test('T-159: autosave — zápis přežije reload stránky', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await enrollFirst(page, width);
+  await openCatalog(page, width);
+  await expect(page.getByText('Přidáno')).toHaveCount(1);
+
+  // Reload nesmí ztratit rozvrh — autosave ho obnoví z localStorage.
+  await page.reload();
+
+  await openCatalog(page, width);
+  await expect(page.getByText('Přidáno')).toHaveCount(1);
 });
 

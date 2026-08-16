@@ -258,7 +258,7 @@ export function Toolbar({
         <span className={isDirty ? 'font-medium text-amber-700' : 'text-emerald-700'}>
           {isDirty ? 'Neuloženo' : 'Uloženo'}
         </span>
-        <span className="ml-2 hidden text-slate-500 desk:inline">Rozvrh existuje jen v tomto okně.</span>
+        <span className="ml-2 hidden text-slate-500 desk:inline">Ukládá se do prohlížeče; Uložit vytvoří záložní soubor.</span>
       </div>
 
       <div className="ml-auto flex flex-wrap items-center justify-end gap-1">

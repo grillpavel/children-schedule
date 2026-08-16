@@ -31,9 +31,10 @@ export function parseExceptionsFile(input: unknown): Result<ExceptionsFile> {
 }
 
 /**
- * Migruje starší uložený stav na aktuální `schemaVersion` (řetězeně 1 → 2 → 3).
+ * Migruje starší uložený stav na aktuální `schemaVersion` (řetězeně 1 → 2 → 3 → 4).
  * v1 → v2: `session.biweekly.parity` (sudý/lichý týden) → `everyWeeks: 2`.
  * v2 → v3: doplní prázdné `overrides` (uživatelské přepisy aktivit).
+ * v3 → v4: personalizační pole `Child` (`interests`/`availability`) — defaulty doplní schema.
  */
 function migrateToCurrent(input: unknown): unknown {
   if (typeof input !== 'object' || input === null) return input;
@@ -67,6 +68,11 @@ function migrateToCurrent(input: unknown): unknown {
   // v2 → v3: přidá prázdné pole přepisů, pokud chybí.
   if (clone.schemaVersion === 2) {
     clone = { ...clone, schemaVersion: 3, overrides: clone.overrides ?? [] };
+  }
+
+  // v3 → v4: personalizační pole Child (interests/availability) — doplní schema defaulty.
+  if (clone.schemaVersion === 3) {
+    clone = { ...clone, schemaVersion: 4 };
   }
 
   return clone;

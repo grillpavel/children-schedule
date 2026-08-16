@@ -84,6 +84,8 @@ interface PlannerStore {
 
   // ---- perzistence do souboru ----
   loadState(state: PlannerState): void;
+  /** Obnovení z autosave — nastaví stav bez zápisu do historie (BL-030). */
+  hydrate(state: PlannerState): void;
   setChildAge(childId: string, age: number): void;
   addChild(): void;
 }
@@ -386,6 +388,19 @@ export const usePlannerStore = create<PlannerStore>()(
           s.pendingDiff = null;
         }),
 
+      hydrate: (state) =>
+        set((s) => {
+          // Autosave obnova: čistý start bez historie, aby undo nesmazal obnovená data.
+          s.state = state;
+          s.activeChildId = state.children[0]?.id ?? s.activeChildId;
+          s.selectedActivityId = null;
+          s.selectedCustomEntryId = null;
+          s.hoveredGroupId = null;
+          s.pendingDiff = null;
+          s.history = [];
+          s.future = [];
+        }),
+
       setChildAge: (childId, age) =>
         commit((draft) => {
           const child = draft.children.find((c) => c.id === childId);
@@ -401,6 +416,8 @@ export const usePlannerStore = create<PlannerStore>()(
             id,
             name: `Dítě ${draft.children.length + 1}`,
             age: first?.age ?? 9,
+            interests: [],
+            availability: [],
             schoolEndByWeekday: {},
             ...(first?.schoolAddress ? { schoolAddress: first.schoolAddress } : {}),
           });

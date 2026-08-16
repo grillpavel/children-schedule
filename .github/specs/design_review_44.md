@@ -1,6 +1,6 @@
 # Design Review 44 — Přechod z katalogu na plánovač: personalizace + doporučovací engine (program + fáze 1)
 
-**Status:** DRAFT
+**Status:** IMPLEMENTED (fáze 1 / CHANGE-45; směrové fáze FR-D1… zůstávají jako BL-029/031/032)
 **Change ID:** CHANGE-45 (fáze 1: rozšíření modelu `Child` o zájmy/dostupnost/rozpočet + deterministický `activityFit` / `buildRecommendations` — engine `@krouzky/domain` + minimální defaulty ve store `@krouzky/web`)
 **Date:** 2026-08-16
 **Repo:** monorepo `Children_schedule` (packages/domain + apps/web + test)

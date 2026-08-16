@@ -146,11 +146,27 @@ export const sessionGroupSchema = z.object({
 
 // ---------- Uživatelský stav (jen v paměti) ----------
 
+/** Časové okno dostupnosti dítěte (personalizace, CHANGE-45). */
+export const availabilityWindowSchema = z
+  .object({
+    weekday: weekdaySchema,
+    startMinutes: minutesOfDay,
+    endMinutes: minutesOfDay,
+  })
+  .refine((w) => w.startMinutes < w.endMinutes, {
+    message: 'startMinutes musí být menší než endMinutes',
+    path: ['startMinutes'],
+  });
+
 export const childSchema = z.object({
   id: z.string(),
   name: z.string(),
   birthYear: z.number().int().optional(),
   age: z.number().int(),
+  // Personalizační vstupy pro doporučovací engine (CHANGE-45); prázdné = neutrální.
+  interests: z.array(activityCategorySchema).default([]),
+  availability: z.array(availabilityWindowSchema).default([]),
+  budgetMonthlyCzk: z.number().optional(),
   colorSeed: z.string().optional(),
   schoolEndByWeekday: z.record(z.string(), minutesOfDay),
   schoolAddress: addressSchema.optional(),
@@ -322,7 +338,7 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(3),
+  schemaVersion: z.literal(4),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),

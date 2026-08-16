@@ -103,6 +103,8 @@ const DEFAULT_CHILD: Child = {
   id: 'child-1',
   name: 'Moje dítě',
   age: 9,
+  interests: [],
+  availability: [],
   schoolEndByWeekday: {},
   // Výchozí škola = ZŠ J. A. Komenského Nové Strašecí (veřejný údaj z NS_VENUES).
   ...(SCHOOL_VENUE
@@ -120,7 +122,7 @@ const DEFAULT_CHILD: Child = {
 
 export function buildNovestraseciState(): PlannerState {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     children: [DEFAULT_CHILD],
     schedules: [
       {

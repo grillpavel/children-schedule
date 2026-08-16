@@ -63,9 +63,9 @@ describe('scheduleSummary', () => {
 
 describe('state IO', () => {
   const state: PlannerState = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     children: [
-      { id: 'c', name: 'TEST Dítě', age: 9, schoolEndByWeekday: {} },
+      { id: 'c', name: 'TEST Dítě', age: 9, interests: [], availability: [], schoolEndByWeekday: {} },
     ],
     schedules: [makeSchedule()],
     activeScheduleId: 'TEST_sch',
@@ -130,7 +130,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v1);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(3);
+      expect(parsed.value.schemaVersion).toBe(4);
       expect(parsed.value.schedules[0]!.customEntries[0]!.sessions[0]!.everyWeeks).toBe(2);
     }
   });
@@ -142,8 +142,23 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v2);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(3);
+      expect(parsed.value.schemaVersion).toBe(4);
       expect(parsed.value.overrides).toEqual([]);
+    }
+  });
+
+  it('migruje v3 (bez personalizace) → v4 (interests/availability: [])', () => {
+    const v3 = {
+      ...state,
+      schemaVersion: 3,
+      children: [{ id: 'c', name: 'TEST Dítě', age: 9, schoolEndByWeekday: {} }],
+    };
+    const parsed = parsePlannerState(v3);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.schemaVersion).toBe(4);
+      expect(parsed.value.children[0]!.interests).toEqual([]);
+      expect(parsed.value.children[0]!.availability).toEqual([]);
     }
   });
 

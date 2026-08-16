@@ -13,6 +13,7 @@ import type {
   sessionGroupSchema,
   venueSchema,
   childSchema,
+  availabilityWindowSchema,
   enrollmentStatusSchema,
   enrollmentSchema,
   customEntrySchema,
@@ -45,6 +46,7 @@ export type Catalog = z.infer<typeof catalogSchema>;
 
 // ---------- Uživatelský stav ----------
 export type Child = z.infer<typeof childSchema>;
+export type AvailabilityWindow = z.infer<typeof availabilityWindowSchema>;
 export type EnrollmentStatus = z.infer<typeof enrollmentStatusSchema>;
 export type Enrollment = z.infer<typeof enrollmentSchema>;
 export type CustomEntry = z.infer<typeof customEntrySchema>;

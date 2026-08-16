@@ -113,6 +113,8 @@ export const TEST_CHILD: Child = {
   id: 'TEST_child',
   name: 'TEST Julinka',
   age: 9,
+  interests: [],
+  availability: [],
   schoolEndByWeekday: { '1': 840, '3': 840 }, // Po a St končí 14:00
 };
 

@@ -167,6 +167,8 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
   const setChildInterests = usePlannerStore((s) => s.setChildInterests);
+  const setChildAvailability = usePlannerStore((s) => s.setChildAvailability);
+  const setChildBudget = usePlannerStore((s) => s.setChildBudget);
 
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ActivityCategory | ''>('');
@@ -175,6 +177,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const [ageOnly, setAgeOnly] = useState(false);
   const [fitOnly, setFitOnly] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('');
   const [startAfter, setStartAfter] = useState<string>('');
   const [endBefore, setEndBefore] = useState<string>('');
   const [collapsedRoots, setCollapsedRoots] = useState<Record<string, boolean>>({});
@@ -213,6 +216,26 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
       ? child.interests.filter((c) => c !== cat)
       : [...child.interests, cat];
     setChildInterests(child.id, next);
+  };
+  const availableWeekdays = useMemo(
+    () => new Set((child?.availability ?? []).map((w) => w.weekday)),
+    [child],
+  );
+  const toggleAvailableDay = (day: Weekday) => {
+    if (!child) return;
+    const next = availableWeekdays.has(day)
+      ? child.availability.filter((w) => w.weekday !== day)
+      : [...child.availability, { weekday: day, startMinutes: 0, endMinutes: 1440 }];
+    setChildAvailability(child.id, next);
+  };
+  useEffect(() => {
+    setBudgetInput(child?.budgetMonthlyCzk != null ? String(child.budgetMonthlyCzk) : '');
+  }, [child?.id, child?.budgetMonthlyCzk]);
+  const commitBudget = () => {
+    if (!child) return;
+    const n = Number(budgetInput);
+    const value = budgetInput.trim() === '' || !Number.isFinite(n) || n <= 0 ? undefined : Math.round(n);
+    setChildBudget(child.id, value);
   };
 
   const selectedEnrollmentIds = useMemo(() => {
@@ -589,7 +612,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
         {!hasActiveFilters && child && (
           <section
             aria-label="Doporučení"
-            className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2"
+            className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2"
           >
             <div>
               <p className="mb-1 text-xs text-slate-500">Co tě baví? (upraví doporučení)</p>
@@ -616,7 +639,46 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
               </div>
             </div>
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="mb-1 text-xs text-slate-500">Které dny může?</p>
+              <div className="flex flex-wrap gap-1">
+                {WEEKDAYS.map((d) => {
+                  const on = availableWeekdays.has(d.value);
+                  return (
+                    <button
+                      key={d.value}
+                      type="button"
+                      aria-pressed={on}
+                      aria-label={`Volno ${d.short}`}
+                      onClick={() => toggleAvailableDay(d.value)}
+                      className={clsx(
+                        'rounded-full border px-2 py-0.5 text-xs',
+                        on
+                          ? 'border-slate-800 bg-slate-800 text-white'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100',
+                      )}
+                    >
+                      {d.short}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              Měsíční rozpočet (Kč)
+              <input
+                type="number"
+                min={0}
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value)}
+                onBlur={commitBudget}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitBudget();
+                }}
+                aria-label="Měsíční rozpočet v korunách"
+                className="w-24 rounded border border-slate-200 px-2 py-0.5 text-sm"
+              />
+            </label>
+            <div>              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Doporučujeme
               </h3>
               {recommendations.length > 0 ? (

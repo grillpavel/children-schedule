@@ -18,7 +18,7 @@ async function showCatalog(page: import('@playwright/test').Page, width: number)
 
 async function showInfo(page: import('@playwright/test').Page, width: number) {
   if (isCompact(width)) {
-    await page.getByRole('button', { name: 'Info', exact: true }).click();
+    await page.getByRole('button', { name: 'Děti', exact: true }).click();
   } else {
     // Střední šířky (900–1440): Info je slide-over, otevři přes „Souhrn".
     const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });

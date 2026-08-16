@@ -51,7 +51,7 @@ test('T-102: prázdný kalendář má empty state s cestou do katalogu', async (
 test('T-103: prázdný pravý panel neukazuje nulové metriky', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   if (isCompact(width)) {
-    await page.getByRole('button', { name: 'Info', exact: true }).click();
+    await page.getByRole('button', { name: 'Děti', exact: true }).click();
   } else if (!isThreeColumn(width)) {
     const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
     if (await souhrn.isVisible()) await souhrn.click();
@@ -243,4 +243,24 @@ test('T-124: klik na doporučení otevře detail kroužku', async ({ page }, tes
   await page.getByRole('button', { name: /^Doporučeno: / }).first().click();
   await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toBeVisible();
 });
+
+test('T-125: nastavený rozpočet přidá k doporučení důvod „V rozpočtu"', async ({ page }, testInfo) => {
+  await openCatalog(page, testInfo.project.use.viewport!.width);
+  const section = page.getByRole('region', { name: 'Doporučení' });
+  const budget = section.getByRole('spinbutton', { name: 'Měsíční rozpočet v korunách' });
+  await budget.fill('100000');
+  await budget.press('Enter');
+  await expect(section.getByText(/V rozpočtu/).first()).toBeVisible();
+});
+
+test('T-126: volné dny přidají k doporučení důvod „Termín ve volném čase"', async ({ page }, testInfo) => {
+  await openCatalog(page, testInfo.project.use.viewport!.width);
+  const section = page.getByRole('region', { name: 'Doporučení' });
+  // Zpřístupni všechny dny (celodenní okna) → každý termín se vejde.
+  for (const short of ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']) {
+    await section.getByRole('button', { name: `Volno ${short}`, exact: true }).click();
+  }
+  await expect(section.getByText(/Termín ve volném čase/).first()).toBeVisible();
+});
+
 

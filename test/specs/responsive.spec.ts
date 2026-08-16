@@ -37,6 +37,7 @@ test('T-201: při 1280px nejsou tři stálé sloupce', async ({ page }, testInfo
 test('T-202: pod 900px je výchozí Agenda', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'platí jen pro kompaktní profily');
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
   await expect(page.getByRole('tab', { name: /agenda/i })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -206,4 +207,29 @@ test('T-214: na 320px není vodorovný scroll', async ({ page }) => {
   await page.getByRole('button', { name: 'Katalog', exact: true }).click();
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
   expect(await overflow(), 'katalog 320px').toBeLessThanOrEqual(1);
+});
+
+// --- Domovská obrazovka a planner-first navigace (CHANGE-53) ---
+
+test('T-215: mobil má nav Domů/Katalog/Rozvrh/Děti a výchozí je Domů', async ({ page }, testInfo) => {
+  test.skip(!isCompact(testInfo.project.use.viewport!.width), 'jen mobilní navigace');
+  for (const name of ['Domů', 'Katalog', 'Rozvrh', 'Děti']) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole('heading', { name: /Přehled/ })).toBeVisible();
+});
+
+test('T-216: Home ukazuje souhrn i doporučení a CTA otevře katalog', async ({ page }, testInfo) => {
+  test.skip(!isCompact(testInfo.project.use.viewport!.width), 'Home je mobilní záložka');
+  await expect(page.getByRole('region', { name: 'Tento týden' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Doporučení' })).toBeVisible();
+  await page.getByRole('button', { name: 'Procházet katalog' }).click();
+  await expect(page.getByRole('searchbox')).toBeVisible();
+});
+
+test('T-217: onboarding se dá odbýt a přepne na katalog', async ({ page }, testInfo) => {
+  test.skip(!isCompact(testInfo.project.use.viewport!.width), 'onboarding je na mobilní Home');
+  await expect(page.getByRole('region', { name: 'Rychlé nastavení' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hotovo, vybrat kroužky' }).click();
+  await expect(page.getByRole('searchbox')).toBeVisible();
 });

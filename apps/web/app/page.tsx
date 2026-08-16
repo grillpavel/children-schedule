@@ -8,6 +8,7 @@ import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { loadAutosave, saveAutosave } from '@/lib/autosave';
 import { Toolbar } from '@/components/Toolbar';
 import { VariantTabs } from '@/components/VariantTabs';
+import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
@@ -20,7 +21,7 @@ const ScheduleGrid = dynamic(
   { ssr: false },
 );
 
-type MobileTab = 'catalog' | 'grid' | 'details';
+type MobileTab = 'home' | 'catalog' | 'grid' | 'details';
 
 export default function Page() {
   const state = usePlannerStore((s) => s.state);
@@ -40,7 +41,7 @@ export default function Page() {
   });
 
   const [customOpen, setCustomOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('grid');
+  const [mobileTab, setMobileTab] = useState<MobileTab>('home');
   const [savedSignature, setSavedSignature] = useState(stateSignature);
   const [showChangeToast, setShowChangeToast] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -156,6 +157,15 @@ export default function Page() {
 
       {/* Desktop: tři sloupce. Mobil: jeden panel podle spodní navigace. */}
       <main className="relative flex flex-1 overflow-hidden">
+        {/* Domů (týden-first) je jen mobilní záložka; desktop má tři sloupce. */}
+        {isMobile && mobileTab === 'home' && (
+          <section className="w-full overflow-hidden desk:hidden">
+            <HomeScreen
+              onOpenCatalog={() => setMobileTab('catalog')}
+              onOpenGrid={() => setMobileTab('grid')}
+            />
+          </section>
+        )}
         <aside
           className={clsx(
             'no-print w-72 shrink-0 overflow-hidden border-r border-slate-200 bg-white desk:block',
@@ -236,9 +246,10 @@ export default function Page() {
       <nav className="no-print flex border-t border-slate-200 bg-white desk:hidden">
         {(
           [
+            ['home', 'Domů'],
             ['catalog', 'Katalog'],
             ['grid', 'Rozvrh'],
-            ['details', 'Info'],
+            ['details', 'Děti'],
           ] as const
         ).map(([tab, label]) => (
           <button

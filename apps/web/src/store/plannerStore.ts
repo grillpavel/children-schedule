@@ -9,6 +9,7 @@ import {
   schoolYearHolidays,
   type ActivityCategory,
   type ActivityOverride,
+  type AvailabilityWindow,
   type Catalog,
   type CalendarException,
   type CustomEntry,
@@ -90,6 +91,10 @@ interface PlannerStore {
   setChildAge(childId: string, age: number): void;
   /** Nastaví zájmy dítěte (personalizace doporučení, CHANGE-51). */
   setChildInterests(childId: string, interests: ActivityCategory[]): void;
+  /** Nastaví dny/okna dostupnosti dítěte (CHANGE-52). */
+  setChildAvailability(childId: string, availability: AvailabilityWindow[]): void;
+  /** Nastaví měsíční rozpočet dítěte (CHANGE-52); `undefined` = bez limitu. */
+  setChildBudget(childId: string, budgetMonthlyCzk: number | undefined): void;
   addChild(): void;
 }
 
@@ -414,6 +419,20 @@ export const usePlannerStore = create<PlannerStore>()(
         commit((draft) => {
           const child = draft.children.find((c) => c.id === childId);
           if (child) child.interests = interests;
+        }),
+
+      setChildAvailability: (childId, availability) =>
+        commit((draft) => {
+          const child = draft.children.find((c) => c.id === childId);
+          if (child) child.availability = availability;
+        }),
+
+      setChildBudget: (childId, budgetMonthlyCzk) =>
+        commit((draft) => {
+          const child = draft.children.find((c) => c.id === childId);
+          if (!child) return;
+          if (budgetMonthlyCzk === undefined) delete child.budgetMonthlyCzk;
+          else child.budgetMonthlyCzk = budgetMonthlyCzk;
         }),
 
       // Víc dětí = samostatný rozvrh i export na dítě (C6-C2).

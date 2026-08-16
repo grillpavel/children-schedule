@@ -6,6 +6,28 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Planner-first shell: Domů (týden-first) + bottom nav + onboarding (CHANGE-53)
+
+BL-029 fáze 2c (poslední bloky). Scope: **app `@krouzky/web`** (+ testy T-215/T-216/T-217).
+
+- **FR-1** Mobilní spodní navigace na 4 záložky **Domů/Katalog/Rozvrh/Děti** (výchozí Domů); „Info" → „Děti".
+- **FR-2** Nová `HomeScreen` (jen mobil): týden-first souhrn (kroužky/volné dny/náklady/kolize přes `useScheduleView`) + top-3 doporučení; CTA na Katalog/Rozvrh.
+- **FR-3** Neblokující onboarding karta „Rychlé nastavení" (věk + zájmy) při prvním spuštění; „Hotovo" uloží do `localStorage` a přepne na Katalog.
+- **FR-4** Desktop beze změny (tři sloupce, bottom nav je `desk:hidden`); „Katalog"/„Rozvrh" navigace zachována.
+
+Onboarding je karta, ne modal (modal by přebil E2E i UX). Spec: `.github/specs/design_review_52.md`. Plná E2E `--workers=1` zelená přes **všech 6 profilů (508 passed, 0 failed)**; a11y zelené; `tsc` (web) čisté; app HTTP 200. **Tím je BL-029 hotový.** Při plném běhu odhaleny a opraveny dva profil-specifické nálezy: dark-kontrast sekce „Doporučení" (`bg-slate-50/60` → `bg-slate-50`, dark blok mapuje na #1e293b; T-310) a přegenerovány tablet-landscape vizuální baseline (zamýšlený drift lišty z CHANGE-49/50).
+
+### Personalizace: dostupnost (dny) + měsíční rozpočet (CHANGE-52)
+
+BL-029 fáze 2b. Scope: **app `@krouzky/web`** (+ testy T-125/T-126). Dokončuje personalizační vstupy enginu z CHANGE-45.
+
+- **FR-1** Přepínače „Které dny může?" → `Child.availability` (celodenní okno na vybraný den); doporučení → „✓ Termín ve volném čase".
+- **FR-2** Pole „Měsíční rozpočet (Kč)" → `Child.budgetMonthlyCzk` (prázdné/0 = bez limitu); doporučení → „✓ V rozpočtu". Ukládá se při Enter/blur (ne per-úhoz).
+- **FR-3** Obě v sekci „Doporučujeme" (jen nefiltrovaný pohled); undo/redo + autosave se aplikují (`setChildAvailability`/`setChildBudget` přes `commit`).
+- **FR-4** Chipy dnů dostupnosti mají `aria-label` „Volno {zkratka}" → nekolidují s filtrovacími chipy dnů; vizuální baseline beze změny.
+
+Spec: `.github/specs/design_review_51.md`. Plná E2E `--workers=1` zelená (desktop + mobile-small, 169 passed) bez regenerace baseline; a11y zelené; `tsc` (web) čisté; app HTTP 200. Tím jsou hotové všechny personalizační vstupy z CHANGE-45; zbývá Home/týden-first, bottom nav a onboarding (velký shell redesign, BL-029).
+
 ### Doporučení kroužků s důvody + výběr zájmů (CHANGE-51)
 
 BL-029 fáze 2a (planner-first). Scope: **app `@krouzky/web`** (+ testy T-122/T-123/T-124). Konzumuje engine z CHANGE-45.

@@ -22,7 +22,9 @@ async function enrollFirst(page: import('@playwright/test').Page, width: number)
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
 }
 
-async function saveAndRead(page: import('@playwright/test').Page): Promise<string> {
+async function saveAndRead(page: import('@playwright/test').Page, width: number): Promise<string> {
+  // Na mobilu je Uložit v mobilním menu „Další ▾".
+  if (isCompact(width)) await page.getByRole('button', { name: /Další ▾/ }).click();
   const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Uložit', exact: true }).click();
   const download = await pending;
@@ -36,7 +38,9 @@ function tempFile(name: string, content: string): string {
   return file;
 }
 
-test('T-150: Uložit i Otevřít jsou na první úrovni, export je pod menu', async ({ page }) => {
+test('T-150: Uložit i Otevřít jsou na první úrovni, export je pod menu', async ({ page }, testInfo) => {
+  // Na desktopu jsou obě akce přímo v liště; na mobilu jsou (záměrně) v menu „Další ▾" (T-158).
+  test.skip(isCompact(testInfo.project.use.viewport!.width), 'platí pro desktopovou lištu');
   // Obě akce jsou přímo dostupné bez otevírání menu (C6-B6).
   await expect(page.getByRole('button', { name: 'Uložit', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Otevřít' })).toBeVisible();
@@ -80,7 +84,7 @@ test('T-152: export → import → export dá bajtově shodný JSON včetně ove
   await page.getByRole('button', { name: /^Barva / }).first().click();
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
 
-  const jsonA = await saveAndRead(page);
+  const jsonA = await saveAndRead(page, width);
   expect(jsonA, 'export obsahuje přepisy').toMatch(/"overrides"\s*:\s*\[\s*{/);
   expect(jsonA, 'export obsahuje zápis s termínem').toMatch(/"enrollments"\s*:\s*\[\s*{/);
 
@@ -96,7 +100,7 @@ test('T-152: export → import → export dá bajtově shodný JSON včetně ove
   await openCatalog(page, width);
   await expect(page.getByText('Přidáno')).toHaveCount(1);
 
-  const jsonB = await saveAndRead(page);
+  const jsonB = await saveAndRead(page, width);
   // Poctivě červený: overrides mají nestabilní pořadí klíčů (živě vs. po zod importu) → viz C8-E5.
   expect(jsonB, 'round-trip je bajtově shodný').toBe(jsonA);
 });
@@ -128,7 +132,7 @@ test('T-154: soubor se starším schemaVersion se načte přes migraci', async (
   const width = testInfo.project.use.viewport!.width;
   await enrollFirst(page, width);
 
-  const jsonV3 = await saveAndRead(page);
+  const jsonV3 = await saveAndRead(page, width);
   const parsed = JSON.parse(jsonV3) as { schemaVersion: number; overrides?: unknown };
   // Uměle vytvoříme předchozí verzi schématu bez pole přepisů.
   parsed.schemaVersion = 2;
@@ -149,3 +153,18 @@ test('T-154: soubor se starším schemaVersion se načte přes migraci', async (
   await expect(page.getByText('Přidáno')).toHaveCount(1);
   expect(dialogMsg, 'migrace nesmí hlásit chybu').toBeNull();
 });
+
+test('T-158: na mobilu jsou Kalendář/Otevřít/Uložit v menu „Další ▾"', async ({ page }, testInfo) => {
+  test.skip(!isCompact(testInfo.project.use.viewport!.width), 'platí jen pro mobilní lištu');
+  // V zavřené liště nejsou akce přímo dostupné.
+  await expect(page.getByRole('button', { name: 'Uložit', exact: true })).toBeHidden();
+  await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toBeHidden();
+
+  await page.getByRole('button', { name: /Další ▾/ }).click();
+  const menu = page.locator('div.absolute').filter({ hasText: 'Kalendář (.ics)' });
+  await expect(menu.getByRole('button', { name: 'Uložit', exact: true })).toBeVisible();
+  await expect(menu.getByRole('button', { name: 'Otevřít', exact: true })).toBeVisible();
+  await expect(menu.getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
+  await expect(menu.getByText('Kalendář (.ics)')).toBeVisible();
+});
+

@@ -47,6 +47,7 @@ export function Toolbar({
 
   const child = state.children.find((c) => c.id === activeChildId);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [calTitle, setCalTitle] = useState('');
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
   const fileInput = useRef<HTMLInputElement>(null);
@@ -73,6 +74,7 @@ export function Toolbar({
       ...(mode ? { mode } : {}),
     });
     setMenuOpen(false);
+    setMobileMenuOpen(false);
   };
 
   // C6-C2: každé dítě do vlastního souboru jedním kliknutím (samostatný kalendář).
@@ -92,11 +94,13 @@ export function Toolbar({
       });
     }
     setMenuOpen(false);
+    setMobileMenuOpen(false);
   };
 
   const exportPng = async () => {
     if (gridRef.current) await downloadPng(gridRef.current, child);
     setMenuOpen(false);
+    setMobileMenuOpen(false);
   };
 
   const importJson = async (file: File) => {
@@ -141,6 +145,45 @@ export function Toolbar({
     }
   };
 
+  // Sdílené položky exportu pro desktopové i mobilní menu.
+  const exportItems = (
+    <>
+      <div className="px-3 py-2">
+        <label className="block text-xs text-slate-500">
+          Barvy událostí
+          <select
+            value={colorMode}
+            onChange={(e) => setColorMode(e.target.value as IcsColorMode)}
+            className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+          >
+            <option value="per_activity">Podle kroužku</option>
+            <option value="single">Jedna barva pro dítě</option>
+          </select>
+        </label>
+      </div>
+      <div className="my-1 border-t border-slate-100" />
+      <MenuItem onClick={() => exportIcs()}>Kalendář (.ics)</MenuItem>
+      {state.children.length > 1 && (
+        <MenuItem onClick={exportAllChildrenIcs}>
+          Kalendář — všechny děti (.ics)
+        </MenuItem>
+      )}
+      <MenuItem onClick={() => void exportPng()}>Obrázek (.png)</MenuItem>
+      <MenuItem
+        onClick={() => {
+          printSchedule();
+          setMenuOpen(false);
+          setMobileMenuOpen(false);
+        }}
+      >
+        Tisk
+      </MenuItem>
+      <MenuItem onClick={() => exportIcs('expanded')}>
+        Mám problém s importem (rozbalené)
+      </MenuItem>
+    </>
+  );
+
   return (
     <header className="no-print flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
       <div className="flex min-w-0 items-center gap-1 text-sm text-slate-600">
@@ -170,7 +213,7 @@ export function Toolbar({
         </button>
       </div>
 
-      <label className="flex min-w-0 items-center gap-1 text-sm text-slate-600">
+      <label className="hidden min-w-0 desk:flex items-center gap-1 text-sm text-slate-600">
         Kalendář
         <input
           value={calTitle}
@@ -251,70 +294,82 @@ export function Toolbar({
             e.target.value = '';
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileInput.current?.click()}
-          className="rounded border border-slate-200 px-2 py-1 text-sm hover:bg-slate-50"
-          title="Načíst rozvrh (.json) nebo kalendář (.ics)"
-        >
-          Otevřít
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            downloadStateJson(state, child);
-            onMarkSaved();
-          }}
-          className="rounded bg-slate-800 px-3 py-1 text-sm text-white hover:bg-slate-700"
-          title="Uložit rozvrh do souboru (.json)"
-        >
-          Uložit
-        </button>
-
-        <div className="relative">
+        <div className="hidden desk:flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="rounded border border-slate-200 px-3 py-1 text-sm hover:bg-slate-50"
+            onClick={() => fileInput.current?.click()}
+            className="rounded border border-slate-200 px-2 py-1 text-sm hover:bg-slate-50"
+            title="Načíst rozvrh (.json) nebo kalendář (.ics)"
+          >
+            Otevřít
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              downloadStateJson(state, child);
+              onMarkSaved();
+            }}
+            className="rounded bg-slate-800 px-3 py-1 text-sm text-white hover:bg-slate-700"
+            title="Uložit rozvrh do souboru (.json)"
+          >
+            Uložit
+          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="rounded border border-slate-200 px-3 py-1 text-sm hover:bg-slate-50"
+            >
+              Další ▾
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 z-30 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                {exportItems}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="relative desk:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            className="flex h-11 items-center rounded border border-slate-200 px-3 text-sm hover:bg-slate-50"
           >
             Další ▾
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 z-30 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-              <div className="px-3 py-2">
-                <label className="block text-xs text-slate-500">
-                  Barvy událostí
-                  <select
-                    value={colorMode}
-                    onChange={(e) => setColorMode(e.target.value as IcsColorMode)}
-                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-                  >
-                    <option value="per_activity">Podle kroužku</option>
-                    <option value="single">Jedna barva pro dítě</option>
-                  </select>
-                </label>
-              </div>
+          {mobileMenuOpen && (
+            <div className="absolute right-0 z-50 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+              <label className="block px-3 py-2 text-xs text-slate-500">
+                Název kalendáře
+                <input
+                  value={calTitle}
+                  onChange={(e) => setCalTitle(e.target.value)}
+                  placeholder="Název kalendáře"
+                  aria-label="Název kalendáře"
+                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                />
+              </label>
               <div className="my-1 border-t border-slate-100" />
-              <MenuItem onClick={() => exportIcs()}>Kalendář (.ics)</MenuItem>
-              {state.children.length > 1 && (
-                <MenuItem onClick={exportAllChildrenIcs}>
-                  Kalendář — všechny děti (.ics)
-                </MenuItem>
-              )}
-              <MenuItem onClick={() => void exportPng()}>Obrázek (.png)</MenuItem>
               <MenuItem
                 onClick={() => {
-                  printSchedule();
-                  setMenuOpen(false);
+                  fileInput.current?.click();
+                  setMobileMenuOpen(false);
                 }}
               >
-                Tisk
+                Otevřít
               </MenuItem>
               <MenuItem
-                onClick={() => exportIcs('expanded')}>
-                Mám problém s importem (rozbalené)
+                onClick={() => {
+                  downloadStateJson(state, child);
+                  onMarkSaved();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Uložit
               </MenuItem>
+              <div className="my-1 border-t border-slate-100" />
+              {exportItems}
             </div>
           )}
         </div>

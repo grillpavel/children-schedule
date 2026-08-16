@@ -6,6 +6,26 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Mobilní lišta: akce do jednoho menu „Další ▾“ (CHANGE-49)
+
+BL-031 poslední kus. Scope: **app `@krouzky/web`** (+ testy T-101/T-150/T-152/T-154, nový T-158).
+
+- **FR-1** Na mobilu (<900 px) se Otevřít, Uložit a pole Kalendář přesunuly z lišty do jednoho menu „Další ▾“. Desktop beze změny (přímo v liště).
+- **FR-2** Mobilní menu obsahuje Název kalendáře, Otevřít, Uložit, Barvy událostí a exporty (sdílené `exportItems` s desktopem).
+- **FR-3** Undo/redo a stav „Uloženo/Neuloženo“ zůstávají na mobilu viditelné.
+- **FR-4** Mobilní menu má stejný přístupný název „Další ▾“ → ICS testy fungují na obou profilech beze změny. Mobilní dropdown má `z-50` (nad detail sheetem `z-40`).
+
+Testy: T-150 zúžen na desktop (`test.skip` na compact), T-101 + `saveAndRead` (T-152/T-154) na compactu otevřou menu, nový T-158 ověřuje mobilní strukturu. Spec: `.github/specs/design_review_48.md`. Plná sada `--workers=1` zelená (desktop + mobile-small + tablet-portrait, 231 passed); mobilní `toolbar-*` baseline přegenerovány; `tsc` (web) čisté; app HTTP 200. Tím je **BL-031 uzavřen**.
+
+### Microcopy filtru: „Bez konfliktu“ místo „Vejde se mi to“ (CHANGE-48)
+
+BL-031 microcopy. Scope: **app `@krouzky/web`** (+ testy T-114/T-115).
+
+- **FR-1** Filtr `fitOnly` přejmenován z „Vejde se mi to“ na výstižnější „Bez konfliktu“ (skrývá kroužky kolidující s rozvrhem). Chování beze změny.
+- „+1“ → „N termínů“ je již vyřešeno (T-110/T-120), v kódu žádné „+1“.
+
+T-114/T-115 aktualizovány (název + lokátor). Spec: `.github/specs/design_review_47.md`. Vizuál beze změny (popisek není v záběru baseline); `tsc` (web) čisté.
+
 ### Mobilní dotykové cíle ≥ 44 px a funkčnost od 320 px (CHANGE-47)
 
 Navazuje na CHANGE-46. Scope: **app `@krouzky/web`** (+ nové testy T-213/T-214).

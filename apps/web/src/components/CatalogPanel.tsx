@@ -538,7 +538,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
             onChange={(e) => setFitOnly(e.target.checked)}
             disabled={selectedActivityIds.size === 0 && schedule.customEntries.length === 0}
           />
-          Vejde se mi to
+          Bez konfliktu
         </label>
         {showAdvanced && (
           <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50 p-2">

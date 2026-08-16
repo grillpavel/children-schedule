@@ -34,7 +34,11 @@ test('T-100: věkový filtr je při prvním načtení vypnutý', async ({ page }
   await expect(page.getByRole('checkbox', { name: /Jen vhodné pro věk/ })).not.toBeChecked();
 });
 
-test('T-101: název rozvrhu je při prvním načtení prázdný', async ({ page }) => {
+test('T-101: název rozvrhu je při prvním načtení prázdný', async ({ page }, testInfo) => {
+  // Na mobilu je pole názvu kalendáře v mobilním menu „Další ▾".
+  if (isCompact(testInfo.project.use.viewport!.width)) {
+    await page.getByRole('button', { name: /Další ▾/ }).click();
+  }
   await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toHaveValue('');
 });
 
@@ -151,20 +155,20 @@ test('T-113: filtr času odfiltruje dřívější začátek', async ({ page }, t
   await expect(cards(page).filter({ hasText: /\b15:00\b/ })).toHaveCount(0);
 });
 
-test('T-114: „Vejde se mi to" skryje kolidující kroužky', async ({ page }, testInfo) => {
+test('T-114: „Bez konfliktu" skryje kolidující kroužky', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(isCompact(width), 'vyžaduje viditelný katalog i detail');
   await expandAll(page);
   const before = await cards(page).count();
   await enrollFirst(page, width);
-  await page.getByRole('checkbox', { name: /Vejde se mi to/ }).check();
+  await page.getByRole('checkbox', { name: /Bez konfliktu/ }).check();
   const after = await cards(page).count();
   expect(after, `před=${before}, po zapnutí filtru=${after}`).toBeLessThan(before);
 });
 
-test('T-115: „Vejde se mi to" je u prázdného rozvrhu zašedlé', async ({ page }, testInfo) => {
+test('T-115: „Bez konfliktu" je u prázdného rozvrhu zašedlé', async ({ page }, testInfo) => {
   await openCatalog(page, testInfo.project.use.viewport!.width);
-  await expect(page.getByRole('checkbox', { name: /Vejde se mi to/ })).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: /Bez konfliktu/ })).toBeDisabled();
 });
 
 test('T-116: filtr bez výsledku nabídne zrušení filtrů', async ({ page }, testInfo) => {

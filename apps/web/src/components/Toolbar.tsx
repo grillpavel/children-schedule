@@ -181,7 +181,7 @@ export function Toolbar({
         />
       </label>
       <div
-        className="flex items-center gap-1"
+        className="hidden desk:flex items-center gap-1"
         title={
           selectedActivityId
             ? 'Barva vybraného kroužku'
@@ -215,7 +215,7 @@ export function Toolbar({
         <span className={isDirty ? 'font-medium text-amber-700' : 'text-emerald-700'}>
           {isDirty ? 'Neuloženo' : 'Uloženo'}
         </span>
-        <span className="ml-2 text-slate-500">Rozvrh existuje jen v tomto okně.</span>
+        <span className="ml-2 hidden text-slate-500 desk:inline">Rozvrh existuje jen v tomto okně.</span>
       </div>
 
       <div className="ml-auto flex flex-wrap items-center justify-end gap-1">

@@ -73,6 +73,10 @@ test('T-152: export → import → export dá bajtově shodný JSON včetně ove
 
   // Vybereme kartu, obarvíme (overrides) a teprve pak zapíšeme (vybraný termín).
   await cards(page).first().click();
+  // Na mobilu je barva jen v detailu (sheet) — rozbalit, ať je swatch dostupný.
+  if (isCompact(width)) {
+    await page.locator('.fixed.inset-x-0.bottom-12').getByRole('button', { name: 'Zvětšit detail' }).click();
+  }
   await page.getByRole('button', { name: /^Barva / }).first().click();
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
 

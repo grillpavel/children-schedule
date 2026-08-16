@@ -203,21 +203,24 @@ export function ScheduleGrid({
     <div className="flex h-full flex-col">
       {/* Ovládání pohledu (FR-6) */}
       <div className="no-print mb-2 flex items-center gap-2">
-        <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 text-sm">
-          {(['day', '3day', 'week', 'month'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={clsx(
-                'px-3 py-1',
-                mode === m ? 'bg-slate-800 text-white' : 'bg-white text-slate-600',
-              )}
-            >
-              {VIEW_LABELS[m]}
-            </button>
-          ))}
-        </div>
+        {/* Přepínač Den/3 dny/Týden/Měsíc jen na desktopu; na mobilu je výchozí Agenda (C11 UX). */}
+        {!isMobile && (
+          <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 text-sm">
+            {(['day', '3day', 'week', 'month'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={clsx(
+                  'px-3 py-1',
+                  mode === m ? 'bg-slate-800 text-white' : 'bg-white text-slate-600',
+                )}
+              >
+                {VIEW_LABELS[m]}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Navigace pro všechny pohledy */}
         <div className="flex items-center gap-1">
           <button
@@ -265,7 +268,7 @@ export function ScheduleGrid({
             aria-selected={mobileAgendaMode === 'agenda'}
             onClick={() => setMobileAgendaMode('agenda')}
             className={clsx(
-              'flex-1 rounded px-2 py-1',
+              'flex flex-1 items-center justify-center h-11 rounded px-2',
               mobileAgendaMode === 'agenda' ? 'bg-slate-800 text-white' : 'text-slate-600',
             )}
           >
@@ -277,7 +280,7 @@ export function ScheduleGrid({
             aria-selected={mobileAgendaMode === 'calendar'}
             onClick={() => setMobileAgendaMode('calendar')}
             className={clsx(
-              'flex-1 rounded px-2 py-1',
+              'flex flex-1 items-center justify-center h-11 rounded px-2',
               mobileAgendaMode === 'calendar' ? 'bg-slate-800 text-white' : 'text-slate-600',
             )}
           >
@@ -291,7 +294,7 @@ export function ScheduleGrid({
           <div className="max-w-md text-center">
             <h2 className="text-xl font-semibold text-slate-800">Rozvrh je zatím prázdný</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Přidejte první kroužek z katalogu vlevo a hned uvidíte kolize i volné dny.
+              Přidejte první kroužek z katalogu a hned uvidíte kolize i volné dny.
             </p>
             <button
               type="button"
@@ -301,7 +304,7 @@ export function ScheduleGrid({
               Přidat první kroužek
             </button>
             <ul className="mt-4 text-left text-xs text-slate-500">
-              <li>Tip: klik na kartu kroužku otevře detail vpravo.</li>
+              <li>Tip: klik na kartu kroužku otevře jeho detail.</li>
               <li>Tip: tlačítko + na kartě kroužek rovnou přidá do rozvrhu.</li>
               <li>Tip: po změnách rozvrh uložte přes tlačítko Uložit.</li>
             </ul>

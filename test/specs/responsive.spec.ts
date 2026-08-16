@@ -175,3 +175,35 @@ test('T-212: karta se na 360px vejde bez oříznutí názvu', async ({ page }, t
   });
   expect(clipped, clipped.join('\n')).toHaveLength(0);
 });
+
+test('T-213: primární dotykové cíle na mobilu mají ≥44px', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'platí pro kompaktní profily');
+  // Spodní navigace.
+  const nav = page.locator('nav').last();
+  for (const b of await nav.getByRole('button').all()) {
+    const box = await b.boundingBox();
+    expect(box!.height, `nav "${(await b.innerText()).trim()}" = ${Math.round(box!.height)}px`).toBeGreaterThanOrEqual(44);
+  }
+  // Přepínač Agenda/Mřížka na záložce Rozvrh.
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  for (const name of ['Agenda', 'Mřížka']) {
+    const box = await page.getByRole('tab', { name }).boundingBox();
+    expect(box!.height, `${name} = ${Math.round(box!.height)}px`).toBeGreaterThanOrEqual(44);
+  }
+  // Filtr dnů na záložce Katalog.
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  const po = await page.getByRole('button', { name: 'Po', exact: true }).boundingBox();
+  expect(po!.height, `Po = ${Math.round(po!.height)}px`).toBeGreaterThanOrEqual(44);
+});
+
+test('T-214: na 320px není vodorovný scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto('/');
+  const overflow = () =>
+    page.evaluate(() => document.scrollingElement!.scrollWidth - document.scrollingElement!.clientWidth);
+  expect(await overflow(), 'úvod 320px').toBeLessThanOrEqual(1);
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  expect(await overflow(), 'katalog 320px').toBeLessThanOrEqual(1);
+});

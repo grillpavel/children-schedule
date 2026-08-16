@@ -514,7 +514,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                   )
                 }
                 className={clsx(
-                  'rounded px-2 py-0.5 text-xs',
+                  'flex h-11 items-center justify-center rounded px-3 text-xs desk:h-auto desk:px-2 desk:py-0.5',
                   active ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
                 )}
               >

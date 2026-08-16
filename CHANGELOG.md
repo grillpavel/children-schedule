@@ -6,6 +6,30 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Mobilní dotykové cíle ≥ 44 px a funkčnost od 320 px (CHANGE-47)
+
+Navazuje na CHANGE-46. Scope: **app `@krouzky/web`** (+ nové testy T-213/T-214).
+
+- **FR-1** Spodní mobilní navigace (Katalog/Rozvrh/Info) má na <900 px výšku ≥ 44 px (`h-11` + `flex items-center justify-center`).
+- **FR-2** Přepínač Agenda/Mřížka má na mobilu ≥ 44 px.
+- **FR-3** Filtr dnů v katalogu má na mobilu ≥ 44 px; na desktopu zůstává kompaktní (`desk:h-auto desk:px-2 desk:py-0.5`), desktop baseline beze změny.
+- **FR-4** Funkčnost bez vodorovného scrollu ověřena od 320 px (úvod i otevřený katalog).
+- Poznámka: arbitrary `min-h-[44px]` v tomto Tailwind setupu negenerovala CSS → použita třída z výchozí škály `h-11`.
+
+Nové testy: **T-213** (primární dotykové cíle ≥ 44 px na kompaktních profilech) a **T-214** (320 px bez vodorovného scrollu) v `responsive.spec.ts`. Barevné tečky (24×24) a checkboxy záměrně nezvětšeny (WCAG AA, T-205 zůstává). Spec: `.github/specs/design_review_46.md`. Mobilní vizuální baseline (catalog-filtered/empty-info/info-dark) přegenerovány; desktop `visual` beze změny; `tsc` (web) čisté; app HTTP 200.
+
+### Mobilní GUI: odlehčení horní lišty a ovládání (CHANGE-46)
+
+Mobilní aplikace byla přeplněná/nepoužitelná. Scope: **app `@krouzky/web`** (+ úprava T-152).
+
+- **FR-1** Na mobilu (<900 px) skryt přepínač „Den/3 dny/Týden/Měsíc" (byl oříznutý/rozbitý); zůstává Agenda/Mřížka + ‹ Dnes ›. Výchozí je Agenda.
+- **FR-2** Na mobilu skryty karty variant (`VariantTabs`), barva v liště (je i v detailu) a pomocné texty „Barva: vyberte kroužek" / „Rozvrh existuje jen v tomto okně".
+- **FR-3** Testované akce (Název kalendáře, Uložit, Otevřít, Další ▾, Přidat dítě) a undo/redo zůstávají na mobilu dostupné.
+- **FR-4** Microcopy nezávislé na rozložení: „z katalogu" místo „z katalogu vlevo", „otevře jeho detail" místo „detail vpravo".
+- Test: T-152 na kompaktu nastavuje barevný override přes detail sheet (lišta barvu na mobilu už neukazuje).
+
+Změny jsou čistě responzivní (`desk:` breakpoint + `isMobile`), desktop beze změny. Měření: úvodní mobil (360 px) 22 → 13 malých cílů, obsah výš. Spec: `.github/specs/design_review_45.md`. Odlehčení, ne redesign IA (ten je `design_review_44.md` fáze 2+, BL-029; touch cíle 44 px / 320 px = BL-031). Vizuální baseline mobilu přegenerovány; `tsc` (web) čisté.
+
 ### Changes 12: konflikty pryč z pravého sloupce, jeden panel v DOM, varianty pod „Přihlásit" (CHANGE-44)
 
 Tři UX úpravy z testování. Scope: **app `@krouzky/web`** (+ úpravy testů).

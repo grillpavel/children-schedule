@@ -146,7 +146,10 @@ export default function Page() {
   return (
     <div className="flex h-screen flex-col">
       <Toolbar gridRef={gridRef} isDirty={isDirty} onMarkSaved={markSaved} />
-      <VariantTabs />
+      {/* Varianty rozvrhu jsou pokročilá funkce — na mobilu skryté (C11 UX). */}
+      <div className="hidden desk:block">
+        <VariantTabs />
+      </div>
 
       {/* Desktop: tři sloupce. Mobil: jeden panel podle spodní navigace. */}
       <main className="relative flex flex-1 overflow-hidden">
@@ -240,7 +243,7 @@ export default function Page() {
             type="button"
             onClick={() => setMobileTab(tab)}
             className={clsx(
-              'flex-1 py-2 text-xs',
+              'flex flex-1 items-center justify-center h-11 text-xs',
               mobileTab === tab ? 'font-medium text-slate-900' : 'text-slate-500',
             )}
           >

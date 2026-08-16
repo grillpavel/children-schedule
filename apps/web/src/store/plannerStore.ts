@@ -7,6 +7,7 @@ import {
   applyDiff as applyDiffToSchedule,
   activitySignature,
   schoolYearHolidays,
+  type ActivityCategory,
   type ActivityOverride,
   type Catalog,
   type CalendarException,
@@ -87,6 +88,8 @@ interface PlannerStore {
   /** Obnovení z autosave — nastaví stav bez zápisu do historie (BL-030). */
   hydrate(state: PlannerState): void;
   setChildAge(childId: string, age: number): void;
+  /** Nastaví zájmy dítěte (personalizace doporučení, CHANGE-51). */
+  setChildInterests(childId: string, interests: ActivityCategory[]): void;
   addChild(): void;
 }
 
@@ -405,6 +408,12 @@ export const usePlannerStore = create<PlannerStore>()(
         commit((draft) => {
           const child = draft.children.find((c) => c.id === childId);
           if (child) child.age = age;
+        }),
+
+      setChildInterests: (childId, interests) =>
+        commit((draft) => {
+          const child = draft.children.find((c) => c.id === childId);
+          if (child) child.interests = interests;
         }),
 
       // Víc dětí = samostatný rozvrh i export na dítě (C6-C2).

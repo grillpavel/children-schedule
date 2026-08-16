@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import {
   colorForActivity,
+  buildRecommendations,
   type ActivityCategory,
   type Weekday,
 } from '@krouzky/domain';
@@ -165,6 +166,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   );
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
+  const setChildInterests = usePlannerStore((s) => s.setChildInterests);
 
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ActivityCategory | ''>('');
@@ -192,6 +194,25 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     setFitOnly(false);
     setStartAfter('');
     setEndBefore('');
+  };
+
+  // Doporučení (CHANGE-51): dnešek je vstup enginu, počítá se v app vrstvě.
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const recommendations = useMemo(
+    () => (child ? buildRecommendations(child, catalog, schedule, todayIso, { limit: 4 }) : []),
+    [child, catalog, schedule, todayIso],
+  );
+  const catalogCategories = useMemo(() => {
+    const set = new Set<ActivityCategory>();
+    for (const a of catalog.activities) set.add(a.category);
+    return [...set].sort((x, y) => CATEGORY_LABELS[x].localeCompare(CATEGORY_LABELS[y], 'cs'));
+  }, [catalog.activities]);
+  const toggleInterest = (cat: ActivityCategory) => {
+    if (!child) return;
+    const next = child.interests.includes(cat)
+      ? child.interests.filter((c) => c !== cat)
+      : [...child.interests, cat];
+    setChildInterests(child.id, next);
   };
 
   const selectedEnrollmentIds = useMemo(() => {
@@ -565,6 +586,73 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
       </div>
 
       <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3">
+        {!hasActiveFilters && child && (
+          <section
+            aria-label="Doporučení"
+            className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2"
+          >
+            <div>
+              <p className="mb-1 text-xs text-slate-500">Co tě baví? (upraví doporučení)</p>
+              <div className="flex flex-wrap gap-1">
+                {catalogCategories.map((cat) => {
+                  const on = child.interests.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleInterest(cat)}
+                      className={clsx(
+                        'rounded-full border px-2 py-0.5 text-xs',
+                        on
+                          ? 'border-slate-800 bg-slate-800 text-white'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100',
+                      )}
+                    >
+                      {CATEGORY_LABELS[cat]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Doporučujeme
+              </h3>
+              {recommendations.length > 0 ? (
+                <ul className="mt-1 space-y-1">
+                  {recommendations.map((rec) => (
+                    <li key={rec.activity.id}>
+                      <button
+                        type="button"
+                        aria-label={`Doporučeno: ${rec.activity.name}`}
+                        onClick={() => selectActivity(rec.activity.id)}
+                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-slate-300 hover:shadow-sm"
+                      >
+                        <div className="text-sm font-medium">{rec.activity.name}</div>
+                        <div className="text-xs text-slate-500" data-testid="rec-category">
+                          {CATEGORY_LABELS[rec.activity.category]}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                          {rec.fit.reasons
+                            .filter((r) => r.ok)
+                            .slice(0, 3)
+                            .map((r) => (
+                              <span key={r.key} className="text-[11px] text-emerald-700">
+                                {r.label}
+                              </span>
+                            ))}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-500">Zatím nemáme co doporučit.</p>
+              )}
+            </div>
+          </section>
+        )}
         {filtered.length === 0 ? (
           <div className="space-y-2">
             <p className="text-sm text-slate-500">

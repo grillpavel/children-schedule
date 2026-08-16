@@ -6,6 +6,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Doporučení kroužků s důvody + výběr zájmů (CHANGE-51)
+
+BL-029 fáze 2a (planner-first). Scope: **app `@krouzky/web`** (+ testy T-122/T-123/T-124). Konzumuje engine z CHANGE-45.
+
+- **FR-1** V nefiltrovaném katalogu sekce „Doporučujeme" — top-4 `buildRecommendations` s pozitivními důvody (✓ …) bez procent.
+- **FR-2** Chipy kategorií přepínají `Child.interests` (nová store akce `setChildInterests` přes `commit` → undo + autosave); doporučení se přepočítá („✓ Odpovídá zájmu …").
+- **FR-3** Sekce jen v nefiltrovaném pohledu (`!hasActiveFilters`); při hledání ustoupí výsledkům.
+- **FR-4** Klik na doporučení otevře detail kroužku.
+- **FR-5** Doporučovací karty mají `aria-label` bez ceny → nekolidují s katalogovým lokátorem; vizuální baseline i počty položek beze změny.
+
+`today` je vstup enginu počítaný v app vrstvě (doména čistá). Spec: `.github/specs/design_review_50.md`. Plná E2E `--workers=1` zelená (desktop + mobile-small, 165 passed) **bez regenerace baseline**; a11y T-300..310 zelené; `tsc` (web) čisté; app HTTP 200. Další bloky BL-029: Home/týden-first, bottom nav Domů/Katalog/Rozvrh/Děti, onboarding.
+
 ### Personalizace Child + doporučovací engine, fáze 1 (CHANGE-45)
 
 BL-029 základ. Scope: **engine `@krouzky/domain`** (0.2.0 → **0.3.0**) + defaulty ve store `@krouzky/web`.

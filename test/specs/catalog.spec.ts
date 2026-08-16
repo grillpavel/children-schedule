@@ -215,3 +215,32 @@ test('T-120: skloňování počtu termínů je gramaticky správně', async ({ p
   });
   expect(wrong, wrong.join('\n')).toHaveLength(0);
 });
+
+// --- 5.7 Doporučení (CHANGE-51) ---
+
+test('T-122: doporučení jsou v nefiltrovaném katalogu a při hledání zmizí', async ({ page }, testInfo) => {
+  await openCatalog(page, testInfo.project.use.viewport!.width);
+  const section = page.getByRole('region', { name: 'Doporučení' });
+  await expect(section.getByRole('heading', { name: 'Doporučujeme' })).toBeVisible();
+  await page.getByRole('searchbox').fill('Atletika');
+  await expect(section).toBeHidden();
+});
+
+test('T-123: zapnutý zájem přidá do doporučení důvod „Odpovídá zájmu"', async ({ page }, testInfo) => {
+  await openCatalog(page, testInfo.project.use.viewport!.width);
+  const section = page.getByRole('region', { name: 'Doporučení' });
+  const firstRec = section.getByRole('button', { name: /^Doporučeno: / }).first();
+  await expect(firstRec).toBeVisible();
+  // Zapni kategorii prvního doporučení → objeví se u něj důvod „Odpovídá zájmu".
+  const category = (await firstRec.getByTestId('rec-category').innerText()).trim();
+  await section.getByRole('button', { name: category, exact: true }).click();
+  await expect(section.getByText(`✓ Odpovídá zájmu ${category}`).first()).toBeVisible();
+});
+
+test('T-124: klik na doporučení otevře detail kroužku', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(isCompact(width), 'detail v pravém panelu je jen na desktopu');
+  await page.getByRole('button', { name: /^Doporučeno: / }).first().click();
+  await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toBeVisible();
+});
+

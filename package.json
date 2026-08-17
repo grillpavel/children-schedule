@@ -1,0 +1,31 @@
+{
+  "name": "krouzky-planner",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Webová aplikace pro sestavení rozvrhu zájmových kroužků dítěte a export do .ics",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:golden": "turbo run test:golden",
+    "test:e2e": "playwright test --config test/playwright.config.ts",
+    "test:e2e:ui": "playwright test --config test/playwright.config.ts --ui",
+    "test:e2e:desktop": "playwright test --config test/playwright.config.ts --project=desktop --project=desktop-narrow",
+    "test:e2e:tablet": "playwright test --config test/playwright.config.ts --project=tablet-portrait --project=tablet-landscape",
+    "test:e2e:mobile": "playwright test --config test/playwright.config.ts --project=mobile --project=mobile-small",
+    "test:e2e:update": "playwright test --config test/playwright.config.ts --update-snapshots",
+    "test:e2e:report": "playwright show-report test/.report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.0"
+  }
+}

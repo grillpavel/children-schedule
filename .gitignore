@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment & secrets
+.env
+.env*.local
+push-to-github.sh
+
+# Test results
+test/.results/
+test/.report/
+test/snapshots/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Turbo
+.turbo/
+
+# IDE
+.vscode/
+.idea/

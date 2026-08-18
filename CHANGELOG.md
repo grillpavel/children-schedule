@@ -6,6 +6,27 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Mobile & tablet usability fix: safe-area, sheet lifecycle (CHANGE-55)
+
+Trigger: analýzy `analysis_53_a.md`/`analysis_53_b.md` (P0 mobilní chyby). Scope: **app `@krouzky/web`** + testy.
+
+- **FR-1** Kořenový shell (`page.tsx`) používá `h-dvh` (100dvh) místo `h-screen` (100vh) — iOS Safari nezohledňuje dynamickou adresní lištu u `100vh`.
+- **FR-2/FR-3** Mobilní spodní navigace i sheet rezervují `env(safe-area-inset-bottom, 0px)` (nav paddingem, sheet `margin-bottom` navíc k nezměněné třídě `bottom-12`, ať zůstane stabilní CSS selektor napříč testy).
+- **FR-4** Mobilní sheet se po kliknutí na primární „Přidat do rozvrhu" automaticky zavře (`onEnrolled` callback, jen z primárního CTA — ne z „Varianty docházky"/„Odebrat").
+- **FR-5** Nové tlačítko „Zavřít" (44×44 px) v hlavičce sheetu, nezávislé na scrollování k „Zpět na souhrn".
+
+Zamítnuté alternativy: plný modal s backdropem (sheet zůstává záměrně neblokující „peek", CHANGE-27) a gesto swipe-down (vyžaduje gesture knihovnu) — obojí sledováno jako `BL-033`, spolu s tabletovým hybrid layoutem 768–1024 px. Spec: `.github/specs/design_review_54.md`. Nové testy T-218/T-219/T-220 (`responsive.spec.ts`). Regrese odhalené plným E2E během opraveny: sdílený helper `enrollFirst` v `a11y.spec.ts` nově má variantu `enrollFirstAndReopen` (T-307/308/310 potřebují sheet znovu otevřený po auto-close; T-303 by tím dostal jiný počáteční bod Tab a odhalil nesouvisející existující mezeru v focus ringu karet katalogu — ponecháno beze změny, `enrollFirst` zůstal původní). Visual baseline `sheet-glass-on/off` přegenerovány (nové tlačítko v hlavičce). Plná E2E `--workers=1` zelená přes **všech 6 profilů (520 passed, 0 failed)**; `tsc` (web) čisté; app HTTP 200.
+
+### GUI redesign: SVG ikony, doporučení sbalitelná, a11y/perf opravy (CHANGE-54)
+
+Retroaktivní záznam — kód shipnut jako commit `4b28b7b` 2026-08-17. Scope: **app `@krouzky/web`** + testy.
+
+- **FR-1** Nová sada SVG ikon (`Icons.tsx`) nahrazuje ASCII znaky (↶ ↷ ▾ 📍 ×) napříč Toolbar/VariantTabs/CatalogPanel/DetailsPanel/HomeScreen/ScheduleGrid/CustomEntryDialog/`page.tsx`/ColorSwatches/MonthView.
+- **FR-2** Katalogová sekce „Doporučení na míru" je defaultně sbalená (přepínač) a omezená na 3 položky (bylo 4) — hlavní tok je katalog → rozvrh → export, ne doporučení.
+- **FR-3/4** Opravy zjištěné E2E po redesignu: kontrast (`text-slate-400`), focus ring offset na barevných puntících, dark mode (nové poloprůhledné třídy nebyly v dark bloku namapované), sklo mimo scroll/vnořené sklo, gradientové pozadí bránící axe spočítat kontrast, šířka sloupce mřížky na 1440 px.
+
+Spec: `.github/specs/design_review_53.md`. Testy T-122–126/T-140/141/155/156/602/603 upraveny na nové UI. Plná E2E `--workers=1` zelená přes **všech 6 profilů (508 passed, 0 failed)**, ověřeno 2× nezávislým čistým během; `tsc` (web) čisté; visual baseline přegenerovány; app HTTP 200.
+
 ### Planner-first shell: Domů (týden-first) + bottom nav + onboarding (CHANGE-53)
 
 BL-029 fáze 2c (poslední bloky). Scope: **app `@krouzky/web`** (+ testy T-215/T-216/T-217).

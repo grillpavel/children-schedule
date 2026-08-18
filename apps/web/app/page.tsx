@@ -12,7 +12,7 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
-import { IconHome, IconFolderOpen, IconCalendar, IconUser } from '@/components/Icons';
+import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose } from '@/components/Icons';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
 // serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
@@ -124,6 +124,14 @@ export default function Page() {
     setSavedSignature(signature ?? stateSignature);
   };
 
+  // Zavře mobilní spodní sheet (CHANGE-55, C-mobile-sheet-close): po úspěšném
+  // přidání i přes tlačítko „Zavřít“, aby nezakrýval spodní navigaci natrvalo.
+  const closeMobileSheet = () => {
+    selectActivity(null);
+    selectCustomEntry(null);
+    setSheetExpanded(false);
+  };
+
   useEffect(() => {
     if (historyLength <= previousHistoryRef.current) {
       previousHistoryRef.current = historyLength;
@@ -149,7 +157,7 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col bg-slate-100/50">
+    <div className="flex h-dvh flex-col bg-slate-100/50">
       <Toolbar gridRef={gridRef} isDirty={isDirty} onMarkSaved={markSaved} />
       {/* Varianty rozvrhu jsou pokročilá funkce — na mobilu skryté (C11 UX). */}
       <div className="hidden desk:block">
@@ -244,7 +252,7 @@ export default function Page() {
       </main>
 
       {/* Mobilní spodní navigace */}
-      <nav className="no-print flex border-t border-slate-200/90 bg-white/95 backdrop-blur desk:hidden shadow-lg">
+      <nav className="no-print flex border-t border-slate-200/90 bg-white/95 backdrop-blur desk:hidden shadow-lg pb-[env(safe-area-inset-bottom,0px)]">
         {(
           [
             ['home', 'Domů', IconHome],
@@ -283,9 +291,12 @@ export default function Page() {
         </button>
       )}
 
-      {/* Mobilní spodní sheet detailu (C8-F7): při výběru nad mřížkou. */}
+      {/* Mobilní spodní sheet detailu (C8-F7): při výběru nad mřížkou. Odsazení
+          zdola počítá s home indikátorem, aby sheet nezmizel pod nav (CHANGE-55).
+          `bottom-12 mb-[env(...)]` (ne přepočtený `bottom`), ať zůstane stabilní
+          CSS selektor `.fixed.inset-x-0.bottom-12` používaný napříč testy. */}
       {isMobile && hasSelection && mobileTab !== 'details' && (
-        <div className="no-print fixed inset-x-0 bottom-12 z-40 desk:hidden">
+        <div className="no-print fixed inset-x-0 bottom-12 mb-[env(safe-area-inset-bottom,0px)] z-40 desk:hidden">
           <div
             className={clsx(
               'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
@@ -293,7 +304,14 @@ export default function Page() {
             )}
           >
             <div className="flex items-center justify-between px-3">
-              <span className="w-10" />
+              <button
+                type="button"
+                onClick={closeMobileSheet}
+                className="flex h-11 w-11 items-center justify-center text-slate-400 hover:text-slate-700"
+                aria-label="Zavřít detail"
+              >
+                <IconClose className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => setSheetExpanded((v) => !v)}
@@ -312,7 +330,7 @@ export default function Page() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto bg-white">
-              <DetailsPanel />
+              <DetailsPanel onEnrolled={closeMobileSheet} />
             </div>
           </div>
         </div>

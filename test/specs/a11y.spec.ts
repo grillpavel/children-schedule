@@ -22,6 +22,19 @@ async function enrollFirst(page: import('@playwright/test').Page, width: number)
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
 }
 
+/** Mobilní sheet se po přidání automaticky zavře (CHANGE-55) — pro testy, které
+ * potřebují zkontrolovat obsah zapsáné aktivity (sklo, souhrn, kontrast uvnitř sheetu),
+ * ho znovu otevřeme kliknutím na stejnou kartu (jen zobrazí stav „V rozvrhu“, `enrollGroup`
+ * se znovu nevolá). Nepoužívat pro testy fokusu (T-303) — změnilo by počáteční bod Tab. */
+async function enrollFirstAndReopen(page: import('@playwright/test').Page, width: number) {
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  const card = cards(page).first();
+  await card.click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+  if (isCompact(width)) await card.click();
+}
+
 async function addCustom(
   page: import('@playwright/test').Page,
   width: number,
@@ -181,7 +194,7 @@ test('T-306: prefers-reduced-motion vypne animace i přechody', async ({ page },
 test('T-307: sklo lze vypnout přepínačem i vysokým kontrastem', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'sklo je jen na mobilním spodním sheetu (C9-G5)');
-  await enrollFirst(page, width);
+  await enrollFirstAndReopen(page, width);
 
   const glass = page.locator('.glass').first();
   await expect(glass).toBeVisible();
@@ -200,7 +213,7 @@ test('T-307: sklo lze vypnout přepínačem i vysokým kontrastem', async ({ pag
 
 test('T-308: obsazenost týdne nese čísla textově, nejen pruhy', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  await enrollFirst(page, width);
+  await enrollFirstAndReopen(page, width);
 
   const detail = isCompact(width)
     ? page.locator('.fixed.inset-x-0.bottom-12')
@@ -241,7 +254,7 @@ test('T-309: překrývající se události nesou v mřížce text, nejen barvu',
 test('T-310: dark mode přepne motiv a axe projde', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
-  await enrollFirst(page, width);
+  await enrollFirstAndReopen(page, width);
 
   const bgLuminance = await page.evaluate(() => {
     const bg = getComputedStyle(document.body).backgroundColor;

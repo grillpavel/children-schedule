@@ -1,4 +1,6 @@
 import { test, expect, isCompact, isThreeColumn } from '../helpers/profiles';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -232,4 +234,49 @@ test('T-217: onboarding se dá odbýt a přepne na katalog', async ({ page }, te
   await expect(page.getByRole('region', { name: 'Rychlé nastavení' })).toBeVisible();
   await page.getByRole('button', { name: 'Hotovo, vybrat kroužky' }).click();
   await expect(page.getByRole('searchbox')).toBeVisible();
+});
+
+// --- Mobilní safe-area a sheet lifecycle (CHANGE-55) ---
+
+test('T-218: mobilní sheet se po přidání do rozvrhu automaticky zavře', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'sheet je jen na mobilu/tabletu');
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  const addBtn = page.getByRole('button', { name: 'Přidat do rozvrhu' });
+  await expect(addBtn).toBeVisible();
+  await addBtn.click();
+  await expect(addBtn).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Zavřít detail' })).toHaveCount(0);
+  // Spodní navigace je hned po zavření klikatelná (žádný residual overlay).
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  await expect(page.getByRole('searchbox')).toBeVisible();
+});
+
+test('T-219: mobilní sheet lze zavřít tlačítkem „Zavřít“ (≥44 px)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'sheet je jen na mobilu/tabletu');
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  const closeBtn = page.getByRole('button', { name: 'Zavřít detail' });
+  await expect(closeBtn).toBeVisible();
+  const box = await closeBtn.boundingBox();
+  expect(box!.width, `šířka ${Math.round(box!.width)}px`).toBeGreaterThanOrEqual(44);
+  expect(box!.height, `výška ${Math.round(box!.height)}px`).toBeGreaterThanOrEqual(44);
+  await closeBtn.click();
+  await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toBeHidden();
+});
+
+test('T-220: shell používá 100dvh a rezervuje safe-area pro spodní navigaci/sheet', async () => {
+  const src = readFileSync(join('apps', 'web', 'app', 'page.tsx'), 'utf8');
+  expect(src, 'koření shell musí použít h-dvh (100vh na iOS Safari nezohledňuje dynamickou lištu)').toMatch(
+    /className="flex h-dvh flex-col/,
+  );
+  expect(src.includes('h-screen'), 'h-screen nesmí zůstat na kořenovém shellu').toBe(false);
+  const safeAreaCount = (src.match(/env\(safe-area-inset-bottom/g) ?? []).length;
+  expect(safeAreaCount, 'nav i sheet musí rezervovat safe-area-inset-bottom').toBeGreaterThanOrEqual(2);
 });

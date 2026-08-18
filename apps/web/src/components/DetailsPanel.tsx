@@ -121,7 +121,8 @@ const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   other: 'Ostatní',
 };
 
-function SelectedActivity() {
+/** `onEnrolled` zavírá mobilní sheet po úspěšném přidání (CHANGE-55); jen primární CTA, ne varianty/odebrání. */
+function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const catalog = usePlannerStore((s) => s.catalog);
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
   const state = usePlannerStore((s) => s.state);
@@ -242,7 +243,11 @@ function SelectedActivity() {
               <button
                 type="button"
                 disabled={!chosenVariant}
-                onClick={() => chosenVariant && enrollGroup(activity.id, chosenVariant)}
+                onClick={() => {
+                  if (!chosenVariant) return;
+                  enrollGroup(activity.id, chosenVariant);
+                  onEnrolled?.();
+                }}
                 className="w-full rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition"
               >
                 Přidat do rozvrhu
@@ -879,14 +884,14 @@ function ScheduleNotices() {
   );
 }
 
-export function DetailsPanel() {
+export function DetailsPanel({ onEnrolled }: { onEnrolled?: () => void } = {}) {
   return (
     <div className="flex h-full flex-col bg-slate-50/40">
       <div className="shrink-0 border-b border-slate-200/80 bg-white shadow-2xs">
         <PinnedSummary />
       </div>
       <div className="flex-1 overflow-y-auto">
-        <SelectedActivity />
+        <SelectedActivity onEnrolled={onEnrolled} />
         <CustomEntryDetail />
         <ScheduleNotices />
       </div>

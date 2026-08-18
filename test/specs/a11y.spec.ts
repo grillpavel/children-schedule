@@ -60,6 +60,10 @@ test('T-300: axe nehlásí porušení úrovně A a AA', async ({ page }, testInf
   // Vypnuté animace → axe měří ustálené barvy, ne přechod (blockIn/toast).
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await enrollFirst(page, width);
+  // Kurzor po posledním kliku („Přidat do rozvrhu“) leží na místě, kam se po
+  // odstranění připnutého týdenního souhrnu (CHANGE-57) posunul jiný prvek —
+  // audit nesmí záviset na hover stavu.
+  await page.mouse.move(0, 0);
   const results = await axe(page).analyze();
   expect(results.violations).toEqual([]);
 });
@@ -69,6 +73,7 @@ test('T-301: sklo nezpůsobuje neurčitý kontrast', async ({ page }, testInfo) 
   // Detail (a na mobilu skleněný sheet) musí být otevřený, ať axe vidí povrchy.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await enrollFirst(page, width);
+  await page.mouse.move(0, 0);
   const results = await axe(page).analyze();
 
   const contrastViolations = results.violations.filter((r) => r.id === 'color-contrast');
@@ -213,19 +218,22 @@ test('T-307: sklo lze vypnout přepínačem i vysokým kontrastem', async ({ pag
 
 test('T-308: obsazenost týdne nese čísla textově, nejen pruhy', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
+  // Souhrn týdne se zobrazuje jen bez výběru kroužku (viz T-148) — po přidání
+  // kroužku vybrat zrušíme, ať vidíme týdenní přehled, ne detail kroužku.
   await enrollFirstAndReopen(page, width);
+  await page.keyboard.press('Escape');
 
-  const detail = isCompact(width)
-    ? page.locator('.fixed.inset-x-0.bottom-12')
-    : isThreeColumn(width)
-      ? page.getByRole('main')
-      : page.getByTestId('info-drawer');
+  let detail: ReturnType<typeof page.getByRole>;
   if (isCompact(width)) {
-    await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
-  } else if (!isThreeColumn(width)) {
-    // Střední šířky: Info je slide-over. Po výběru se otevře sám, jinak přes „Souhrn".
+    await page.getByRole('button', { name: 'Děti', exact: true }).click();
+    detail = page.getByRole('main');
+  } else if (isThreeColumn(width)) {
+    detail = page.getByRole('main');
+  } else {
+    // Střední šířky: Info je slide-over, po odznačení se zavře — otevřeme přes „Souhrn".
     const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
     if (await souhrn.isVisible()) await souhrn.click();
+    detail = page.getByTestId('info-drawer');
   }
 
   await expect(detail.getByRole('heading', { name: 'Obsazenost týdne' })).toBeVisible();

@@ -144,21 +144,13 @@ function classifyActivity(activityName: string, category: ActivityCategory): Gro
   return { root: 'hry_mysleni', sub: 'Ostatní' };
 }
 
-function toMonthlyCzk(amount: number, period: string): number {
-  if (!Number.isFinite(amount)) return Number.NaN;
-  switch (period) {
-    case 'per_month':
-      return amount;
-    case 'per_year':
-      return amount / 12;
-    case 'per_semester':
-      return amount / 5;
-    case 'per_session':
-      return amount * 4;
-    default:
-      return amount;
-  }
-}
+/** Krátké označení období na kartě (skutečná cena, žádný přepočet na měsíc). */
+const PRICE_PERIOD_SHORT: Record<string, string> = {
+  per_month: 'měs',
+  per_semester: 'pol.',
+  per_year: 'rok',
+  per_session: 'lekce',
+};
 
 type SessionSpan = { weekday: Weekday; startMinutes: number; endMinutes: number };
 
@@ -455,7 +447,6 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     const groups = groupsByActivity.get(a.id) ?? [];
     const active = selectedActivityId === a.id;
     const isSelected = selectedActivityIds.has(a.id);
-    const monthly = toMonthlyCzk(a.price.amount, a.price.period);
     const hasSelectedVariant = groups.some((g) => selectedEnrollmentIds.has(`${a.id}::${g.id}`));
     return (
       <button
@@ -496,9 +487,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
         <div className="mt-1.5 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-1.5">
           <span className="font-medium text-slate-700">{sessionLabel(a.id)}</span>
           <div className="text-right">
-            {Number.isFinite(monthly) ? (
+            {Number.isFinite(a.price.amount) ? (
               <span className="font-semibold text-slate-800">
-                {Math.round(monthly)} Kč<span className="font-normal text-slate-500 text-[11px]">/měs</span>
+                {a.price.amount} Kč<span className="font-normal text-slate-500 text-[11px]">/{PRICE_PERIOD_SHORT[a.price.period] ?? a.price.period}</span>
               </span>
             ) : (
               <span className="text-slate-400">Cena neuvedena</span>
@@ -541,7 +532,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Hledat kroužek…"
             data-catalog-search
-            className="w-full rounded-lg border border-slate-200 bg-slate-50/60 pl-8.5 pr-8 py-1.5 text-sm text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50/60 pl-9 pr-8 py-1.5 text-sm text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
           {query && (
             <button

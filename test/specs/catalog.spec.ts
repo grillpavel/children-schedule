@@ -283,4 +283,28 @@ test('T-127: vyhledávání se po přidání kroužku z primárního CTA vypráz
   await expect(search).toHaveValue('');
 });
 
+// --- Ikona lupy nepřekrývá text v hledání (CHANGE-57) ---
+
+test('T-128: ikona lupy v hledání nepřekrývá zadaný text', async ({ page }, testInfo) => {
+  await openCatalog(page, testInfo.project.use.viewport!.width);
+  const search = page.getByRole('searchbox');
+  await search.fill('Basketbal');
+  const layout = await search.evaluate((input) => {
+    const icon = input.parentElement?.querySelector('svg');
+    if (!icon) return null;
+    const iconBox = icon.getBoundingClientRect();
+    const inputBox = input.getBoundingClientRect();
+    return {
+      iconRightRelative: iconBox.right - inputBox.left,
+      paddingLeft: parseFloat(getComputedStyle(input).paddingLeft),
+    };
+  });
+  expect(layout, 'ikona lupy vedle pole nenalezena').not.toBeNull();
+  expect(
+    layout!.paddingLeft,
+    `levý padding pole (${layout!.paddingLeft}px) musí sahat aspoň za pravý okraj ikony (${layout!.iconRightRelative}px)`,
+  ).toBeGreaterThanOrEqual(layout!.iconRightRelative);
+});
+
+
 

@@ -140,15 +140,25 @@ test('T-147: „Smazat vše" není v panelu rychlých akcí', async ({ page }, t
   await expect(page.getByRole('button', { name: /Smazat vše/i })).toHaveCount(0);
 });
 
-test('T-148: souhrn (obsazenost/souhrn/náklady) zůstává připnutý při rolování', async ({ page }, testInfo) => {
+test('T-148: výběr kroužku nahradí týdenní souhrn (obsazenost/souhrn/náklady) jen jeho detailem', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(!isThreeColumn(width), 'připnutý souhrn testujeme na širokém desktopu');
-  await enrollFirst(page, width);
+  test.skip(!isThreeColumn(width), 'souhrn ve třetím sloupci testujeme na širokém desktopu');
   const detail = detailScope(page, width);
-  // Odroluj vnitřní tělo detailu dolů (k úpravě údajů).
-  await detail.getByRole('button', { name: 'Upravit údaje' }).scrollIntoViewIfNeeded();
+  await enrollFirst(page, width);
+  await page.keyboard.press('Escape');
+  // Po odznačení (a s aspoň jedním kroužkem v rozvrhu) je vidět týdenní souhrn.
   for (const h of ['Obsazenost týdne', 'Souhrn týdne', 'Náklady']) {
-    await expect(detail.getByRole('heading', { name: h })).toBeInViewport();
+    await expect(detail.getByRole('heading', { name: h })).toBeVisible();
+  }
+  // Znovu vyber stejný kroužek — souhrn se skryje, zobrazí se jen jeho detail bez fixního záhlaví s celkovými čísly.
+  await cards(page).first().click();
+  for (const h of ['Obsazenost týdne', 'Souhrn týdne', 'Náklady']) {
+    await expect(detail.getByRole('heading', { name: h })).toHaveCount(0);
+  }
+  await page.keyboard.press('Escape');
+  // Po odznačení se souhrn vrátí.
+  for (const h of ['Obsazenost týdne', 'Souhrn týdne', 'Náklady']) {
+    await expect(detail.getByRole('heading', { name: h })).toBeVisible();
   }
 });
 

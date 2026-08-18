@@ -87,22 +87,6 @@ const PRICE_PERIOD_LABELS: Record<string, string> = {
   per_session: 'lekce',
 };
 
-function toMonthlyCzk(amount: number, period: string): number {
-  if (!Number.isFinite(amount)) return Number.NaN;
-  switch (period) {
-    case 'per_month':
-      return amount;
-    case 'per_year':
-      return amount / 12;
-    case 'per_semester':
-      return amount / 5;
-    case 'per_session':
-      return amount * 4;
-    default:
-      return amount;
-  }
-}
-
 const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   sport: 'Sport',
   athletics: 'Atletika',
@@ -166,7 +150,6 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const signupUrl = activity.applicationUrl ?? web;
   const email = provider?.contact.email;
   const contactPerson = provider?.contact.personName;
-  const monthly = toMonthlyCzk(effPrice.amount, effPrice.period);
 
   const isEnrolled = enrolled.length > 0;
   const chosenVariant = groups.some((g) => g.id === variantChoice)
@@ -360,8 +343,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
           <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Cena a věk</div>
           <div className="text-xs text-slate-700">
             <span className="font-semibold text-slate-900">
-              {Number.isFinite(monthly)
-                ? `${Math.round(monthly)} Kč/měs (${effPrice.amount} Kč/${PRICE_PERIOD_LABELS[effPrice.period]})`
+              {Number.isFinite(effPrice.amount)
+                ? `${effPrice.amount} Kč / ${PRICE_PERIOD_LABELS[effPrice.period]}`
                 : 'Cena neuvedena'}
             </span>
             <span> · Vhodné pro {activity.ageMin}–{activity.ageMax} let</span>
@@ -682,8 +665,8 @@ function CustomEntryDetail() {
       )}
       {entry.price && (
         <div className="text-xs text-slate-700 font-medium">
-          {Number.isFinite(toMonthlyCzk(entry.price.amount, entry.price.period))
-            ? `${Math.round(toMonthlyCzk(entry.price.amount, entry.price.period))} Kč/měs (${entry.price.amount} Kč/${PRICE_PERIOD_LABELS[entry.price.period]})`
+          {Number.isFinite(entry.price.amount)
+            ? `${entry.price.amount} Kč / ${PRICE_PERIOD_LABELS[entry.price.period]}`
             : 'Cena neuvedena'}
         </div>
       )}
@@ -776,11 +759,6 @@ function PinnedSummary() {
     }).length +
     customEntries.filter((e) => e.price && Number.isFinite(e.price.amount)).length;
   const pricelessCount = view.summary.activityCount - pricedCount;
-  const monthlyTotal = view.summary.costByPeriod.reduce(
-    (sum, c) => sum + toMonthlyCzk(c.amountCzk, c.period),
-    0,
-  );
-  const yearlyTotal = Math.round(monthlyTotal * 12);
 
   return (
     <section className="space-y-3.5 p-3">
@@ -842,12 +820,17 @@ function PinnedSummary() {
             {pricelessCount > 0 ? ` · ${pricelessCount} bez ceny` : ''}
           </div>
         ) : (
-          <div className="font-bold text-slate-900 text-sm">
-            {yearlyTotal.toLocaleString('cs-CZ')} Kč/rok
-            <span className="block font-normal text-xs text-slate-500 mt-0.5">
-              (~{Math.round(monthlyTotal).toLocaleString('cs-CZ')} Kč/měs)
-              {pricelessCount > 0 ? ` · ${pricelessCount} kroužků bez ceny` : ''}
-            </span>
+          <div className="space-y-0.5">
+            {/* Celá částka za období, žádný přepočet mezi obdobími (pololetní a
+                měsíční cena se nikdy neslévá do jednoho odhadu). */}
+            {view.summary.costByPeriod.map((c) => (
+              <div key={c.period} className="font-bold text-slate-900 text-sm">
+                {c.amountCzk.toLocaleString('cs-CZ')} Kč / {PRICE_PERIOD_LABELS[c.period]}
+              </div>
+            ))}
+            {pricelessCount > 0 && (
+              <div className="font-normal text-xs text-slate-500">{pricelessCount} kroužků bez ceny</div>
+            )}
           </div>
         )}
       </div>
@@ -887,16 +870,25 @@ function ScheduleNotices() {
 }
 
 export function DetailsPanel({ onEnrolled }: { onEnrolled?: () => void } = {}) {
-  return (
-    <div className="flex h-full flex-col bg-slate-50/40">
-      <div className="shrink-0 border-b border-slate-200/80 bg-white shadow-2xs">
-        <PinnedSummary />
-      </div>
-      <div className="flex-1 overflow-y-auto">
+  const hasSelection = usePlannerStore(
+    (s) => s.selectedActivityId !== null || s.selectedCustomEntryId !== null,
+  );
+
+  // Vybraný kroužek/událost ukazuje JEN svůj detail — týdenní souhrn (Obsazenost
+  // týdne/Souhrn týdne/Náklady) sem nepatří a nemá být fixní záhlaví nad detailem.
+  if (hasSelection) {
+    return (
+      <div className="flex h-full flex-col overflow-y-auto bg-slate-50/40">
         <SelectedActivity onEnrolled={onEnrolled} />
         <CustomEntryDetail />
-        <ScheduleNotices />
       </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col overflow-y-auto bg-slate-50/40">
+      <PinnedSummary />
+      <ScheduleNotices />
     </div>
   );
 }

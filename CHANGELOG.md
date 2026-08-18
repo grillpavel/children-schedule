@@ -6,6 +6,16 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Skutečná cena bez přepočtu, detail kroužku bez fixního souhrnu, oprava ikony hledání (CHANGE-57)
+
+Trigger: čtyři konkrétní chyby nahlášené uživatelem přímo z používání aplikace. Scope: **app `@krouzky/web`** + testy.
+
+- **FR-1** Cena kroužku/vlastní události se všude (detail kroužku, detail vlastní události, souhrn nákladů, karta katalogu) zobrazuje ve **skutečně zadané** částce a období — odstraněn přepočet `toMonthlyCzk` na měsíc, který byl v rozporu s vlastním principem domény (ceny za různá období se nikdy neslévají). „Náklady na kroužky" v souhrnu nově vypisují `costByPeriod` po jednotlivých obdobích místo jednoho blendovaného ročního/měsíčního odhadu.
+- **FR-2** `DetailsPanel` zobrazuje týdenní souhrn (Obsazenost týdne/Souhrn týdne/Náklady) **jen** když není nic vybráno. Po kliknutí na kroužek nebo vlastní událost se zobrazí **jen** jeho detail — bez matoucího připnutého agregátního záhlaví nad ním. Vedlejší efekt: „Varianty docházky" (víc termínů pro tentýž kroužek) je teď hned viditelná pod primárním CTA, bez nutnosti scrollovat pod týdenní souhrn.
+- **FR-3** Neplatná Tailwind třída `pl-8.5` (v3 nemá krok `8.5` ve výchozí škále mezer → negenerovala žádné CSS) ve vyhledávacím poli katalogu nahrazena `pl-9` — ikona lupy už nepřekrývá zadaný ani placeholder text.
+
+Spec: `.github/specs/design_review_56.md`. Testy T-148 a T-308 přepsány na nové chování; nový T-128 (ikona lupy, `catalog.spec.ts`). Visual baseline `sheet-glass-on/off` přegenerovány (obsah mobilního sheetu se vizuálně změnil po odstranění souhrnu z vybraného stavu). `vitest` (96 zelených) + `tsc --noEmit` (domain i web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech.
+
 ### Vyhledávání se po přidání vyprázdní + oprava sčítání ceny (CHANGE-56)
 
 Trigger: dva nahlášené defekty. Scope: **engine `@krouzky/domain`** + **app `@krouzky/web`** + testy.

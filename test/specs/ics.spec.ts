@@ -10,6 +10,12 @@ async function openCatalog(page: import('@playwright/test').Page, width: number)
   if (isCompact(width)) await page.getByRole('button', { name: 'Katalog', exact: true }).click();
 }
 
+// Na mobilu (FR-12/FR-13, design_review_65.md) žije "Přidat dítě" jen v záložce
+// „Děti" — v Toolbaru je od CHANGE-66 skrytá stejně jako Věk/přepínač.
+async function openChildrenTab(page: import('@playwright/test').Page, width: number) {
+  if (isCompact(width)) await page.getByRole('button', { name: 'Děti', exact: true }).click();
+}
+
 async function addCustom(
   page: import('@playwright/test').Page,
   width: number,
@@ -141,11 +147,14 @@ test('T-609: export s více dětmi dá samostatný soubor na dítě', async ({ p
   expect(getProperty(raw, 'X-WR-CALNAME')[0], 'kalendář nese jméno dítěte').toBeTruthy();
 
   // C6-C2: víc dětí = samostatný kalendář na dítě (vyžaduje správu více dětí).
+  await openChildrenTab(page, width);
   await expect(page.getByRole('button', { name: /Přidat dítě|Další dítě|Nové dítě/ })).toBeVisible();
 });
 
-test('T-610: export všech dětí stáhne samostatný soubor na každé dítě', async ({ page }) => {
+test('T-610: export všech dětí stáhne samostatný soubor na každé dítě', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
   // C6-C2: druhé dítě → jedním kliknutím dva samostatné .ics.
+  await openChildrenTab(page, width);
   await page.getByRole('button', { name: /Přidat dítě/ }).click();
 
   const downloads: import('@playwright/test').Download[] = [];

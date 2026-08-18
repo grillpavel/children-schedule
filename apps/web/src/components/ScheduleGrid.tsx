@@ -363,6 +363,23 @@ export function ScheduleGrid({
                         style={{ backgroundColor: item.fill }}
                       />
                       <span className="text-sm font-semibold text-slate-900">{item.label}</span>
+                      {/* Konfliktní odznak (FR-11, design_review_65.md): dřív chyběl v Agendě, jen v mřížce. */}
+                      {item.hasHardConflict && (
+                        <span
+                          className="ml-auto shrink-0 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                          title={item.conflictMessage ?? 'Tvrdý konflikt'}
+                        >
+                          Kolize
+                        </span>
+                      )}
+                      {item.hasSoftConflict && !item.hasHardConflict && (
+                        <span
+                          className="ml-auto shrink-0 text-amber-500"
+                          title={item.conflictMessage ?? 'Upozornění'}
+                        >
+                          ●
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -548,14 +565,14 @@ export function ScheduleGrid({
                                 />
                               )}
                               {item.hasHardConflict && (
-                                <span className="absolute right-1 top-1 rounded bg-red-600/90 text-white px-1 text-[10px] font-bold" title="Tvrdý konflikt">
+                                <span className="absolute right-1 top-1 rounded bg-red-600/90 text-white px-1 text-[10px] font-bold" title={item.conflictMessage ?? 'Tvrdý konflikt'}>
                                   ⚠
                                 </span>
                               )}
                               {item.hasSoftConflict && !item.hasHardConflict && (
                                 <span
                                   className="absolute right-1 top-1 text-amber-300"
-                                  title={item.travelWarningMessage ?? 'Upozornění'}
+                                  title={item.conflictMessage ?? 'Upozornění'}
                                   aria-hidden
                                 >
                                   ●

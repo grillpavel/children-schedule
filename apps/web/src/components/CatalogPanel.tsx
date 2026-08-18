@@ -355,7 +355,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
         (a, b) =>
           a.weekday - b.weekday || a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes,
       )
-      .map((s) => `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}`);
+      .map((s) => `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`);
     const unique = [...new Set(labels)];
     if (unique.length === 0) return 'Termín neuveden';
     if (unique.length === 1) return unique[0]!;
@@ -515,7 +515,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
           <div className="text-right">
             {Number.isFinite(a.price.amount) ? (
               <span className="font-semibold text-slate-800">
-                {a.price.amount} Kč<span className="font-normal text-slate-500 text-[11px]">/{PRICE_PERIOD_SHORT[a.price.period] ?? a.price.period}</span>
+                {a.price.amount.toLocaleString('cs-CZ')} Kč<span className="font-normal text-slate-500 text-[11px]">/{PRICE_PERIOD_SHORT[a.price.period] ?? a.price.period}</span>
               </span>
             ) : (
               <span className="text-slate-400">Cena neuvedena</span>
@@ -531,7 +531,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                 <span key={g.id} className="rounded bg-white px-1.5 py-0.5 font-medium shadow-2xs">
                   {g.label ??
                     g.sessions
-                      .map((s) => `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}`)
+                      .map(
+                        (s) =>
+                          `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`,
+                      )
                       .join(', ')}
                 </span>
               ))}

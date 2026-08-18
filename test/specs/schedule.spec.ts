@@ -190,3 +190,31 @@ test('T-163: krátký přesun mezi různými místy nese logistické upozorněn�
   }
   await expect(page.getByTitle(/přesun/).first()).toBeVisible();
 });
+
+// --- Konkrétní odůvodnění i pro tvrdé kolize (CHANGE-66, design_review_65.md FR-11) ---
+
+test('T-165: tvrdý konflikt v mřížce jmenuje obě kolidující události, ne jen „Tvrdý konflikt"', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await addCustom(page, width, 'Konflikt Sever', '16:00', '17:00');
+  await addCustom(page, width, 'Konflikt Jih', '16:00', '17:00');
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  const badge = page.getByTitle(/Konflikt (Sever|Jih)/).first();
+  await expect(badge).toBeVisible();
+  const title = await badge.getAttribute('title');
+  expect(title, 'zpráva nejmenuje první kolidující událost').toContain('Konflikt Sever');
+  expect(title, 'zpráva nejmenuje druhou kolidující událost').toContain('Konflikt Jih');
+});
+
+test('T-166: Agenda na mobilu ukazuje konfliktní odznak, ne jen mřížka', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'Agenda je výchozí pohled jen na mobilu <900px');
+  await addCustom(page, width, 'Agenda Sever', '16:00', '17:00');
+  await addCustom(page, width, 'Agenda Jih', '16:00', '17:00');
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  // Agenda je výchozí mobilní pohled (T-215) — odznak musí být vidět bez přepnutí do Mřížky.
+  await expect(page.getByText('Kolize', { exact: true }).first()).toBeVisible();
+});

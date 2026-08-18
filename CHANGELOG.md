@@ -6,6 +6,17 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Konsolidace v6 UX auditu — 5 opravených nálezů (CHANGE-66)
+
+Trigger: tři nové UX analýzy (`analysis_65_a/b/c.md`) testovaly živý build po CHANGE-60..65. Scope: **app `@krouzky/web`** + testy. Před psaním FR byl každý nález ověřen proti aktuálnímu kódu — 8 z ~14 tvrzení bylo buď už hotovo, nebo věcně nepřesné (viz `design_review_65.md` §0.1); FR-14 (přesun „Vlastní událost") byl na základě vlastní zpětné kontroly zrušen, protože tlačítko je díky flex layoutu vždy viditelné bez scrollu.
+
+- **FR-9**: kompaktní karta katalogu (`sessionLabel()`) nyní ukazuje časový rozsah `start–end`, ne jen začátek termínu (data měla `endMinutes` k dispozici, jen se nepoužívalo).
+- **FR-10**: cena všude (karta katalogu, „Cena a věk" u kroužku i vlastní události) používá `toLocaleString('cs-CZ')` stejně jako Domů/Souhrn — konzistentní tisícový oddělovač.
+- **FR-11**: konkrétní odůvodnění konfliktu (jméno obou kolidujících položek) se nyní zobrazuje i u tvrdých (červených) konfliktů, ne jen u logistických (dřív se generovaná zpráva u H1–H5 zahazovala). Mobilní Agenda (výchozí pohled) nově nese stejný odznak jako mřížka — dřív tam konflikty nebyly vidět vůbec.
+- **FR-12 + FR-13**: mobilní horní lišta (`<900px`) je odlehčená — „Věk" vstup, přepínač dítěte a „Přidat dítě" se přesunuly ze vždy-viditelného Toolbaru do nové sekce `MobileChildrenPanel` v záložce „Děti" (dřív tato záložka jen duplicitně ukazovala týdenní souhrn). Undo/redo zůstala v Toolbaru (nízké riziko, žádný test na ně necílil).
+
+Spec: `.github/specs/design_review_65.md` (IMPLEMENTED; NEEDS INPUT otázky pro FR-12/FR-13 vyřešeny agentem dle §3, uživatel zadal „implementuj vše"). Nové testy T-164, T-165, T-166, T-167; upraveny T-609/T-610 (na kompaktních profilech nejdřív otevřou záložku „Děti"). Vizuální baseline `toolbar`/`empty-info`/`info-dark`/`catalog-filtered` regenerovány pro mobil/mobile-small (+ `empty-info` pro tablet-portrait). `vitest` (domain, 102 testů, beze změny) zelené; `tsc --noEmit` (domain+web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech.
+
 ### Dokončení redesignu v5: zbylých 5 FR z design_review_58.md (CHANGE-61 až CHANGE-65)
 
 Trigger: uživatel požádal o dokončení celého seznamu FR z `design_review_58.md` (DRAFT CHANGE-59). Scope: **engine `@krouzky/domain` 0.3.0 → 0.4.0** (CHANGE-63, CHANGE-65) + **app `@krouzky/web`** + testy.

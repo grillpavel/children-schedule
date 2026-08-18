@@ -160,6 +160,21 @@ test('T-162: na středních šířkách (900–1439) zůstává katalog vedle de
   ).toBeLessThanOrEqual(detailBox.x + 1);
 });
 
+test('T-167: mobilní horní lišta je odlehčená, správu dětí nese záložka „Děti" (FR-12/FR-13)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'odlehčená lišta platí jen na mobilu <900px');
+
+  // Lišta neukazuje "Věk:" vstup ani "Přidat dítě" přímo — jen čitelné jméno dítěte.
+  await expect(page.getByRole('banner').getByText('Věk:', { exact: true })).toBeHidden();
+  await expect(page.getByRole('banner').getByRole('button', { name: /Přidat dítě/ })).toBeHidden();
+
+  // Záložka „Děti" nese skutečnou správu: přepnutí/chip dítěte, editovatelný věk, přidání.
+  await page.getByRole('button', { name: 'Děti', exact: true }).click();
+  const childrenSection = page.getByRole('main').locator('section[aria-label="Děti"]');
+  await expect(childrenSection.getByRole('button', { name: /Přidat dítě/ })).toBeVisible();
+  await expect(childrenSection.getByLabel('Věk dítěte')).toBeVisible();
+});
+
 test('T-211: bottom sheet v peek ukáže název i primární akci', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'bottom sheet je jen na mobilu/tabletu');

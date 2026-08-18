@@ -33,8 +33,8 @@ export interface Block extends PlacedSession {
   hasHardConflict: boolean;
   /** Má měkké upozornění. */
   hasSoftConflict: boolean;
-  /** Konkrétní důvod logistické kolize (FR-8, design_review_58.md), pokud existuje. */
-  travelWarningMessage: string | undefined;
+  /** Konkrétní odůvodnění libovolného konfliktu (FR-11, design_review_65.md), pokud existuje. */
+  conflictMessage: string | undefined;
 }
 
 export interface ScheduleView {
@@ -66,12 +66,12 @@ export function useScheduleView(): ScheduleView {
 
     const hardByOwner = new Set<string>();
     const softByOwner = new Set<string>();
-    const travelMessageByOwner = new Map<string, string>();
+    const conflictMessageByOwner = new Map<string, string>();
     for (const conflict of report.conflicts) {
       const target = conflict.severity === 'hard' ? hardByOwner : softByOwner;
-      for (const id of conflict.enrollmentIds) target.add(id);
-      if (conflict.kind === 'travel_infeasible') {
-        for (const id of conflict.enrollmentIds) travelMessageByOwner.set(id, conflict.message);
+      for (const id of conflict.enrollmentIds) {
+        target.add(id);
+        if (!conflictMessageByOwner.has(id)) conflictMessageByOwner.set(id, conflict.message);
       }
     }
 
@@ -99,7 +99,7 @@ export function useScheduleView(): ScheduleView {
         text: color.text,
         hasHardConflict: hardByOwner.has(p.ownerId),
         hasSoftConflict: softByOwner.has(p.ownerId),
-        travelWarningMessage: travelMessageByOwner.get(p.ownerId),
+        conflictMessage: conflictMessageByOwner.get(p.ownerId),
       };
     });
 

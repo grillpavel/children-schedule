@@ -218,17 +218,20 @@ export function Toolbar({
 
   return (
     <header className="no-print relative z-50 flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white px-3 py-2 shadow-sm">
-      {/* Sekce Profil dítěte */}
+      {/* Sekce Profil dítěte. Přepínač/přidání/věk žijí jen na desktopu — na mobilu
+          (FR-12/FR-13, design_review_65.md) je to jen čitelný odznak, správu dětí
+          řeší záložka „Děti" (page.tsx), aby horní lišta nebyla přeplněná. */}
       <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white text-xs shadow-sm">
           {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-3.5 w-3.5" />}
         </div>
+        <span className="truncate font-medium text-slate-800 px-1 desk:hidden">{child.name}</span>
         {state.children.length > 1 ? (
           <select
             value={activeChildId}
             onChange={(e) => setActiveChild(e.target.value)}
             aria-label="Dítě"
-            className="min-w-0 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 font-medium text-slate-800 text-sm focus:ring-1 focus:ring-blue-500"
+            className="hidden min-w-0 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 font-medium text-slate-800 text-sm focus:ring-1 focus:ring-blue-500 desk:block"
           >
             {state.children.map((c) => (
               <option key={c.id} value={c.id}>
@@ -237,12 +240,12 @@ export function Toolbar({
             ))}
           </select>
         ) : (
-          <span className="truncate font-medium text-slate-800 px-1">{child.name}</span>
+          <span className="hidden truncate font-medium text-slate-800 px-1 desk:inline">{child.name}</span>
         )}
         <button
           type="button"
           onClick={addChild}
-          className="shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
+          className="hidden shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition desk:inline-flex"
           title="Přidat další dítě (samostatný rozvrh a export)"
         >
           <span className="inline-flex items-center gap-1">
@@ -252,8 +255,8 @@ export function Toolbar({
         </button>
       </div>
 
-      {/* Věk dítěte */}
-      <label className="flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-2 py-1 text-xs text-slate-600">
+      {/* Věk dítěte (jen desktop — na mobilu se edituje v záložce „Děti") */}
+      <label className="hidden items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-2 py-1 text-xs text-slate-600 desk:flex">
         <span className="font-medium text-slate-700">Věk:</span>
         <input
           type="number"

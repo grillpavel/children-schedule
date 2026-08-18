@@ -327,6 +327,24 @@ test('T-129: karta s více termíny má srozumitelný zápis a klik zobrazí vš
   await expect(page.getByText('Varianty docházky').first()).toBeVisible();
 });
 
+// --- Konec termínu na kartě + tisícový oddělovač ceny (CHANGE-66, design_review_65.md FR-9/FR-10) ---
+
+test('T-164: karta ukazuje konec termínu a cenu s tisícovým oddělovačem', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await expandAll(page);
+
+  // Atletická školička (4 800 Kč/rok, 3 termíny) — dřív karta ukazovala jen
+  // začátek (např. „16:30“), doména má endMinutes u každé Session k dispozici.
+  const multi = cards(page).filter({ hasText: 'Atletická školička' }).first();
+  await expect(multi).toBeVisible();
+  const label = await multi.innerText();
+  expect(label, 'karta neukazuje konec termínu').toMatch(/\d{1,2}:\d{2}–\d{1,2}:\d{2}/);
+
+  const expectedPrice = (4800).toLocaleString('cs-CZ');
+  expect(label, 'cena bez tisícového oddělovače (nekonzistentní s Domů/Souhrn)').toContain(expectedPrice);
+});
+
 // --- Mobil prochází kategorie po jedné úrovni (CHANGE-62, design_review_58.md FR-6) ---
 
 test('T-160: mobil prochází kategorie po jedné úrovni místo „Rozbalit vše"', async ({ page }, testInfo) => {

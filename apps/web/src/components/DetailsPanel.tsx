@@ -355,7 +355,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
           <div className="text-xs text-slate-700">
             <span className="font-semibold text-slate-900">
               {Number.isFinite(effPrice.amount)
-                ? `${effPrice.amount} Kč / ${PRICE_PERIOD_LABELS[effPrice.period]}`
+                ? `${effPrice.amount.toLocaleString('cs-CZ')} Kč / ${PRICE_PERIOD_LABELS[effPrice.period]}`
                 : 'Cena neuvedena'}
             </span>
             <span> · Vhodné pro {activity.ageMin}–{activity.ageMax} let</span>
@@ -699,7 +699,7 @@ function CustomEntryDetail() {
       {entry.price && (
         <div className="text-xs text-slate-700 font-medium">
           {Number.isFinite(entry.price.amount)
-            ? `${entry.price.amount} Kč / ${PRICE_PERIOD_LABELS[entry.price.period]}`
+            ? `${entry.price.amount.toLocaleString('cs-CZ')} Kč / ${PRICE_PERIOD_LABELS[entry.price.period]}`
             : 'Cena neuvedena'}
         </div>
       )}

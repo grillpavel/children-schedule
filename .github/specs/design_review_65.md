@@ -1,9 +1,8 @@
 # Design Review 65 — Konsolidace tří UX auditů v6 (mobil + tablet, po CHANGE-65)
 
-**Status:** DRAFT
-**Change ID:** CHANGE-66 (kandidát — **NEEDS INPUT** pro FR-12/FR-13, viz §3; FR-9/FR-10/FR-11/FR-14 jsou
-nízkoriziková a lze je zahájit bez další diskuze. Scope app `@krouzky/web`, žádná část zatím
-neimplementována.)
+**Status:** IMPLEMENTED (FR-9/FR-10/FR-11/FR-12/FR-13 hotovo; FR-14 zrušeno, viz §0.1 bod 14)
+**Change ID:** CHANGE-66 (scope app `@krouzky/web`; FR-12/FR-13 rozhodnuty agentem bez dalšího kola
+otázek — uživatel zadal „implementuj vše", viz §3 pro zdokumentované rozhodnutí)
 **Date:** 2026-08-19
 **Repo:** monorepo `Children_schedule` (apps/web)
 **Trigger:** tři nahrané dokumenty v6 (šesté kolo UX auditu, testováno proti živému buildu PO CHANGE-60
@@ -44,7 +43,7 @@ proti aktuálnímu commitu, nebo nález nebyl reprodukovatelný v kódu):
 | 11 | (a/c) Tvrdý (červený) konflikt v mřížce nemá konkrétní odůvodnění, jen statický text „Tvrdý konflikt", zatímco doména už generuje přesnou zprávu s názvy obou kolidujících položek. | `packages/domain/src/conflicts/detect.ts` (H1 ř. 82): `` `${a.label} a ${b.label} se v ${den} překrývají o ${overlap} minut.` `` existuje, ale `useScheduleView.ts`'s `travelMessageByOwner` mapuje **jen** `kind==='travel_infeasible'` — zpráva pro H1/H2/H3/H5 se nikam nepropaguje, `ScheduleGrid.tsx` ukazuje pevný `title="Tvrdý konflikt"`. |
 | 12 | (a/c) Mobilní horní lišta je hustá — najednou dítě/přepínač, věk, stav uložení, undo/redo, „Další". | `Toolbar.tsx`: „Věk dítěte" input a undo/redo tlačítka **nemají** `hidden desk:` (na rozdíl od Kalendáře/barvy, které CHANGE-46 už skryl) — jsou vždy viditelné na všech šířkách. |
 | 13 | (a/c) Spodní tab „Děti" ve skutečnosti nezobrazuje správu dětí (jméno/věk/přidat/přepnout) — jen `DetailsPanel` (souhrn týdne / detail vybrané položky), identicky s desktopovým Info sloupcem. | `page.tsx`: `mobileTab==='details'` mountuje `<DetailsPanel/>`; jediná správa dětí žije v `Toolbar.tsx` (vždy viditelná lišta), ne v tabu, který se tak jmenuje. Toto je vlastní zjištění agenta při validaci (analýzy tento konkrétní nesoulad štítku/obsahu explicitně nepojmenovaly, ale plyne přímo z bodů 1+5). |
-| 14 | (a/c) „Vlastní událost" je až na konci katalogu, za 37 aktivitami a stromem kategorií. | `CatalogPanel.tsx`: tlačítko `onOpenCustom` je na ř. ~1057 z ~1070 řádků JSX — poslední prvek v panelu. |
+| 14 | (a/c) „Vlastní událost" je až na konci katalogu, za 37 aktivitami a stromem kategorií. | **Neplatí.** `CatalogPanel.tsx` je `flex h-full flex-col`: seznam aktivit je prostřední `flex-1 overflow-y-auto` (jediná scrollovatelná oblast), tlačítko `onOpenCustom` je ve TŘETÍM sourozenci — patě BEZ `flex-1`/`flex-grow` — takže je vždy fixně vidět pod seznamem, bez nutnosti scrollovat. Toto je **oprava vlastní chyby agenta**: v předchozí verzi tohoto dokumentu jsem se mylně řídil jen pozicí v souboru (řádek ~1057 z ~1070), ne skutečným CSS rozvržením — přesně ten typ unáhleného závěru, kterému se mám vyhýbat. Původní FR-14/AC-14 jsou proto zrušeny, žádná akce není potřeba. | CatalogPanel.tsx (kořenový `return`, 3 sourozenci: filtry / `ref={listRef}` seznam / pata s `onOpenCustom`) |
 
 ### 0.2 Přístup
 
@@ -72,48 +71,63 @@ proti aktuálnímu commitu, nebo nález nebyl reprodukovatelný v kódu):
 - **FR-11**: `useScheduleView.ts` MUSÍ propojit konkrétní zprávu `Conflict.message` (ne jen pro
   `travel_infeasible`) ke každému bloku s tvrdým i měkkým konfliktem; `ScheduleGrid.tsx`'s `title` atribut
   červeného i jantarového indikátoru MUSÍ zobrazit tuto konkrétní zprávu místo statického textu „Tvrdý
-  konflikt".
-- **FR-12** *(NEEDS INPUT — viz §3)*: Mobilní (`<900px`) horní lišta (`Toolbar.tsx`) MUSÍ mít nižší
-  informační hustotu — „Věk" vstup a undo/redo tlačítka se přesunou mimo vždy-viditelný první řádek.
-- **FR-13** *(NEEDS INPUT — viz §3)*: Spodní mobilní záložka „Děti" MUSÍ zobrazovat skutečnou správu
-  dětí (přepínač, věk, přidat dítě) — dnes duplicitně ukazuje totéž co záložka „Rozvrh"/Info sloupec.
-- **FR-14**: Tlačítko „Vlastní událost" (`onOpenCustom` v `CatalogPanel.tsx`) MUSÍ být viditelné bez
-  scrollování celým seznamem — přesune se pod vyhledávací/filtrovací blok jako sekundární CTA, viditelné i
-  po zafiltrování katalogu.
+  konflikt". Vedlejší zjištění při implementaci: mobilní výchozí pohled Agenda
+  (`mobileAgendaMode==='agenda'`) dnes NEUKAZUJE žádný konfliktní odznak (na rozdíl od týdenní/denní
+  mřížky) — FR-11 přidá stejný odznak (červené „Kolize"/jantarová tečka s `title`) i do položek Agendy,
+  jinak by nová zpráva byla na mobilu (výchozí pohled) neviditelná.
+- **FR-12** *(IMPLEMENTOVÁNO)*: Mobilní (`<900px`) horní lišta (`Toolbar.tsx`) MUSÍ mít nižší
+  informační hustotu — „Věk" vstup, přepínač dítěte a „Přidat dítě" se přesunou mimo vždy-viditelný první
+  řádek (undo/redo zůstávají viditelná — nízké riziko, malé ikony, žádný test na ně necílil, viz §3).
+- **FR-13** *(IMPLEMENTOVÁNO)*: Spodní mobilní záložka „Děti" MUSÍ zobrazovat skutečnou správu
+  dětí (přepínač, věk, přidat dítě) — dřív duplicitně ukazovala totéž co záložka „Rozvrh"/Info sloupec;
+  nová sekce `MobileChildrenPanel` (`page.tsx`) je nyní PŘED tímto souhrnem, souhrn/detail zůstávají pod ní
+  (aditivní řešení, ne náhrada — nižší riziko pro existující testy, viz §3 otázka 2).
+- ~~FR-14~~: zrušeno — nález byl nepřesný, viz §0.1 bod 14 (tlačítko je už vždy viditelné, pata je mimo
+  scrollovatelnou oblast).
 
 ## 2. Acceptance criteria
 
-- **AC-9**: Nový/rozšířený E2E test v `catalog.spec.ts` otevře aktivitu se známým `endMinutes` (např.
-  „Atletická školička") a ověří, že kompaktní karta i seznam termínů v detailu obsahují `\d{1,2}:\d{2}–\d{1,2}:\d{2}` vzor. Vitest doména beze změny (žádná úprava schema/logiky, jen UI čtení existujícího pole).
+- **AC-9**: Nový E2E test v `catalog.spec.ts` (T-164) otevře aktivitu se známým `endMinutes` (např.
+  „Atletická školička") a ověří, že kompaktní karta obsahuje `\d{1,2}:\d{2}–\d{1,2}:\d{2}` vzor. Náhled
+  variant na rozkliknuté kartě (`groups.length > 1`) NEBYL zahrnut do testu — zjištěno při implementaci,
+  že u aktivit s vlastním `SessionGroup.label` v datech katalogu (jako právě „Atletická školička") se
+  zobrazí tento popisek místo dopočítaného rozsahu, takže test na tomto konkrétním datovém vzorku nic
+  neověří; vlastní fallback výpočet v `CatalogPanel.tsx` byl přesto opraven (přidán `endMinutes`) pro
+  aktivity BEZ vlastního labelu. Vitest doména beze změny (žádná úprava schema/logiky, jen UI čtení
+  existujícího pole).
 - **AC-10**: Nový test ověří, že karta s cenou ≥ 1000 Kč zobrazí mezeru jako oddělovač tisíců (`cs-CZ`
   formát, např. „1 200 Kč"); regresně zkontrolovat, že `Cena neuvedena` zůstává beze změny pro `NaN` ceny.
 - **AC-11**: Rozšířený test H1 (`time_overlap`) v `schedule.spec.ts` ověří, že `title` atribut červeného
   indikátoru obsahuje jméno kolidující aktivity (ne jen „Tvrdý konflikt"); existující T-163 (H9 travel)
-  zůstává zelený beze změny chování.
-- **AC-12**: Po dohodě na cílovém řešení — nový/upravený responsive test ověří sníženou výšku/hustotu
-  mobilní lišty (např. počet viditelných interaktivních prvků v prvním řádku), undo zůstává funkční přes
-  klávesovou zkratku i toast tlačítko „Zpět" (existující T-134/T-135/T-137 zůstávají zelené).
-- **AC-13**: Po dohodě na cílovém řešení — nový test otevře záložku „Děti" na mobilu a ověří přítomnost
-  přepínače dítěte / vstupu věku / tlačítka „Přidat dítě" uvnitř této záložky (ne jen v Toolbaru).
-  Existující T-152 (barva přes detail sheet) a T-609/T-610 (více dětí) se přizpůsobí novému umístění, pokud
-  se přesune i funkcionalita z Toolbaru.
-- **AC-14**: Nový test v `catalog.spec.ts` ověří, že „Vlastní událost" je viditelné/dosažitelné bez
-  scrollu i se zapnutým filtrem (např. po zadání hledaného textu, který nic nenajde) — `toBeInViewport()`
-  nebo ekvivalentní kontrola pozice.
+  zůstává zelený beze změny chování. Rozšíření testu ověří i odznak v Agendě (mobil/kompaktní profily).
+- **AC-12**: Nový test T-167 (`responsive.spec.ts`) ověří, že mobilní lišta (`getByRole('banner')`)
+  nezobrazuje „Věk:" popisek ani tlačítko „Přidat dítě" (`toBeHidden()` — v DOM existují, jen jsou CSS
+  skryté); undo zůstává funkční přes klávesovou zkratku i toast tlačítko „Zpět" (existující
+  T-134/T-135/T-137 zůstávají zelené beze změny — undo/redo tlačítka v Toolbaru zůstala viditelná, viz §3).
+- **AC-13**: T-167 dále otevře záložku „Děti" na mobilu a ověří přítomnost tlačítka „Přidat dítě" a
+  popisku `aria-label="Věk dítěte"` uvnitř sekce `section[aria-label="Děti"]`. Existující T-609/T-610
+  (`ics.spec.ts`, více dětí) upraveny — na kompaktních profilech nejdřív otevřou záložku „Děti" (nová
+  helper funkce `openChildrenTab`), protože „Přidat dítě" už není v Toolbaru dosažitelné bez navigace.
+- ~~AC-14~~: zrušeno spolu s FR-14.
 
-## 3. Non-goals / notes — otázky k rozhodnutí a odložené položky
+## 3. Non-goals / notes — rozhodnutí u FR-12/FR-13 a odložené položky
 
-**NEEDS INPUT (FR-12/FR-13):** než založím `CHANGE-<id>` na tyto dvě položky, potřebuji potvrdit:
+**ROZHODNUTO (uživatel zadal „implementuj vše" bez odpovědi na dřívější otázky — agent rozhodl
+nejnižším rizikem, zdokumentováno zde místo dalšího kola dotazů):**
 
-1. Pro FR-12: kam přesně přesunout „Věk" vstup na mobilu, když se dnes edituje jen v Toolbaru (vždy
-   viditelný) a v Home onboarding kartě (jen před prvním nastavením)? Navrhuji sloučit s FR-13 — věk by
-   žil v přepracované záložce „Děti". Souhlasíte s tímto sloučením do jednoho `CHANGE`?
-2. Pro FR-13: má nová záložka „Děti" nahradit dnešní duplicitní `DetailsPanel` obsah úplně, nebo k němu
-   přidat sekci správy dětí navrch (scroll)? Odebrání duplicity by uvolnilo tab pro svůj skutečný účel;
-   přidání navrch je bezpečnější (méně testů se rozbije), ale zachová redundanci se záložkou „Rozvrh".
-3. Undo/redo tlačítka z Toolbaru: přesunout do mobilního „Další ▾" menu, nebo je nechat viditelná (jen
-   zmenšit) vzhledem k tomu, že toast „Zpět" pokrývá nejčastější případ (poslední akce), ale menu by
-   pokrylo hlubší historii?
+1. FR-12 „Věk" vstup: přesunut ze vždy-viditelného Toolbaru do nové sekce `MobileChildrenPanel` v
+   záložce „Děti" (sloučeno s FR-13, jak bylo navrženo). Toolbar na mobilu (`<900px`) nyní ukazuje jen
+   čitelné jméno dítěte (`desk:hidden` větev), přepínač/„Přidat dítě"/věk jsou `hidden … desk:*` (viditelné
+   jen ≥900px, kde bottom nav a záložka „Děti" stejně neexistují).
+2. FR-13 obsah záložky „Děti": zvoleno ADITIVNÍ řešení (bezpečnější varianta) — nová sekce
+   `<section aria-label="Děti">` (chipy dětí + přepínač + editovatelný věk + „Přidat dítě") se vykresluje
+   NAD stávajícím `DetailsPanel` (souhrn týdne / detail), ne místo něj. Redundance se záložkou „Rozvrh"
+   zůstává (týdenní souhrn je dostupný na obou místech) — přijato vědomě, řeší se až případnou budoucí
+   iterací (ne součást tohoto CHANGE).
+3. Undo/redo tlačítka: ponechána viditelná v Toolbaru na všech šířkách (nebyla přesunuta do „Další ▾").
+   Důvod: jsou to dvě malé ikony (ne textové popisky jako „Věk:"), žádný existující test na ně necílil
+   specificky na mobilu, a přesun by přinesl riziko bez jasného přínosu — hlavní zdroj husté lišty byly
+   „Věk" vstup a přepínač/„Přidat dítě", ne tato dvě tlačítka.
 
 Nové položky backlogu vzniklé při validaci (viz `docs/backlog.md`):
 

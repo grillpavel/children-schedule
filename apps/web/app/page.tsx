@@ -12,7 +12,7 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
-import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize } from '@/components/Icons';
+import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize, IconPlus } from '@/components/Icons';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
 // serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
@@ -23,6 +23,65 @@ const ScheduleGrid = dynamic(
 );
 
 type MobileTab = 'home' | 'catalog' | 'grid' | 'details';
+
+/** Skutečná správa dětí pro mobilní záložku „Děti" (FR-13, design_review_65.md) —
+ * dřív tato záložka jen mountovala `DetailsPanel` (souhrn/detail), přepínač dítěte,
+ * věk a přidání žily jen v Toolbaru (skryté na mobilu od FR-12). */
+function MobileChildrenPanel() {
+  const state = usePlannerStore((s) => s.state);
+  const activeChildId = usePlannerStore((s) => s.activeChildId);
+  const setActiveChild = usePlannerStore((s) => s.setActiveChild);
+  const addChild = usePlannerStore((s) => s.addChild);
+  const setChildAge = usePlannerStore((s) => s.setChildAge);
+  const child = state.children.find((c) => c.id === activeChildId);
+  if (!child) return null;
+
+  return (
+    <section aria-label="Děti" className="shrink-0 space-y-2.5 border-b border-slate-200/80 bg-white p-3">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Děti</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        {state.children.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => setActiveChild(c.id)}
+            aria-pressed={c.id === activeChildId}
+            className={clsx(
+              'flex h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition',
+              c.id === activeChildId
+                ? 'border-blue-600 bg-blue-600 text-white shadow-xs'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+            )}
+          >
+            <span>{c.name}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={addChild}
+          className="flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50"
+          title="Přidat další dítě (samostatný rozvrh a export)"
+        >
+          <IconPlus className="h-3 w-3" />
+          <span>Přidat dítě</span>
+        </button>
+      </div>
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+        <span>Věk ({child.name}):</span>
+        <input
+          type="number"
+          min={3}
+          max={19}
+          value={child.age}
+          onChange={(e) => setChildAge(child.id, Number(e.target.value))}
+          aria-label="Věk dítěte"
+          className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <span className="text-slate-400 font-normal">let</span>
+      </label>
+    </section>
+  );
+}
 
 export default function Page() {
   const state = usePlannerStore((s) => s.state);
@@ -209,8 +268,18 @@ export default function Page() {
                 : 'hidden',
           )}
         >
-          {/* Mount jen v aktivním slotu, ať je DetailsPanel v DOM právě jednou (C12). */}
-          {(isWide || (isMobile && mobileTab === 'details')) && <DetailsPanel />}
+          {/* Mount jen v aktivním slotu, ať je DetailsPanel v DOM právě jednou (C12).
+              Mobilní záložka „Děti" navíc nese skutečnou správu dětí nad detailem
+              (FR-13, design_review_65.md) — dřív tu byl jen duplicitní souhrn. */}
+          {isWide && <DetailsPanel />}
+          {isMobile && mobileTab === 'details' && (
+            <div className="flex h-full flex-col">
+              <MobileChildrenPanel />
+              <div className="min-h-0 flex-1">
+                <DetailsPanel />
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* Info na středních šířkách 900–1440 (FR-7, design_review_58.md): trvalý

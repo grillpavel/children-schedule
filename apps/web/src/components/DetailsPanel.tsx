@@ -129,6 +129,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const enrollGroup = usePlannerStore((s) => s.enrollGroup);
   const removeEnrollment = usePlannerStore((s) => s.removeEnrollment);
+  const clearCatalogSearch = usePlannerStore((s) => s.clearCatalogSearch);
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
   const clearActivityOverride = usePlannerStore((s) => s.clearActivityOverride);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
@@ -246,6 +247,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
                 onClick={() => {
                   if (!chosenVariant) return;
                   enrollGroup(activity.id, chosenVariant);
+                  clearCatalogSearch();
                   onEnrolled?.();
                 }}
                 className="w-full rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition"

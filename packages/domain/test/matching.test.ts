@@ -107,7 +107,7 @@ describe('activityFit', () => {
 describe('buildRecommendations', () => {
   it('řadí stabilně (skóre desc, název asc) a vylučuje zapsané', () => {
     const all = buildRecommendations(child(), TEST_CATALOG, makeSchedule(), TODAY);
-    expect(all.map((r) => r.activity.id)).toEqual(['TEST_florbal', 'TEST_keramika']);
+    expect(all.map((r) => r.activity.id)).toEqual(['TEST_florbal', 'TEST_keramika', 'TEST_tanec']);
 
     const afterEnroll = buildRecommendations(
       child(),

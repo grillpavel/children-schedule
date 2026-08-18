@@ -64,6 +64,18 @@ export const TEST_CATALOG: Catalog = {
       // kapacita schválně neuvedena → capacity_unknown
       lastVerifiedAt: '2026-08-01',
     },
+    {
+      // Dvě SAMOSTATNÉ skupiny stejné aktivity (na rozdíl od florbalu, kde je
+      // Po+St v jedné skupině) — pro test, že se cena nepočítá 2× (BL-034/CHANGE-56).
+      id: 'TEST_tanec',
+      providerId: 'TEST_ddm',
+      name: 'TEST Tanec',
+      category: 'dance',
+      ageMin: 6,
+      ageMax: 14,
+      price: { amount: 500, period: 'per_month' },
+      lastVerifiedAt: '2026-08-01',
+    },
   ],
   sessionGroups: [
     {
@@ -101,6 +113,36 @@ export const TEST_CATALOG: Catalog = {
           weekday: 3,
           startMinutes: 960,
           endMinutes: 1020,
+          validFrom: '2026-09-01',
+          validTo: '2027-06-30',
+        },
+      ],
+    },
+    {
+      id: 'TEST_tanec_po',
+      activityId: 'TEST_tanec',
+      sessions: [
+        {
+          id: 'TEST_s_tanec_po',
+          groupId: 'TEST_tanec_po',
+          weekday: 1,
+          startMinutes: 1020, // 17:00
+          endMinutes: 1080,
+          validFrom: '2026-09-01',
+          validTo: '2027-06-30',
+        },
+      ],
+    },
+    {
+      id: 'TEST_tanec_st',
+      activityId: 'TEST_tanec',
+      sessions: [
+        {
+          id: 'TEST_s_tanec_st',
+          groupId: 'TEST_tanec_st',
+          weekday: 3,
+          startMinutes: 1020, // 17:00
+          endMinutes: 1080,
           validFrom: '2026-09-01',
           validTo: '2027-06-30',
         },

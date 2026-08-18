@@ -270,4 +270,17 @@ test('T-126: volné dny přidají k doporučení důvod „Termín ve volném č
   await expect(section.getByText(/Termín ve volném čase/).first()).toBeVisible();
 });
 
+// --- Vyhledávání se po přidání vyprázdní (CHANGE-56) ---
+
+test('T-127: vyhledávání se po přidání kroužku z primárního CTA vyprázdní', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  const search = page.getByRole('searchbox');
+  await search.fill('Basketbal');
+  await expandAll(page);
+  await cards(page).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+  await expect(search).toHaveValue('');
+});
+
 

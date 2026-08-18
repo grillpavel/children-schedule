@@ -197,6 +197,15 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const collapseStateInitializedRef = useRef(false);
 
+  // CatalogPanel zůstává trvale připojený (jen skrytý přes CSS na mobilu), takže
+  // vyhledávání jinak nikdy neresetuje. Po přidání kroužku z primárního CTA se
+  // vyčistí, ať katalog po návratu z jiné záložky neukazuje jen už přidaný
+  // kroužek (CHANGE-56).
+  const clearCatalogSearchNonce = usePlannerStore((s) => s.clearCatalogSearchNonce);
+  useEffect(() => {
+    if (clearCatalogSearchNonce > 0) setQuery('');
+  }, [clearCatalogSearchNonce]);
+
   const hasActiveFilters = Boolean(
     query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore,
   );

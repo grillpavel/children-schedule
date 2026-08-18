@@ -6,6 +6,15 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vyhledávání se po přidání vyprázdní + oprava sčítání ceny (CHANGE-56)
+
+Trigger: dva nahlášené defekty. Scope: **engine `@krouzky/domain`** + **app `@krouzky/web`** + testy.
+
+- **FR-1** `scheduleSummary` počítala cenu kroužku za každý enrollment — kroužek zapsaný do 2/3 samostatných skupin (2×/3× týdně) měl cenu sečtenou 2×/3×, ačkoli cena je za kroužek jako celek. Oprava: deduplikace podle `activityId`.
+- **FR-2** Vyhledávací pole katalogu po přidání kroužku (přes primární CTA) zůstávalo vyfiltrované i po přepnutí na jinou záložku a zpět (`CatalogPanel` je trvale připojený, jen skrytý na mobilu). Nový efemérní store nonce `clearCatalogSearchNonce` (vzor `focusNonce`) vyprázdní pole po úspěšném přidání.
+
+Spec: `.github/specs/design_review_55.md`. Nový doménový test `scheduleSummary.costByPeriod`; nový E2E T-127 (`catalog.spec.ts`). Posouzeny i `analysis_53_a.md` (už řeší CHANGE-55) a `analysis_55_a.md`/`analysis_55_b.md` (velký v4 redesign — zapsáno jako `BL-034`, neimplementováno). `vitest` (96 zelených) + `tsc --noEmit` (domain i web) čisté; E2E beze změny v existujících testech.
+
 ### Mobile & tablet usability fix: safe-area, sheet lifecycle (CHANGE-55)
 
 Trigger: analýzy `analysis_53_a.md`/`analysis_53_b.md` (P0 mobilní chyby). Scope: **app `@krouzky/web`** + testy.

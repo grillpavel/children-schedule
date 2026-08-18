@@ -47,12 +47,17 @@ export function scheduleSummary(
     schedule.customEntries.filter((e) => e.childId === childId).length;
 
   const costMap = new Map<PricePeriod, number>();
+  // Cena kroužku se počítá jednou bez ohledu na to, kolik skupin/termínů týdně
+  // je dítě zapsáno (kroužek 2×/3× týdně má jednu cenu, ne cenu × počet zápisů).
+  const pricedActivityIds = new Set<string>();
   for (const enrollment of schedule.enrollments) {
     if (enrollment.childId !== childId) continue;
+    if (pricedActivityIds.has(enrollment.activityId)) continue;
     const activity = index.activity.get(enrollment.activityId);
     if (!activity) continue;
     // Neznámá cena (NaN) se do rozpočtu nepočítá — není to nula.
     if (!Number.isFinite(activity.price.amount)) continue;
+    pricedActivityIds.add(enrollment.activityId);
     costMap.set(
       activity.price.period,
       (costMap.get(activity.price.period) ?? 0) + activity.price.amount,

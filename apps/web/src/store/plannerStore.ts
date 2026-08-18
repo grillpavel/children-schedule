@@ -42,6 +42,11 @@ interface PlannerStore {
   focusWeekday: Weekday | null;
   focusNonce: number;
 
+  /** Zvýší se po přidání kroužku z primárního CTA — CatalogPanel na to reaguje
+   * vymazáním vyhledávacího pole, ať nezůstává filtrovaný na už přidaný kroužek
+   * (CHANGE-56). */
+  clearCatalogSearchNonce: number;
+
   history: PlannerState[];
   future: PlannerState[];
 
@@ -51,6 +56,8 @@ interface PlannerStore {
   setHoveredGroup(groupId: string | null): void;
   setActiveChild(childId: string): void;
   focusDay(weekday: Weekday): void;
+  /** Vyžádá vymazání vyhledávacího pole katalogu (CHANGE-56). */
+  clearCatalogSearch(): void;
 
   // ---- přímé uživatelské akce (potvrzené kliknutím) ----
   enrollGroup(activityId: string, sessionGroupId: string): void;
@@ -132,6 +139,7 @@ export const usePlannerStore = create<PlannerStore>()(
 
       focusWeekday: null,
       focusNonce: 0,
+      clearCatalogSearchNonce: 0,
 
       history: [],
       future: [],
@@ -164,6 +172,11 @@ export const usePlannerStore = create<PlannerStore>()(
         set((s) => {
           s.focusWeekday = weekday;
           s.focusNonce += 1;
+        }),
+
+      clearCatalogSearch: () =>
+        set((s) => {
+          s.clearCatalogSearchNonce += 1;
         }),
 
       enrollGroup: (activityId, sessionGroupId) => {

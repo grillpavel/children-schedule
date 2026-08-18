@@ -93,8 +93,7 @@ layout, FAB, drill-down navigace kategorií…), ne jednorázová oprava. Tento 
 
 ## 2. Acceptance criteria
 
-- **AC-1** (FR-1) Test ověří, že karta s ≥2 termíny má tappable prvek s vlastním přístupným názvem (ne
-  jen text „+N“) a klik zobrazí úplný seznam termínů s dny a časy.
+- **AC-1** (FR-1) — **hotovo**, viz `design_review_59.md` AC-1/AC-2 (T-129).
 - **AC-2** (FR-2) Test ověří viditelnost nadpisu „Dnes“ nad nadpisem „Tento týden“ na Domů obrazovce bez
   scrollu při výšce mobilního viewportu (390×844 a menší profil 360×780).
 - **AC-3** (FR-3) Test ověří text „Věk odpovídá“ nebo „Mimo doporučený věk“ v detailu, závislý na

@@ -59,10 +59,11 @@ function highlightMatch(text: string, query: string): ReactNode {
   );
 }
 
-function pluralizeVariants(count: number): string {
-  if (count === 1) return 'termín';
-  if (count >= 2 && count <= 4) return 'varianty';
-  return 'variant';
+/** Skloňování počtu dalších termínů (FR-1, design_review_58.md): žádné strohé "+N" bez vysvětlení. */
+function extraTerminText(extra: number): string {
+  if (extra === 1) return '1 další termín';
+  if (extra >= 2 && extra <= 4) return `${extra} další termíny`;
+  return `${extra} dalších termínů`;
 }
 
 const CATEGORY_LABELS: Record<ActivityCategory, string> = {
@@ -333,7 +334,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     const unique = [...new Set(labels)];
     if (unique.length === 0) return 'Termín neuveden';
     if (unique.length === 1) return unique[0]!;
-    return `${unique[0]} · +${unique.length - 1}`;
+    return `${unique[0]} + ${extraTerminText(unique.length - 1)}`;
   };
 
   const normalizedQuery = normalizeCz(query.trim());

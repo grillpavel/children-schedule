@@ -6,6 +6,14 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Srozumitelný zápis dalších termínů na kartě katalogu (CHANGE-60)
+
+Trigger: první prioritizovaná položka (FR-1) z redesign backlogu `design_review_58.md` (DRAFT CHANGE-59). Scope: **app `@krouzky/web`** + testy.
+
+- **FR-1** Kompaktní karta kroužku (i shodně použitá pro seznam „V rozvrhu") nahrazuje strohé „Po 16:30 · +1" srozumitelným zápisem se správným českým skloňováním — „Po 16:30 + 1 další termín" / „+ 2 další termíny" / „+ 5 dalších termínů" (nová `extraTerminText()`). Klik na kartu (jediný interaktivní cíl) beze změny otevře detail se sekcí „Varianty docházky" vypisující úplný seznam termínů — tím FR-1 plní i požadavek „klik zobrazí úplný výpis", aniž by bylo nutné vnořovat další interaktivní prvek do karty (nevalidní `<button>` v `<button>`). Vedlejší úklid: odstraněna mrtvá, nikdy nevolaná `pluralizeVariants()` (chybně kombinovala „termín"/„varianty"/„variant" pro stejný počet).
+
+Spec: `.github/specs/design_review_59.md` (delta na `design_review_58.md` §1 FR-1). Nový test T-129 (`catalog.spec.ts`); upřesněn `BL-035` (BL-031's dřívější tvrzení o vyřešení bylo nepřesné). `tsc --noEmit` (web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech; vizuální baseline beze změny.
+
 ### Redesign v5: konsolidace tří UX auditů — spec dokumentace + drobné opravy sheetu (CHANGE-58, CHANGE-59 DRAFT)
 
 Trigger: tři nahrané dokumenty v5 (`analysis_redesign_specification_a/b/c.md`) + tři konkrétní nahlášené drobnosti v mobilním sheetu detailu. Scope: **app `@krouzky/web`** + testy + dokumentace.

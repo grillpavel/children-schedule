@@ -306,5 +306,26 @@ test('T-128: ikona lupy v hledání nepřekrývá zadaný text', async ({ page }
   ).toBeGreaterThanOrEqual(layout!.iconRightRelative);
 });
 
+// --- Srozumitelný zápis dalších termínů, ne strohé "+N" (CHANGE-60, design_review_58.md FR-1) ---
+
+test('T-129: karta s více termíny má srozumitelný zápis a klik zobrazí všechny termíny', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await expandAll(page);
+
+  // Atletická školička má 3 samostatné skupiny (různé dny/časy), ne jen jednu
+  // skupinu s víc lekcemi — proto se u ní zobrazí i „Varianty docházky“.
+  const multi = cards(page).filter({ hasText: 'Atletická školička' }).first();
+  await expect(multi).toBeVisible();
+  const label = await multi.innerText();
+  expect(label, 'karta bez zápisu dalších termínů').toMatch(/další termín/);
+  // Staré strohé "16:30 · +1" bez vysvětlení je zakázané; kategorie/pořadatel
+  // odděluje "·" jinde v kartě, proto kontrolujeme jen okolí času a čísla.
+  expect(label, 'strohé "čas · +N" bez vysvětlení').not.toMatch(/\d{1,2}:\d{2}\s*·\s*\+\d/);
+
+  await multi.click();
+  await expect(page.getByText('Varianty docházky').first()).toBeVisible();
+});
+
 
 

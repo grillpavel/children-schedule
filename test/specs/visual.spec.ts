@@ -71,6 +71,8 @@ test('T-403: sklo zapnuté i vypnuté má baseline', async ({ page }, testInfo) 
   await expect(sheet).toBeVisible();
   await expect(sheet).toHaveScreenshot('sheet-glass-on.png', { maxDiffPixelRatio: 0.02 });
 
-  await page.getByRole('button', { name: /Bez skla|Sklo/ }).first().click();
+  // Vypnuté sklo je automatická cesta přes vysoký kontrast (ruční přepínač
+  // odstraněn CHANGE-58) — viz T-307.
+  await page.emulateMedia({ contrast: 'more' });
   await expect(sheet).toHaveScreenshot('sheet-glass-off.png', { maxDiffPixelRatio: 0.02 });
 });

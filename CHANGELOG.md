@@ -6,6 +6,15 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Redesign v5: konsolidace tří UX auditů — spec dokumentace + drobné opravy sheetu (CHANGE-58, CHANGE-59 DRAFT)
+
+Trigger: tři nahrané dokumenty v5 (`analysis_redesign_specification_a/b/c.md`) + tři konkrétní nahlášené drobnosti v mobilním sheetu detailu. Scope: **app `@krouzky/web`** + testy + dokumentace.
+
+- **CHANGE-58** (IMPLEMENTED): mobilní spodní sheet detailu ztrácí matoucí textový přepínač „Sklo"/„Bez skla" (zůstávají tři automatické cesty vypnutí skla — `@supports`, `prefers-contrast`, `prefers-reduced-transparency`); dekorativní posuvný pruh nahrazen tlačítkem s ikonou maximalizovat/minimalizovat se stejnou existující logikou (`sheetExpanded`); zavírací „x" beze změny. Navíc oprava dalšího přehlédnutého výskytu přepočtu ceny na měsíc — dlaždice „Náklady" na Domů obrazovce (stejný root cause jako CHANGE-57, `HomeScreen.tsx` nebyl v jeho rozsahu kontrolován).
+- **CHANGE-59** (DRAFT, neimplementováno): konsolidace tří UX auditů do jedné spec-dev dokumentace s křížovou kontrolou proti již odvedené práci (většina požadavků z dokumentů už hotová — bottom nav, doporučení s vysvětlením, dítě jako kontext, safe-area, tap-to-add). Zapsané mezery: ambiguous „+1" notace termínů na kartě katalogu, chybějící „Dnes" blok na Domů, chybějící explicitní porovnání věku dítěte s rozsahem aktivity, obecná (ne na akci) zpráva toastu s 2,4s místo 4s, „Rozbalit vše" místo postupného procházení kategorií na mobilu, chybějící trvalý tabletový master-detail layout, chybějící 3-stavový kolizní systém s logistikou přejezdu (dormant `packages/domain/src/travel`). Vyžaduje produktovou prioritizaci před implementací — nové `BL-035`/`BL-036`/`BL-037`, upřesněn `BL-034`.
+
+Spec: `.github/specs/design_review_57.md` (CHANGE-58), `.github/specs/design_review_58.md` (CHANGE-59, DRAFT). Testy T-307/T-403 upraveny (bez ručního přepínače skla). `tsc --noEmit` (web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech; vizuální baseline `sheet-glass-on/off` přegenerovány.
+
 ### Skutečná cena bez přepočtu, detail kroužku bez fixního souhrnu, oprava ikony hledání (CHANGE-57)
 
 Trigger: čtyři konkrétní chyby nahlášené uživatelem přímo z používání aplikace. Scope: **app `@krouzky/web`** + testy.

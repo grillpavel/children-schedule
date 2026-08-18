@@ -41,19 +41,13 @@ button:not(.no-min-target) {
   border-color: var(--border-glass);
 }
 
-/* Čtyři povinné cesty vypnutí skla (C9-B3). */
+/* Tři povinné cesty vypnutí skla (C9-B3; ruční přepínač odstraněn CHANGE-58). */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass {
     background: var(--bg-surface);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-}
-
-[data-glass='off'] .glass {
-  background: var(--bg-surface);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 @media (prefers-contrast: more) {

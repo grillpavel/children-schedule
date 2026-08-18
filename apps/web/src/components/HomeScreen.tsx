@@ -33,18 +33,13 @@ const CATEGORY_LABELS: Record<ActivityCategory, string> = {
 
 const ONBOARD_KEY = 'krouzky:onboarded';
 
-function monthlyCzk(amount: number, period: string): number {
-  switch (period) {
-    case 'per_year':
-      return amount / 12;
-    case 'per_semester':
-      return amount / 5;
-    case 'per_session':
-      return amount * 4;
-    default:
-      return amount;
-  }
-}
+/** Krátké označení období (skutečná cena, žádný přepočet na měsíc). */
+const PRICE_PERIOD_SHORT: Record<string, string> = {
+  per_month: 'měs',
+  per_semester: 'pol.',
+  per_year: 'rok',
+  per_session: 'lekce',
+};
 
 /** Domovská obrazovka (týden-first): souhrn, doporučení a rychlé nastavení. */
 export function HomeScreen({
@@ -85,9 +80,6 @@ export function HomeScreen({
   if (!child) return null;
 
   const showOnboarding = !onboarded && view.summary.activityCount === 0;
-  const monthlyTotal = Math.round(
-    view.summary.costByPeriod.reduce((sum, c) => sum + monthlyCzk(c.amountCzk, c.period), 0),
-  );
   const conflictCount = view.conflicts.filter((c) => c.severity === 'hard').length;
 
   const toggleInterest = (cat: ActivityCategory) => {
@@ -185,7 +177,17 @@ export function HomeScreen({
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
               <dt className="text-[11px] font-semibold text-slate-500">Náklady</dt>
-              <dd className="mt-0.5 text-base font-bold text-slate-900">{monthlyTotal} Kč<span className="text-[11px] font-normal text-slate-500">/měs</span></dd>
+              <dd className="mt-0.5 text-base font-bold text-slate-900">
+                {view.summary.costByPeriod.length === 0 ? (
+                  <span className="text-sm font-semibold text-slate-400">bez ceny</span>
+                ) : (
+                  view.summary.costByPeriod.map((c) => (
+                    <div key={c.period}>
+                      {c.amountCzk.toLocaleString('cs-CZ')} Kč<span className="text-[11px] font-normal text-slate-500">/{PRICE_PERIOD_SHORT[c.period] ?? c.period}</span>
+                    </div>
+                  ))
+                )}
+              </dd>
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
               <dt className="text-[11px] font-semibold text-slate-500">Kolize</dt>

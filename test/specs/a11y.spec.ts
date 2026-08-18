@@ -196,7 +196,7 @@ test('T-306: prefers-reduced-motion vypne animace i přechody', async ({ page },
   expect(motion, 'žádné běžící animace ani přechody').toEqual([]);
 });
 
-test('T-307: sklo lze vypnout přepínačem i vysokým kontrastem', async ({ page }, testInfo) => {
+test('T-307: vysoký kontrast vypne sklo', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'sklo je jen na mobilním spodním sheetu (C9-G5)');
   await enrollFirstAndReopen(page, width);
@@ -204,13 +204,8 @@ test('T-307: sklo lze vypnout přepínačem i vysokým kontrastem', async ({ pag
   const glass = page.locator('.glass').first();
   await expect(glass).toBeVisible();
 
-  // Přepínač „Bez skla".
-  await page.getByRole('button', { name: /Bez skla|Sklo/ }).first().click();
-  const filterOff = await glass.evaluate((el) => getComputedStyle(el).backdropFilter);
-  expect(filterOff, 'přepínač vypne backdrop-filter').toBe('none');
-
-  // Vysoký kontrast (prefers-contrast: more).
-  await page.getByRole('button', { name: /Bez skla|Sklo/ }).first().click();
+  // Vysoký kontrast (prefers-contrast: more) je automatická cesta vypnutí skla
+  // (ruční přepínač „Bez skla“ byl odstraněn CHANGE-58, matoucí dev žargon v UI).
   await page.emulateMedia({ contrast: 'more' });
   const filterContrast = await glass.evaluate((el) => getComputedStyle(el).backdropFilter);
   expect(filterContrast, 'vysoký kontrast vypne backdrop-filter').toBe('none');

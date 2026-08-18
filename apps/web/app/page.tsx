@@ -12,7 +12,7 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
-import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose } from '@/components/Icons';
+import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize } from '@/components/Icons';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
 // serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
@@ -49,7 +49,6 @@ export default function Page() {
   const [isWide, setIsWide] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
-  const [glassOff, setGlassOff] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const toastTimerRef = useRef<number | null>(null);
   const previousHistoryRef = useRef(historyLength);
@@ -72,16 +71,6 @@ export default function Page() {
     media.addEventListener('change', sync);
     return () => media.removeEventListener('change', sync);
   }, []);
-
-  // Manuální přepínač skla je primární cesta vypnutí (C9-B3); ukládá se do relace.
-  useEffect(() => {
-    const stored = window.sessionStorage.getItem('glassOff') === '1';
-    setGlassOff(stored);
-  }, []);
-  useEffect(() => {
-    document.documentElement.dataset.glass = glassOff ? 'off' : '';
-    window.sessionStorage.setItem('glassOff', glassOff ? '1' : '0');
-  }, [glassOff]);
 
   // Klávesové zkratky undo/redo.
   useEffect(() => {
@@ -315,18 +304,10 @@ export default function Page() {
               <button
                 type="button"
                 onClick={() => setSheetExpanded((v) => !v)}
-                className="flex flex-1 items-center justify-center py-2"
+                className="flex h-11 w-11 items-center justify-center text-slate-400 hover:text-slate-700"
                 aria-label={sheetExpanded ? 'Zmenšit detail' : 'Zvětšit detail'}
               >
-                <span className="h-1.5 w-12 rounded-full bg-slate-300" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setGlassOff((v) => !v)}
-                className="w-12 text-[11px] font-medium text-slate-500"
-                aria-pressed={glassOff}
-              >
-                {glassOff ? 'Sklo' : 'Bez skla'}
+                {sheetExpanded ? <IconMinimize className="h-4 w-4" /> : <IconMaximize className="h-4 w-4" />}
               </button>
             </div>
             <div className="flex-1 overflow-y-auto bg-white">

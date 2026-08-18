@@ -1,8 +1,8 @@
 # Design Review 58 — Redesign v5: konsolidace tří UX auditů (mobil + tablet)
 
-**Status:** DRAFT
-**Change ID:** CHANGE-59 (kandidát — **NEEDS INPUT**, viz §3; scope app `@krouzky/web`, žádná část
-zatím neimplementována)
+**Status:** IMPLEMENTED (všech 8 FR hotovo přes CHANGE-60..65, viz §3 aktualizace)
+**Change ID:** CHANGE-59 (původní DRAFT — konsolidační spec-dev dokumentace, scope app `@krouzky/web`;
+skutečná implementace proběhla v navazujících CHANGE-60 až CHANGE-65)
 **Date:** 2026-08-18
 **Repo:** monorepo `Children_schedule` (apps/web)
 **Trigger:** tři nahrané dokumenty v5 (páté kolo UX auditu po `analysis_53_a/b.md` a `analysis_55_a/b.md`):
@@ -94,40 +94,23 @@ layout, FAB, drill-down navigace kategorií…), ne jednorázová oprava. Tento 
 ## 2. Acceptance criteria
 
 - **AC-1** (FR-1) — **hotovo**, viz `design_review_59.md` AC-1/AC-2 (T-129).
-- **AC-2** (FR-2) Test ověří viditelnost nadpisu „Dnes“ nad nadpisem „Tento týden“ na Domů obrazovce bez
-  scrollu při výšce mobilního viewportu (390×844 a menší profil 360×780).
-- **AC-3** (FR-3) Test ověří text „Věk odpovídá“ nebo „Mimo doporučený věk“ v detailu, závislý na
-  `activity.ageMin/ageMax` vs `child.age` (ne jen statický rozsah).
-- **AC-4** (FR-4) Test vytvoří vlastní událost typu „Lékař“ a ověří, že se typ uloží (round-trip export/
-  import) a v rozvrhu má odlišnou výchozí barvu od typu „Kroužek“.
-- **AC-5** (FR-5) Test smaže zapsaný kroužek a ověří text toastu obsahuje jeho název; `page.clock`
-  posune o 4000 ms a ověří zmizení (ne dřív, ne podstatně později).
-- **AC-6** (FR-6) Test na mobilním profilu ověří, že po otevření katalogu je viditelná jen jedna úroveň
-  kategorií najednou a tlačítko „Rozbalit vše“ v DOM chybí; na tabletovém/desktopovém profilu zůstává.
-- **AC-7** (FR-7) Test na `tablet-portrait`/`tablet-landscape` profilu ověří, že po výběru kroužku zůstává
-  katalog viditelný souběžně s detailem (ne překrytý slide-overem přes celou šířku).
-- **AC-8** (FR-8) Doménový test: aktivita A (16:00–17:00, lokalita X) + aktivita B (17:05–18:05, lokalita
-  Y, buffer 15 min) → stav `warning` (🟠), ne `none` ani `direct`. Přímý překryv → `direct` (🔴). Stejná
-  lokalita nebo dostatečná mezera → `none` (🟢).
+- **AC-2** (FR-2) — **hotovo**, viz `design_review_60.md` AC-1 (T-216).
+- **AC-3** (FR-3) — **hotovo**, viz `design_review_60.md` AC-2 (ověřeno manuálně, viz tam §3).
+- **AC-4** (FR-4) — **hotovo**, viz `design_review_62.md` AC-2 (T-161).
+- **AC-5** (FR-5) — **hotovo**, viz `design_review_60.md` AC-3 (T-137).
+- **AC-6** (FR-6) — **hotovo (upraveno)**, viz `design_review_61.md` AC-1 (T-160) — „Rozbalit vše“
+  zůstává v DOM i na mobilu jako zkratka, viz tam §0.2 pro zdůvodnění odchylky.
+- **AC-7** (FR-7) — **hotovo**, viz `design_review_63.md` AC-1 (T-162).
+- **AC-8** (FR-8) — **hotovo**, viz `design_review_64.md` AC-1 (doménové testy) + AC-2 (T-163).
 
-## 3. Non-goals / notes — prioritizace a nové BL
+## 3. Non-goals / notes — všechny FR implementovány
 
-**NEEDS INPUT:** pořadí implementace níže je doporučení, ne rozhodnutí — potvrdit s uživatelem před
-založením prvního navazujícího `CHANGE-<id>`.
+**AKTUALIZACE:** všech 8 FR z této DRAFT specifikace bylo implementováno v CHANGE-60 až 65 (viz
+`design_review_59.md`, `design_review_60.md`, `design_review_61.md`, `design_review_62.md`,
+`design_review_63.md`, `design_review_64.md`). Tento dokument zůstává jako záznam původní analýzy a
+křížové kontroly (§0.2) proti už odvedené práci.
 
-Doporučené fázování (přínos/riziko):
-
-- **P0 (malé, izolované, nízké riziko):** FR-1 (termíny), FR-3 (věková shoda), FR-5 (toast zpráva/4s).
-  Každé lze udělat jako samostatný malý `CHANGE` bez zásahu do architektury.
-- **P1 (středně velké, vyžadují novou strukturu, ale ohraničené):** FR-2 (Domů „Dnes“), FR-4 (FAB typy
-  vlastní události — potřebuje nové pole `CustomEntry.type` v doméně), FR-6 (drill-down kategorií —
-  vyžaduje nový navigační stav v `CatalogPanel`).
-- **P2 (velké, mezikomponentové, měly by mít vlastní design review):** FR-7 (tabletový master-detail —
-  přesahuje `BL-033`, dotýká se breakpointů napříč testy), FR-8 (3-stavový kolizní engine s geodaty a
-  nastavením per dítě — největší položka, vyžaduje datový model pro „minimální čas přesunu“ a UI pro jeho
-  nastavení; toto JE `BL-034`'s P1 „Travel Time Matrix“, jen nyní formálně specifikováno).
-
-Nové položky backlogu (viz `docs/backlog.md`):
+Nové položky backlogu vzniklé během implementace (viz `docs/backlog.md`):
 
 - **BL-035** — FR-6 (drill-down kategorií na mobilu) + oprava zápisu k „+1“ (BL-031 poznámka byla nepřesná
   — netýkala se kompaktní karty katalogu, jen jinam použité, dnes nevolané `pluralizeVariants`).

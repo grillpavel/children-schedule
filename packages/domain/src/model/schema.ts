@@ -209,6 +209,9 @@ export const customEntrySchema = z.object({
   id: z.string(),
   childId: z.string(),
   name: z.string(),
+  /** Předvolený typ vlastní události (CHANGE-63, FR-4) — určuje výchozí barvu/ikonu,
+   * pokud uživatel nezvolí vlastní přes `colorOverride`. */
+  kind: z.enum(['circle', 'school', 'doctor', 'other']).default('other'),
   sessions: z.array(customSessionSchema).min(1),
   location: addressSchema.optional(),
   contact: contactSchema.optional(),
@@ -338,7 +341,7 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(4),
+  schemaVersion: z.literal(5),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),

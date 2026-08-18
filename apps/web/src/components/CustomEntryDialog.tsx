@@ -1,12 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import type { CustomEntry, PricePeriod, Weekday } from '@krouzky/domain';
+import type { CustomEntry, CustomEntryKind, PricePeriod, Weekday } from '@krouzky/domain';
 import { usePlannerStore } from '@/store/plannerStore';
 import { newId } from '@/lib/ids';
 import { WEEKDAYS } from '@/lib/grid';
 import { geocodeAddress, offlineGeocode } from '@/lib/geocode';
 import { IconClose, IconPlus } from './Icons';
+
+/** Předvolený typ vlastní události (FR-4, design_review_58.md) — určuje výchozí barvu. */
+const KIND_OPTIONS: { value: CustomEntryKind; label: string; icon: string }[] = [
+  { value: 'circle', label: 'Kroužek', icon: '🏀' },
+  { value: 'school', label: 'Škola', icon: '🏫' },
+  { value: 'doctor', label: 'Lékař', icon: '🩺' },
+  { value: 'other', label: 'Jiné', icon: '📌' },
+];
 
 interface TimeRow {
   weekday: Weekday;
@@ -40,6 +48,7 @@ export function CustomEntryDialog({
   const first = editEntry?.sessions[0];
 
   const [name, setName] = useState(editEntry?.name ?? '');
+  const [kind, setKind] = useState<CustomEntryKind>(editEntry?.kind ?? 'other');
   const [rows, setRows] = useState<TimeRow[]>(
     editEntry
       ? editEntry.sessions.map((s) => ({
@@ -97,6 +106,7 @@ export function CustomEntryDialog({
       id: editEntry?.id ?? newId('cust'),
       childId: editEntry?.childId ?? activeChildId,
       name: name.trim(),
+      kind,
       sessions: rows.map((r, i) => ({
         id: editEntry?.sessions[i]?.id ?? newId('cs'),
         weekday: r.weekday,
@@ -144,6 +154,28 @@ export function CustomEntryDialog({
         </div>
 
         <div className="space-y-3 text-xs">
+          <div>
+            <span className="font-semibold text-slate-700">Typ události</span>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {KIND_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={kind === opt.value}
+                  onClick={() => setKind(opt.value)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                    kind === opt.value
+                      ? 'border-blue-600 bg-blue-600 text-white shadow-2xs'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span aria-hidden>{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label className="block">
             <span className="font-semibold text-slate-700">Název události / aktivity</span>
             <input

@@ -110,6 +110,7 @@ const customEvery3: CustomEntry = {
   id: 'ce_every3',
   childId: 'TEST_child',
   name: 'TEST Logopedie',
+  kind: 'other',
   sessions: [
     {
       id: 'ce_s',

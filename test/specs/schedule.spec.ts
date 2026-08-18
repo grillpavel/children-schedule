@@ -113,6 +113,26 @@ test('T-135: po přidání se zobrazí toast s akcí Zpět', async ({ page }, te
   await expect(page.getByRole('button', { name: 'Zpět', exact: true })).toBeVisible();
 });
 
+test('T-137: toast nese název kroužku a zmizí po chvíli (ne obecná zpráva)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  const card = cards(page).filter({ hasText: 'Basketbal — přípravka' }).first();
+  await card.click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+  const toast = page.getByText('Basketbal — přípravka přidán do rozvrhu');
+  await expect(toast).toBeVisible();
+  await expect(toast).toBeHidden({ timeout: 6000 });
+
+  // Mobilní sheet se po přidání automaticky zavře (CHANGE-55) — pro odebrání
+  // musíme kartu znovu otevřít (ukáže jen stav „V rozvrhu", enrollGroup se
+  // znovu nevolá).
+  if (isCompact(width)) await card.click();
+  // Odebrání nese vlastní zprávu, ne stejný text jako přidání.
+  await page.getByRole('button', { name: 'Odebrat z rozvrhu' }).click();
+  await expect(page.getByText('Basketbal — přípravka odebrán z rozvrhu')).toBeVisible();
+});
+
 test('T-136: „Přidat první kroužek" otevře detail a zaměří hledání', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(isCompact(width) || !isThreeColumn(width), 'CTA cílí na stálý katalog desktopu');
@@ -125,4 +145,48 @@ test('T-136: „Přidat první kroužek" otevře detail a zaměří hledání', 
       document.activeElement?.hasAttribute('data-catalog-search'),
   );
   expect(focused, 'hledání katalogu není zaměřené').toBe(true);
+});
+
+test('T-161: vlastní událost typu Škola nese typový štítek v detailu', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await dialog.getByRole('button', { name: 'Škola', exact: true }).click();
+  await dialog.getByPlaceholder('Např. Logopedie').fill('Škola doučování');
+  await dialog.locator('input[type="time"]').nth(0).fill('08:00');
+  await dialog.locator('input[type="time"]').nth(1).fill('12:00');
+  await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+
+  if (isCompact(width)) await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  await page.getByRole('main').getByRole('button', { name: /Škola doučování/ }).first().click();
+  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
+  await expect(detail.getByText('🏫').first()).toBeVisible();
+  await expect(detail.getByText('Škola', { exact: true }).first()).toBeVisible();
+});
+
+test('T-163: krátký přesun mezi různými místy nese logistické upozornění (FR-8)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  const addCustomWithAddress = async (name: string, start: string, end: string, address: string) => {
+    await openCatalog(page, width);
+    await page.getByRole('button', { name: /Vlastní událost/ }).click();
+    const dialog = page.locator('.fixed.inset-0.z-50');
+    await dialog.getByPlaceholder('Např. Logopedie').fill(name);
+    await dialog.locator('input[type="time"]').nth(0).fill(start);
+    await dialog.locator('input[type="time"]').nth(1).fill(end);
+    await dialog.getByPlaceholder('Ulice a číslo, Město').fill(address);
+    await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+  };
+
+  // Dva různé kroužky na stejný den, jen 5 minut mezi koncem a začátkem,
+  // na dvou různých adresách — logisticky těsné (FR-8, design_review_58.md).
+  await addCustomWithAddress('Kroužek Sever', '16:00', '17:00', 'Hlavní 1, Praha');
+  await addCustomWithAddress('Kroužek Jih', '17:05', '18:05', 'Vedlejší 2, Brno');
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  await expect(page.getByTitle(/přesun/).first()).toBeVisible();
 });

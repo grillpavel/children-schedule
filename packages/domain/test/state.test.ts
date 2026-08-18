@@ -63,7 +63,7 @@ describe('scheduleSummary', () => {
 
 describe('state IO', () => {
   const state: PlannerState = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     children: [
       { id: 'c', name: 'TEST Dítě', age: 9, interests: [], availability: [], schoolEndByWeekday: {} },
     ],
@@ -130,7 +130,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v1);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(4);
+      expect(parsed.value.schemaVersion).toBe(5);
       expect(parsed.value.schedules[0]!.customEntries[0]!.sessions[0]!.everyWeeks).toBe(2);
     }
   });
@@ -142,7 +142,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v2);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(4);
+      expect(parsed.value.schemaVersion).toBe(5);
       expect(parsed.value.overrides).toEqual([]);
     }
   });
@@ -156,9 +156,44 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v3);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(4);
+      expect(parsed.value.schemaVersion).toBe(5);
       expect(parsed.value.children[0]!.interests).toEqual([]);
       expect(parsed.value.children[0]!.availability).toEqual([]);
+    }
+  });
+
+  it('migruje v4 (bez CustomEntry.kind) → v5 (kind: "other")', () => {
+    const v4 = {
+      ...state,
+      schemaVersion: 4,
+      schedules: [
+        {
+          ...makeSchedule(),
+          customEntries: [
+            {
+              id: 'ce',
+              childId: 'c',
+              name: 'TEST vlastní',
+              sessions: [
+                {
+                  id: 's',
+                  weekday: 1,
+                  startMinutes: 900,
+                  endMinutes: 960,
+                  validFrom: '2026-09-01',
+                  validTo: '2027-06-30',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const parsed = parsePlannerState(v4);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.schemaVersion).toBe(5);
+      expect(parsed.value.schedules[0]!.customEntries[0]!.kind).toBe('other');
     }
   });
 

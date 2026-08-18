@@ -147,6 +147,19 @@ test('T-210: prázdný pravý panel je užší než naplněný', async ({ page }
     .toBeGreaterThan(emptyBox!.width);
 });
 
+test('T-162: na středních šířkách (900–1439) zůstává katalog vedle detailu, ne pod ním (FR-7)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(isCompact(width) || isThreeColumn(width), 'master-detail platí jen na středních šířkách 900–1439');
+  await enrollFirst(page);
+  const catalogBox = (await page.getByRole('searchbox').boundingBox())!;
+  const detailBox = (await infoPanel(page).boundingBox())!;
+  expect(catalogBox.width, 'katalog musí mít rozumnou šířku, ne skrytý pod detailem').toBeGreaterThan(150);
+  expect(
+    catalogBox.x + catalogBox.width,
+    'katalog a detail se nesmí překrývat (master-detail, ne overlay)',
+  ).toBeLessThanOrEqual(detailBox.x + 1);
+});
+
 test('T-211: bottom sheet v peek ukáže název i primární akci', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'bottom sheet je jen na mobilu/tabletu');
@@ -223,8 +236,15 @@ test('T-215: mobil má nav Domů/Katalog/Rozvrh/Děti a výchozí je Domů', asy
 
 test('T-216: Home ukazuje souhrn i doporučení a CTA otevře katalog', async ({ page }, testInfo) => {
   test.skip(!isCompact(testInfo.project.use.viewport!.width), 'Home je mobilní záložka');
-  await expect(page.getByRole('region', { name: 'Tento týden' })).toBeVisible();
+  const today = page.getByRole('region', { name: 'Dnes' });
+  const week = page.getByRole('region', { name: 'Tento týden' });
+  await expect(today).toBeVisible();
+  await expect(week).toBeVisible();
   await expect(page.getByRole('region', { name: 'Doporučení' })).toBeVisible();
+  // FR-2 (design_review_58.md): „Dnes" má prioritu nad týdenním přehledem.
+  const todayY = (await today.boundingBox())!.y;
+  const weekY = (await week.boundingBox())!.y;
+  expect(todayY, '„Dnes" má být nad „Tento týden"').toBeLessThan(weekY);
   await page.getByRole('button', { name: 'Procházet katalog' }).click();
   await expect(page.getByRole('searchbox')).toBeVisible();
 });

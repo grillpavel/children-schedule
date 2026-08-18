@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectConflicts, type Enrollment } from '../src/index.js';
+import { detectConflicts, type CustomEntry, type Enrollment } from '../src/index.js';
 import {
   TEST_CATALOG,
   TEST_CHILD,
@@ -103,5 +103,96 @@ describe('detectConflicts', () => {
     });
     const cap = report.conflicts.find((c) => c.kind === 'capacity_unknown');
     expect(cap?.severity).toBe('soft');
+  });
+});
+
+describe('detectConflicts — H9 travel_infeasible (FR-8, design_review_58.md)', () => {
+  const customA: CustomEntry = {
+    id: 'ce_a',
+    childId: 'TEST_child',
+    name: 'TEST Kroužek A',
+    kind: 'other',
+    location: { street: 'TEST Ulice A', city: 'TEST_Město', lat: 50.0, lon: 15.0 },
+    sessions: [
+      { id: 'ce_a_s', weekday: 1, startMinutes: 960, endMinutes: 1020, validFrom: TEST_SCHOOL_YEAR.start, validTo: TEST_SCHOOL_YEAR.end },
+    ],
+  };
+  const customBTight: CustomEntry = {
+    id: 'ce_b',
+    childId: 'TEST_child',
+    name: 'TEST Kroužek B',
+    kind: 'other',
+    location: { street: 'TEST Ulice B', city: 'TEST_Město', lat: 50.02, lon: 15.02 },
+    sessions: [
+      { id: 'ce_b_s', weekday: 1, startMinutes: 1025, endMinutes: 1085, validFrom: TEST_SCHOOL_YEAR.start, validTo: TEST_SCHOOL_YEAR.end },
+    ],
+  };
+
+  it('různá místa, mezera 5 min < rezerva 15 min → travel_infeasible (soft)', () => {
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [customA, customBTight] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+      options: { transferBufferMinutes: 15 },
+    });
+    const travel = report.conflicts.filter((c) => c.kind === 'travel_infeasible');
+    expect(travel).toHaveLength(1);
+    expect(travel[0]!.severity).toBe('soft');
+  });
+
+  it('stejné místo → bez kolize i s krátkou mezerou', () => {
+    const sameLoc: CustomEntry = { ...customBTight, location: customA.location };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [customA, sameLoc] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+      options: { transferBufferMinutes: 15 },
+    });
+    expect(report.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
+  });
+
+  it('dostatečná mezera i u různých míst → bez kolize', () => {
+    const later: CustomEntry = {
+      ...customBTight,
+      sessions: [{ ...customBTight.sessions[0]!, startMinutes: 1200, endMinutes: 1260 }],
+    };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [customA, later] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+      options: { transferBufferMinutes: 15 },
+    });
+    expect(report.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
+  });
+
+  it('chybějící adresa → přeskočeno (skippedChecks), ne aproximováno', () => {
+    const noLoc: CustomEntry = { ...customBTight, location: undefined };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [customA, noLoc] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(report.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
+    expect(report.skippedChecks.some((s) => s.check === 'H9_tight_transfer')).toBe(true);
+  });
+
+  it('přímý časový překryv zůstává time_overlap (hard), ne travel_infeasible', () => {
+    const overlapping: CustomEntry = {
+      ...customBTight,
+      sessions: [{ ...customBTight.sessions[0]!, startMinutes: 1000, endMinutes: 1060 }],
+    };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [customA, overlapping] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+      options: { transferBufferMinutes: 15 },
+    });
+    expect(report.conflicts.some((c) => c.kind === 'time_overlap')).toBe(true);
+    expect(report.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
   });
 });

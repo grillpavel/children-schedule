@@ -28,6 +28,7 @@ export default function Page() {
   const state = usePlannerStore((s) => s.state);
   const catalog = usePlannerStore((s) => s.catalog);
   const historyLength = usePlannerStore((s) => s.history.length);
+  const lastActionLabel = usePlannerStore((s) => s.lastActionLabel);
   const undo = usePlannerStore((s) => s.undo);
   const redo = usePlannerStore((s) => s.redo);
   const hydrate = usePlannerStore((s) => s.hydrate);
@@ -134,7 +135,7 @@ export default function Page() {
     toastTimerRef.current = window.setTimeout(() => {
       setShowChangeToast(false);
       toastTimerRef.current = null;
-    }, 2400);
+    }, 4000);
   }, [historyLength]);
 
   useEffect(() => {
@@ -212,12 +213,13 @@ export default function Page() {
           {(isWide || (isMobile && mobileTab === 'details')) && <DetailsPanel />}
         </aside>
 
-        {/* Info slide-over pro střední šířky 900–1440 (C9-L1): overlay uvnitř
-            <main>, aby nezakrýval nástrojovou lištu; otevře výběr nebo „Souhrn". */}
+        {/* Info na středních šířkách 900–1440 (FR-7, design_review_58.md): trvalý
+            sloupec vedle katalogu a mřížky (master-detail), ne overlay přes obsah —
+            otevře výběr nebo „Souhrn". Test id `info-drawer` beze změny. */}
         {!isMobile && !isWide && (hasSelection || mediumInfoOpen) && (
           <div
             data-testid="info-drawer"
-            className="no-print absolute inset-y-0 right-0 z-40 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right"
+            className="no-print shrink-0 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xs animate-in slide-in-from-right"
           >
             <div className="flex shrink-0 justify-end border-b border-slate-200 p-1.5">
               <button
@@ -320,7 +322,7 @@ export default function Page() {
       {showChangeToast && (
         <div className="no-print pointer-events-none fixed bottom-16 left-1/2 z-50 -translate-x-1/2">
           <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-xl motion-safe:animate-[toastIn_180ms_ease-out]">
-            <span>Změna uložena do varianty</span>
+            <span>{lastActionLabel ?? 'Změna uložena do varianty'}</span>
             <button
               type="button"
               onClick={() => {

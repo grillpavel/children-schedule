@@ -50,6 +50,7 @@ export type AvailabilityWindow = z.infer<typeof availabilityWindowSchema>;
 export type EnrollmentStatus = z.infer<typeof enrollmentStatusSchema>;
 export type Enrollment = z.infer<typeof enrollmentSchema>;
 export type CustomEntry = z.infer<typeof customEntrySchema>;
+export type CustomEntryKind = CustomEntry['kind'];
 export type ActivityOverride = z.infer<typeof activityOverrideSchema>;
 
 // ---------- Omezení ----------

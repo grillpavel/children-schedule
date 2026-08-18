@@ -128,6 +128,7 @@ export function Toolbar({
         id: newId('ce'),
         childId: activeChildId,
         name: ev.name,
+        kind: 'other',
         sessions: ev.sessions.map((s) => ({
           id: newId('cs'),
           weekday: s.weekday,

@@ -47,6 +47,12 @@ interface PlannerStore {
    * (CHANGE-56). */
   clearCatalogSearchNonce: number;
 
+  /** Text poslední akce pro toast (CHANGE-61, FR-5, design_review_58.md) — např.
+   * "Basketbal přidán do rozvrhu". `lastActionNonce` se zvýší při každé změně,
+   * ať se toast zobrazí i při opakování stejného textu. */
+  lastActionLabel: string | null;
+  lastActionNonce: number;
+
   history: PlannerState[];
   future: PlannerState[];
 
@@ -113,13 +119,22 @@ function activeSchedule(state: PlannerState): NamedSchedule {
 
 export const usePlannerStore = create<PlannerStore>()(
   immer((set, get) => {
-    /** Uloží snapshot do historie a nastaví nový stav. */
-    const commit = (mutate: (draft: PlannerState) => void) => {
+    /** Uloží snapshot do historie a nastaví nový stav. Volitelný `after` běží ve stejné
+     * transakci a má přístup na celý store (ne jen `draft: PlannerState`) — používá
+     * se pro ephemerální pole jako `lastActionLabel` (CHANGE-61). */
+    const commit = (
+      mutate: (draft: PlannerState) => void,
+      after?: (store: PlannerStore) => void,
+    ) => {
       set((store) => {
         store.history.push(current(store.state));
         if (store.history.length > HISTORY_LIMIT) store.history.shift();
         store.future = [];
+        // Reset na null, ať nezůstane viset stará zpráva u akcí bez vlastního
+        // popisku (`after` ji případně přepíše — CHANGE-61).
+        store.lastActionLabel = null;
         mutate(store.state);
+        after?.(store);
       });
     };
 
@@ -140,6 +155,8 @@ export const usePlannerStore = create<PlannerStore>()(
       focusWeekday: null,
       focusNonce: 0,
       clearCatalogSearchNonce: 0,
+      lastActionLabel: null,
+      lastActionNonce: 0,
 
       history: [],
       future: [],
@@ -181,41 +198,64 @@ export const usePlannerStore = create<PlannerStore>()(
 
       enrollGroup: (activityId, sessionGroupId) => {
         const childId = get().activeChildId;
-        commit((draft) => {
-          const schedule = activeSchedule(draft);
-          // FR-3 (CHANGE-2): povolen více než jeden termín téže aktivity.
-          // Klik na již zapsanou skupinu ji odebere (toggle).
-          const existing = schedule.enrollments.find(
-            (e) =>
-              e.childId === childId &&
-              e.activityId === activityId &&
-              e.sessionGroupId === sessionGroupId,
-          );
-          if (existing) {
-            schedule.enrollments = schedule.enrollments.filter(
-              (e) => e.id !== existing.id,
+        const activityName = NOVE_STRASECI_CATALOG.activities.find((a) => a.id === activityId)?.name ?? 'Kroužek';
+        let label = '';
+        commit(
+          (draft) => {
+            const schedule = activeSchedule(draft);
+            // FR-3 (CHANGE-2): povolen více než jeden termín téže aktivity.
+            // Klik na již zapsanou skupinu ji odebere (toggle).
+            const existing = schedule.enrollments.find(
+              (e) =>
+                e.childId === childId &&
+                e.activityId === activityId &&
+                e.sessionGroupId === sessionGroupId,
             );
-            return;
-          }
-          const enrollment: Enrollment = {
-            id: newId('enr'),
-            childId,
-            activityId,
-            sessionGroupId,
-            status: 'selected',
-            pinned: false,
-          };
-          schedule.enrollments.push(enrollment);
-        });
+            if (existing) {
+              schedule.enrollments = schedule.enrollments.filter(
+                (e) => e.id !== existing.id,
+              );
+              label = `${activityName} odebrán z rozvrhu`;
+              return;
+            }
+            const enrollment: Enrollment = {
+              id: newId('enr'),
+              childId,
+              activityId,
+              sessionGroupId,
+              status: 'selected',
+              pinned: false,
+            };
+            schedule.enrollments.push(enrollment);
+            label = `${activityName} přidán do rozvrhu`;
+          },
+          (store) => {
+            store.lastActionLabel = label;
+            store.lastActionNonce += 1;
+          },
+        );
       },
 
-      removeEnrollment: (enrollmentId) =>
-        commit((draft) => {
-          const schedule = activeSchedule(draft);
-          schedule.enrollments = schedule.enrollments.filter(
-            (e) => e.id !== enrollmentId,
-          );
-        }),
+      removeEnrollment: (enrollmentId) => {
+        let label = 'Kroužek odebrán z rozvrhu';
+        commit(
+          (draft) => {
+            const schedule = activeSchedule(draft);
+            const enrollment = schedule.enrollments.find((e) => e.id === enrollmentId);
+            const activityName = enrollment
+              ? (NOVE_STRASECI_CATALOG.activities.find((a) => a.id === enrollment.activityId)?.name ?? 'Kroužek')
+              : 'Kroužek';
+            schedule.enrollments = schedule.enrollments.filter(
+              (e) => e.id !== enrollmentId,
+            );
+            label = `${activityName} odebrán z rozvrhu`;
+          },
+          (store) => {
+            store.lastActionLabel = label;
+            store.lastActionNonce += 1;
+          },
+        );
+      },
 
       changeVariant: (enrollmentId, newGroupId) =>
         commit((draft) => {
@@ -227,9 +267,15 @@ export const usePlannerStore = create<PlannerStore>()(
         }),
 
       addCustomEntry: (entry) =>
-        commit((draft) => {
-          activeSchedule(draft).customEntries.push(entry);
-        }),
+        commit(
+          (draft) => {
+            activeSchedule(draft).customEntries.push(entry);
+          },
+          (store) => {
+            store.lastActionLabel = `${entry.name} přidán do rozvrhu`;
+            store.lastActionNonce += 1;
+          },
+        ),
 
       addCustomEntries: (entries) =>
         commit((draft) => {
@@ -243,13 +289,23 @@ export const usePlannerStore = create<PlannerStore>()(
           if (i !== -1) schedule.customEntries[i] = entry;
         }),
 
-      removeCustomEntry: (entryId) =>
-        commit((draft) => {
-          const schedule = activeSchedule(draft);
-          schedule.customEntries = schedule.customEntries.filter(
-            (e) => e.id !== entryId,
-          );
-        }),
+      removeCustomEntry: (entryId) => {
+        let label = 'Událost odebrána z rozvrhu';
+        commit(
+          (draft) => {
+            const schedule = activeSchedule(draft);
+            const entry = schedule.customEntries.find((e) => e.id === entryId);
+            schedule.customEntries = schedule.customEntries.filter(
+              (e) => e.id !== entryId,
+            );
+            label = `${entry?.name ?? 'Událost'} odebrána z rozvrhu`;
+          },
+          (store) => {
+            store.lastActionLabel = label;
+            store.lastActionNonce += 1;
+          },
+        );
+      },
 
       setActivityOverride: (activityId, patch) =>
         commit((draft) => {

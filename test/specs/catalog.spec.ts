@@ -327,5 +327,31 @@ test('T-129: karta s více termíny má srozumitelný zápis a klik zobrazí vš
   await expect(page.getByText('Varianty docházky').first()).toBeVisible();
 });
 
+// --- Mobil prochází kategorie po jedné úrovni (CHANGE-62, design_review_58.md FR-6) ---
+
+test('T-160: mobil prochází kategorie po jedné úrovni místo „Rozbalit vše"', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'drill-down platí jen na mobilu <900px');
+  await openCatalog(page, width);
+
+  // Výchozí stav: jen kořenové kategorie, žádné karty ani „Rozbalit vše" strom.
+  await expect(page.getByRole('button', { name: /Sport a pohyb/ })).toBeVisible();
+  expect(await cards(page).count(), 'karty nemají být vidět bez rozkliknutí kategorie').toBe(0);
+
+  await page.getByRole('button', { name: /Sport a pohyb/ }).click();
+  await expect(page.getByRole('button', { name: '← Zpět na kategorie' })).toBeVisible();
+
+  // Buď rovnou karty (kategorie bez podkategorií), nebo podkategorie k dalšímu rozkliknutí.
+  if ((await cards(page).count()) === 0) {
+    await page.getByRole('button', { name: /Míčové a týmové sporty/ }).click();
+  }
+  await expect(cards(page).first()).toBeVisible();
+
+  // „Rozbalit vše" zůstává dostupné jako zkratka (i na mobilu) a přeskočí na klasický strom.
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await expect(page.getByText(/Sport a pohyb.*\(\d+\)/)).toBeVisible();
+  await expect(cards(page).first()).toBeVisible();
+});
+
 
 

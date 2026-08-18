@@ -7,6 +7,7 @@ import {
   type Activity,
   type ActivityCategory,
   type Address,
+  type CustomEntryKind,
   type PricePeriod,
   type Provider,
 } from '@krouzky/domain';
@@ -87,6 +88,14 @@ const PRICE_PERIOD_LABELS: Record<string, string> = {
   per_session: 'lekce',
 };
 
+/** Typ vlastní události (FR-4, design_review_58.md) — ikona a český popisek v detailu. */
+const CUSTOM_KIND_META: Record<CustomEntryKind, { label: string; icon: string }> = {
+  circle: { label: 'Kroužek', icon: '🏀' },
+  school: { label: 'Škola', icon: '🏫' },
+  doctor: { label: 'Lékař', icon: '🩺' },
+  other: { label: 'Jiné', icon: '📌' },
+};
+
 const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   sport: 'Sport',
   athletics: 'Atletika',
@@ -158,6 +167,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const nameEdited = override?.name !== undefined;
   const addressEdited = override?.address !== undefined;
   const priceEdited = override?.price !== undefined;
+  const child = state.children.find((c) => c.id === activeChildId);
+  const ageMatches = child ? child.age >= activity.ageMin && child.age <= activity.ageMax : undefined;
 
   return (
     <section className="border-b border-slate-200/80 bg-white">
@@ -350,6 +361,23 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             <span> · Vhodné pro {activity.ageMin}–{activity.ageMax} let</span>
             {priceEdited && <EditedMark />}
           </div>
+          {child !== undefined && (
+            <div
+              className={clsx(
+                'flex items-center gap-1 text-[11px] font-semibold',
+                ageMatches ? 'text-emerald-700' : 'text-amber-700',
+              )}
+            >
+              {ageMatches ? (
+                <>
+                  <IconCheck className="h-3 w-3" />
+                  <span>Věk odpovídá ({child.name}, {child.age} let)</span>
+                </>
+              ) : (
+                <span>⚠ Mimo doporučený věk ({child.name}, {child.age} let)</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Kontakt */}
@@ -637,10 +665,15 @@ function CustomEntryDetail() {
   const [editing, setEditing] = useState(false);
 
   if (!selectedCustomEntryId || !entry) return null;
+  const kindMeta = CUSTOM_KIND_META[entry.kind];
 
   return (
     <section className="space-y-2 border-b border-slate-200/80 bg-white p-3">
       <h2 className="text-base font-bold text-slate-900">✎ {entry.name}</h2>
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+        <span aria-hidden>{kindMeta.icon}</span>
+        <span>{kindMeta.label}</span>
+      </span>
       <div className="space-y-1 text-xs text-slate-600 font-medium">
         {entry.sessions.map((s) => (
           <div key={s.id} className="flex items-center gap-1">

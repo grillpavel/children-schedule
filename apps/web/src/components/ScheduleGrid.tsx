@@ -555,7 +555,7 @@ export function ScheduleGrid({
                               {item.hasSoftConflict && !item.hasHardConflict && (
                                 <span
                                   className="absolute right-1 top-1 text-amber-300"
-                                  title="Upozornění"
+                                  title={item.travelWarningMessage ?? 'Upozornění'}
                                   aria-hidden
                                 >
                                   ●

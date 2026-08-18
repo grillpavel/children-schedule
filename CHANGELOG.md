@@ -6,6 +6,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Dokončení redesignu v5: zbylých 5 FR z design_review_58.md (CHANGE-61 až CHANGE-65)
+
+Trigger: uživatel požádal o dokončení celého seznamu FR z `design_review_58.md` (DRAFT CHANGE-59). Scope: **engine `@krouzky/domain` 0.3.0 → 0.4.0** (CHANGE-63, CHANGE-65) + **app `@krouzky/web`** + testy.
+
+- **CHANGE-61 (FR-2 + FR-3 + FR-5, app-only):** Domů obrazovka dostala blok „Dnes" (dnešní události, řazené časem) nad „Tento týden"; detail kroužku ukazuje explicitní porovnání věku aktivního dítěte s rozsahem aktivity („✓ Věk odpovídá"/„⚠ Mimo doporučený věk"); toast po přidání/odebrání nese jméno konkrétní položky (ne obecnou zprávu) a zobrazuje se 4 s (bylo 2,4 s) — nové efemérní store pole `lastActionLabel`/`lastActionNonce`, `commit()` helper dostal volitelný `after(store)` callback.
+- **CHANGE-62 (FR-6, app-only):** mobilní katalog (`<900px`) defaultně prochází kategorie po jedné úrovni (kořen → podkategorie → aktivity) místo „Rozbalit vše" zobrazujícího celý strom. „Rozbalit vše"/„Sbalit vše" záměrně zůstávají dostupné i na mobilu jako zkratka (odchylka od doslovného zadání — cca 36 existujících testovacích call-sites na nich stálo napříč 9 spec soubory).
+- **CHANGE-63 (FR-4, engine + app):** nové pole `CustomEntry.kind` (Kroužek/Škola/Lékař/Jiné), `schemaVersion` 4 → 5 s migrací. „Vlastní událost" nabízí typ s výchozí barvou; `useScheduleView` nově skutečně používá `colorOverride`/typ pro barvu bloku (dřív nepoužité pole).
+- **CHANGE-64 (FR-7, app-only):** střední šířky (900–1439 px) dostaly trvalý master-detail sloupec (katalog + detail současně, bez překryvu) místo `absolute` slide-over overlay — jen změna CSS pozicování, breakpointy a test id (`info-drawer`) beze změny.
+- **CHANGE-65 (FR-8, engine + app):** nová detekce logistické kolize `travel_infeasible` (🟠) mezi dvěma různými lokalitami s krátkou mezerou — konečně zapojuje dříve nepoužitý `packages/domain/src/travel/index.ts` (haversine/`travelMinutes`). Amber „●" indikátor v `ScheduleGrid` nese konkrétní odůvodnění místo obecného „Upozornění".
+
+Spec: `.github/specs/design_review_60.md` až `design_review_64.md` (delty na `design_review_58.md`, nyní IMPLEMENTED). Nové testy T-137, T-160, T-161, T-162, T-163 + 5 doménových testů (`conflicts.test.ts`) + 1 migrační test (`state.test.ts`). Uzavřeny `BL-034`/`BL-035`/`BL-036`/`BL-037`; nový `BL-038` (per-dítě nastavení buffer/mód přesunu). `vitest` (domain, 102 testů) zelené; `tsc --noEmit` (domain + web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech.
+
 ### Srozumitelný zápis dalších termínů na kartě katalogu (CHANGE-60)
 
 Trigger: první prioritizovaná položka (FR-1) z redesign backlogu `design_review_58.md` (DRAFT CHANGE-59). Scope: **app `@krouzky/web`** + testy.

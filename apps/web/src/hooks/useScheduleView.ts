@@ -9,12 +9,22 @@ import {
   resolvePlacedSessions,
   scheduleSummary,
   type Conflict,
+  type CustomEntryKind,
   type PlacedSession,
   type ScheduleSummary,
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 
-const CUSTOM_COLOR = { fill: '#475569', text: '#ffffff', name: 'břidlicová' };
+const CUSTOM_COLOR = { fill: '#475569', text: '#ffffff', name: 'břidlicová', css: 'slategray' };
+
+/** Výchozí barva vlastní události podle typu (FR-4, design_review_58.md) — použije se,
+ * jen pokud uživatel nezvolil vlastní přes `colorOverride`. `other` zůstává na původní
+ * `CUSTOM_COLOR`, ať se nezmění vzhled již existujících/migrovaných událostí. */
+const KIND_DEFAULT_CSS: Partial<Record<CustomEntryKind, string>> = {
+  circle: 'steelblue',
+  school: 'goldenrod',
+  doctor: 'indianred',
+};
 
 export interface Block extends PlacedSession {
   fill: string;
@@ -23,6 +33,8 @@ export interface Block extends PlacedSession {
   hasHardConflict: boolean;
   /** Má měkké upozornění. */
   hasSoftConflict: boolean;
+  /** Konkrétní důvod logistické kolize (FR-8, design_review_58.md), pokud existuje. */
+  travelWarningMessage: string | undefined;
 }
 
 export interface ScheduleView {
@@ -54,20 +66,32 @@ export function useScheduleView(): ScheduleView {
 
     const hardByOwner = new Set<string>();
     const softByOwner = new Set<string>();
+    const travelMessageByOwner = new Map<string, string>();
     for (const conflict of report.conflicts) {
       const target = conflict.severity === 'hard' ? hardByOwner : softByOwner;
       for (const id of conflict.enrollmentIds) target.add(id);
+      if (conflict.kind === 'travel_infeasible') {
+        for (const id of conflict.enrollmentIds) travelMessageByOwner.set(id, conflict.message);
+      }
     }
 
     const overrides = new Map(state.overrides.map((o) => [o.activityId, o]));
+    const customEntryById = new Map(schedule.customEntries.map((e) => [e.id, e]));
 
     const blocks: Block[] = placed.map((p) => {
       const override = p.activityId ? overrides.get(p.activityId) : undefined;
       const overrideColor =
         override?.colorCss !== undefined ? colorByCss(override.colorCss) : undefined;
-      const color =
-        overrideColor ??
-        (p.activityId ? colorForActivity(p.activityId) : CUSTOM_COLOR);
+      let color = overrideColor;
+      if (!color) {
+        if (p.activityId) {
+          color = colorForActivity(p.activityId);
+        } else {
+          const entry = customEntryById.get(p.ownerId);
+          const css = entry?.colorOverride ?? (entry ? KIND_DEFAULT_CSS[entry.kind] : undefined);
+          color = (css ? colorByCss(css) : undefined) ?? CUSTOM_COLOR;
+        }
+      }
       return {
         ...p,
         label: override?.name ?? p.label,
@@ -75,6 +99,7 @@ export function useScheduleView(): ScheduleView {
         text: color.text,
         hasHardConflict: hardByOwner.has(p.ownerId),
         hasSoftConflict: softByOwner.has(p.ownerId),
+        travelWarningMessage: travelMessageByOwner.get(p.ownerId),
       };
     });
 

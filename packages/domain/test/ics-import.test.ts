@@ -51,6 +51,7 @@ describe('parseIcs (import)', () => {
       id: 'ce',
       childId: 'TEST_child',
       name: 'TEST Logopedie',
+      kind: 'other',
       sessions: [
         {
           id: 's',

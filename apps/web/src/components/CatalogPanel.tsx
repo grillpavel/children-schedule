@@ -190,6 +190,23 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const collapseStateInitializedRef = useRef(false);
 
+  // Mobil (<900px) prochází kategorie po jedné úrovni (kořen → podkategorie →
+  // aktivity) místo „Rozbalit vše" (FR-6, design_review_58.md); tablet/desktop
+  // si drží dosavadní akordeon beze změny.
+  const [isMobileWidth, setIsMobileWidth] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 899.98px)');
+    const sync = () => setIsMobileWidth(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+  const [mobileDrillRoot, setMobileDrillRoot] = useState<string | null>(null);
+  const [mobileDrillSub, setMobileDrillSub] = useState<string | null>(null);
+  // „Rozbalit vše"/„Sbalit vše" fungují na všech šířkách beze změny (testy na tom
+  // stojí) — na mobilu navíc přeskočí z výchozího drill-down na klasický strom.
+  const [mobileDrillBypassed, setMobileDrillBypassed] = useState(false);
+
   // CatalogPanel zůstává trvale připojený (jen skrytý přes CSS na mobilu), takže
   // vyhledávání jinak nikdy neresetuje. Po přidání kroužku z primárního CTA se
   // vyčistí, ať katalog po návratu z jiné záložky neukazuje jen už přidaný
@@ -198,6 +215,14 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   useEffect(() => {
     if (clearCatalogSearchNonce > 0) setQuery('');
   }, [clearCatalogSearchNonce]);
+
+  // Nové hledání opustí rozkliknutou kategorii, ať mobilní drill-down nezůstane
+  // uvízlý v (možná už prázdné) podkategorii po změně dotazu.
+  useEffect(() => {
+    setMobileDrillRoot(null);
+    setMobileDrillSub(null);
+    setMobileDrillBypassed(false);
+  }, [query]);
 
   const hasActiveFilters = Boolean(
     query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore,
@@ -514,6 +539,84 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
           </div>
         )}
       </button>
+    );
+  };
+
+  /**
+   * Mobil (<900px) prochází kategorie po jedné úrovni místo „Rozbalit vše"
+   * (FR-6, design_review_58.md): kořen → klik → podkategorie/aktivity → klik.
+   */
+  const renderMobileCategoryBrowser = () => {
+    const root = mobileDrillRoot ? groupedAvailable.find((g) => g.key === mobileDrillRoot) : undefined;
+    if (!root) {
+      return (
+        <>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Další kroužky ({available.length})
+          </h3>
+          <div className="space-y-1.5">
+            {groupedAvailable.map((group) => (
+              <button
+                key={group.key}
+                type="button"
+                onClick={() => setMobileDrillRoot(group.key)}
+                className="flex w-full items-center justify-between rounded-lg bg-slate-200/60 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-200 transition"
+              >
+                <span>{group.label}</span>
+                <span className="text-slate-500 font-medium text-xs">({group.items.length})</span>
+              </button>
+            ))}
+          </div>
+        </>
+      );
+    }
+    const showSubGroups = root.key === 'sport_pohyb' || root.items.length >= 3;
+    const sub = mobileDrillSub ? root.subGroups.find((s) => s.subLabel === mobileDrillSub) : undefined;
+    if (showSubGroups && !sub) {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setMobileDrillRoot(null)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+          >
+            ← Zpět na kategorie
+          </button>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            {root.label} ({root.items.length})
+          </h3>
+          <div className="space-y-1.5">
+            {root.subGroups.map((s) => (
+              <button
+                key={s.subLabel}
+                type="button"
+                onClick={() => setMobileDrillSub(s.subLabel)}
+                className="flex w-full items-center justify-between rounded-md bg-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-200 transition"
+              >
+                <span>{s.subLabel}</span>
+                <span className="text-slate-400 font-normal text-xs">({s.subItems.length})</span>
+              </button>
+            ))}
+          </div>
+        </>
+      );
+    }
+    const items = showSubGroups && sub ? sub.subItems : root.items;
+    const heading = showSubGroups && sub ? sub.subLabel : root.label;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => (showSubGroups && sub ? setMobileDrillSub(null) : setMobileDrillRoot(null))}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+        >
+          ← Zpět {showSubGroups && sub ? `na ${root.label}` : 'na kategorie'}
+        </button>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          {heading} ({items.length})
+        </h3>
+        <div className="space-y-1.5">{items.map(renderActivityCard)}</div>
+      </>
     );
   };
 
@@ -845,6 +948,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                         });
                         setCollapsedRoots(nextRoots);
                         setCollapsedSubs(nextSubs);
+                        setMobileDrillBypassed(true);
+                        setMobileDrillRoot(null);
+                        setMobileDrillSub(null);
                         if (listRef.current) listRef.current.scrollTop = 0;
                       }}
                       className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-2xs hover:bg-slate-50"
@@ -864,6 +970,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                         });
                         setCollapsedRoots(nextRoots);
                         setCollapsedSubs(nextSubs);
+                        setMobileDrillBypassed(true);
+                        setMobileDrillRoot(null);
+                        setMobileDrillSub(null);
                         if (listRef.current) listRef.current.scrollTop = 0;
                       }}
                       className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-2xs hover:bg-slate-50"
@@ -873,63 +982,69 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                   </div>
                 </div>
 
-                {groupedAvailable.map((group) => {
-                  const rootCollapsed = collapsedRoots[group.key] ?? false;
-                  const showSubGroups = group.key === 'sport_pohyb' || group.items.length >= 3;
-                  return (
-                    <div key={group.key} className="space-y-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCollapsedRoots((prev) => ({
-                            ...prev,
-                            [group.key]: !rootCollapsed,
-                          }))
-                        }
-                        className="flex w-full items-center justify-between rounded-lg bg-slate-200/60 px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-200 transition"
-                      >
-                        <span>{rootCollapsed ? '▸' : '▾'} {group.label}</span>
-                        <span className="text-slate-600 font-semibold">({group.items.length})</span>
-                      </button>
-                      {!rootCollapsed && (
-                        <div className="space-y-2 pl-1">
-                          {showSubGroups
-                            ? group.subGroups.map((sub) => {
-                                const subKey = `${group.key}::${sub.subLabel}`;
-                                const subCollapsed = collapsedSubs[subKey] ?? false;
-                                return (
-                                  <div key={subKey} className="space-y-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setCollapsedSubs((prev) => ({
-                                          ...prev,
-                                          [subKey]: !subCollapsed,
-                                        }))
-                                      }
-                                      className="flex w-full items-center justify-between rounded-md py-1 px-1 text-left text-xs font-semibold text-slate-600 hover:text-slate-900"
-                                    >
-                                      <span>{subCollapsed ? '▸' : '▾'} {sub.subLabel}</span>
-                                      <span className="text-slate-400 font-normal">({sub.subItems.length})</span>
-                                    </button>
-                                    {!subCollapsed && (
-                                      <div className="space-y-1.5">
-                                        {sub.subItems.map(renderActivityCard)}
+                {isMobileWidth && !mobileDrillBypassed && !hasActiveFilters ? (
+                  renderMobileCategoryBrowser()
+                ) : (
+                  <>
+                    {groupedAvailable.map((group) => {
+                      const rootCollapsed = collapsedRoots[group.key] ?? false;
+                      const showSubGroups = group.key === 'sport_pohyb' || group.items.length >= 3;
+                      return (
+                        <div key={group.key} className="space-y-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedRoots((prev) => ({
+                                ...prev,
+                                [group.key]: !rootCollapsed,
+                              }))
+                            }
+                            className="flex w-full items-center justify-between rounded-lg bg-slate-200/60 px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-200 transition"
+                          >
+                            <span>{rootCollapsed ? '▸' : '▾'} {group.label}</span>
+                            <span className="text-slate-600 font-semibold">({group.items.length})</span>
+                          </button>
+                          {!rootCollapsed && (
+                            <div className="space-y-2 pl-1">
+                              {showSubGroups
+                                ? group.subGroups.map((sub) => {
+                                    const subKey = `${group.key}::${sub.subLabel}`;
+                                    const subCollapsed = collapsedSubs[subKey] ?? false;
+                                    return (
+                                      <div key={subKey} className="space-y-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setCollapsedSubs((prev) => ({
+                                              ...prev,
+                                              [subKey]: !subCollapsed,
+                                            }))
+                                          }
+                                          className="flex w-full items-center justify-between rounded-md py-1 px-1 text-left text-xs font-semibold text-slate-600 hover:text-slate-900"
+                                        >
+                                          <span>{subCollapsed ? '▸' : '▾'} {sub.subLabel}</span>
+                                          <span className="text-slate-400 font-normal">({sub.subItems.length})</span>
+                                        </button>
+                                        {!subCollapsed && (
+                                          <div className="space-y-1.5">
+                                            {sub.subItems.map(renderActivityCard)}
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
+                                    );
+                                  })
+                                : (
+                                  <div className="space-y-1.5">
+                                    {group.items.map(renderActivityCard)}
                                   </div>
-                                );
-                              })
-                            : (
-                              <div className="space-y-1.5">
-                                {group.items.map(renderActivityCard)}
-                              </div>
-                            )}
+                                )}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </>
+                )}
               </section>
             )}
           </>

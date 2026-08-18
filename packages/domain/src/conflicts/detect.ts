@@ -1,11 +1,12 @@
 import type {
+  Address,
   Child,
   Conflict,
   NamedSchedule,
   SkippedCheck,
   Weekday,
 } from '../model/types.js';
-import { DEFAULT_TRAVEL_BUFFER_MIN } from '../travel/index.js';
+import { DEFAULT_TRAVEL_BUFFER_MIN, haversineKm, travelMinutes } from '../travel/index.js';
 import {
   buildCatalogIndex,
   childById,
@@ -28,6 +29,9 @@ const WEEKDAY_NAMES: Record<Weekday, string> = {
 export interface DetectOptions {
   /** Rezerva na přesun ze školy (min). Výchozí `DEFAULT_TRAVEL_BUFFER_MIN`. */
   travelBufferMinutes?: number;
+  /** Minimální rezerva na přesun mezi dvěma různými kroužky/místy (min), FR-8
+   * design_review_58.md. Výchozí `DEFAULT_TRAVEL_BUFFER_MIN`. */
+  transferBufferMinutes?: number;
 }
 
 export interface ConflictInput {
@@ -180,8 +184,76 @@ function detectCapacityUnknown(input: ConflictInput, index: CatalogIndex): Confl
   return conflicts;
 }
 
+/** Stejné místo — buď blízké souřadnice (< 100 m), nebo shodná ulice/město. */
+function sameAddress(a: Address, b: Address): boolean {
+  if (a.lat !== undefined && a.lon !== undefined && b.lat !== undefined && b.lon !== undefined) {
+    return haversineKm(a.lat, a.lon, b.lat, b.lon) < 0.1;
+  }
+  return (a.street ?? '') === (b.street ?? '') && (a.city ?? '') === (b.city ?? '') && Boolean(a.street || a.city);
+}
+
+// H9 — logistická kolize (těsný přesun mezi různými lokalitami), FR-8 design_review_58.md.
+// 🟢 stejné místo nebo dost času · 🟠 různá místa, mezera kratší než rezerva/odhad přesunu.
+function detectTightTransfers(
+  placed: PlacedSession[],
+  transferBufferMinutes: number,
+): { conflicts: Conflict[]; skipped: SkippedCheck[] } {
+  const conflicts: Conflict[] = [];
+  const skipped: SkippedCheck[] = [];
+  const seenPairs = new Set<string>();
+  const skippedPairs = new Set<string>();
+
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const p = placed[i]!;
+      const q = placed[j]!;
+      if (p.childId !== q.childId) continue;
+      if (p.ownerId === q.ownerId) continue;
+      if (p.weekday !== q.weekday) continue;
+
+      const [earlier, later] = p.startMinutes <= q.startMinutes ? [p, q] : [q, p];
+      const gap = later.startMinutes - earlier.endMinutes;
+      if (gap < 0) continue; // překryv řeší H1 (time_overlap)
+
+      const pairKey = [earlier.ownerId, later.ownerId].sort().join('|');
+      if (seenPairs.has(pairKey)) continue;
+
+      if (!earlier.address || !later.address) {
+        if (!skippedPairs.has(pairKey)) {
+          skippedPairs.add(pairKey);
+          skipped.push({
+            check: 'H9_tight_transfer',
+            reason: `Neznámá adresa u ${earlier.label} nebo ${later.label} — dosažitelnost přesunu neověřena.`,
+            enrollmentIds: [earlier.ownerId, later.ownerId],
+          });
+        }
+        continue;
+      }
+      if (sameAddress(earlier.address, later.address)) continue;
+
+      const hasCoords =
+        earlier.address.lat !== undefined && earlier.address.lon !== undefined &&
+        later.address.lat !== undefined && later.address.lon !== undefined;
+      const required = hasCoords
+        ? (travelMinutes(earlier.address, later.address, 'car') ?? transferBufferMinutes)
+        : transferBufferMinutes;
+      if (gap >= required) continue;
+
+      seenPairs.add(pairKey);
+      conflicts.push({
+        kind: 'travel_infeasible',
+        severity: 'soft',
+        enrollmentIds: [earlier.ownerId, later.ownerId],
+        message: `Mezi ${earlier.label} (končí ${formatTime(earlier.endMinutes)}) a ${later.label} (začíná ${formatTime(later.startMinutes)}) zbývá na přesun mezi různými místy jen ${gap} minut.`,
+        suggestion: 'Zkontrolujte, zda přesun stihnete, nebo zvolte jiný termín.',
+      });
+    }
+  }
+  return { conflicts, skipped };
+}
+
 /**
- * Detekuje konflikty v rozvrhu podle tvrdých omezení H1–H3, H5.
+ * Detekuje konflikty v rozvrhu podle tvrdých omezení H1–H3, H5, H9.
  * Kontroly bez vstupních dat se přeskočí a zapíší do `skippedChecks`,
  * nikdy se neaproximují.
  */
@@ -190,6 +262,10 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
   const placed = resolvePlacedSessions(input.schedule, index);
 
   const school = detectSchoolNotFinished(input, placed);
+  const transfer = detectTightTransfers(
+    placed,
+    input.options?.transferBufferMinutes ?? DEFAULT_TRAVEL_BUFFER_MIN,
+  );
 
   return {
     conflicts: [
@@ -198,7 +274,8 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
       ...school.conflicts,
       ...detectValidity(input, placed),
       ...detectCapacityUnknown(input, index),
+      ...transfer.conflicts,
     ],
-    skippedChecks: school.skipped,
+    skippedChecks: [...school.skipped, ...transfer.skipped],
   };
 }

@@ -218,7 +218,7 @@ export const DEMO_CHILD: Child = {
 
 export function buildInitialState(): PlannerState {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     children: [DEMO_CHILD],
     schedules: [
       {

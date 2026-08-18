@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
-import { buildRecommendations, type ActivityCategory } from '@krouzky/domain';
+import { buildRecommendations, type ActivityCategory, type Weekday } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
+import { formatTime } from '@/lib/grid';
 import {
   IconCalendar,
   IconSparkles,
@@ -67,6 +68,19 @@ export function HomeScreen({
   };
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayWeekday = useMemo(() => {
+    const jsDay = new Date().getDay();
+    return (jsDay === 0 ? 7 : jsDay) as Weekday;
+  }, []);
+  const todayBlocks = useMemo(
+    () =>
+      view.blocks
+        .filter(
+          (b) => b.weekday === todayWeekday && b.validFrom <= todayIso && b.validTo >= todayIso,
+        )
+        .sort((a, b) => a.startMinutes - b.startMinutes),
+    [view.blocks, todayWeekday, todayIso],
+  );
   const recommendations = useMemo(
     () => (child ? buildRecommendations(child, catalog, schedule, todayIso, { limit: 3 }) : []),
     [child, catalog, schedule, todayIso],
@@ -157,6 +171,28 @@ export function HomeScreen({
           </button>
         </section>
       )}
+
+      {/* Dnes (FR-2, design_review_58.md): prioritizované nad týdenním přehledem. */}
+      <section aria-label="Dnes" className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Dnes</h2>
+        {todayBlocks.length === 0 ? (
+          <p className="text-xs text-slate-500">Dnes nic nemáte naplánované.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {todayBlocks.map((b) => (
+              <li key={b.ownerId} className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-slate-900 tabular-nums">{formatTime(b.startMinutes)}</span>
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: b.fill }}
+                  aria-hidden
+                />
+                <span className="font-medium text-slate-700">{b.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* Tento týden dashboard widget */}
       <section aria-label="Tento týden" className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2.5">

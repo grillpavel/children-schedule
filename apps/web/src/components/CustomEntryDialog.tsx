@@ -6,6 +6,7 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { newId } from '@/lib/ids';
 import { WEEKDAYS } from '@/lib/grid';
 import { geocodeAddress, offlineGeocode } from '@/lib/geocode';
+import { IconClose, IconPlus } from './Icons';
 
 interface TimeRow {
   weekday: Weekday;
@@ -84,13 +85,11 @@ export function CustomEntryDialog({
 
   const save = () => {
     if (!valid) return;
-    // FR-5: „Ulice, město“ se rozdělí na první čárce.
     const [streetPart, cityPart] = address.split(',');
     const street = (streetPart ?? '').trim();
     const city = (cityPart ?? '').trim();
     const amount = Number(priceAmount);
     const baseLocation = street || city ? { street, city } : undefined;
-    // Offline střed města hned, aby X-APPLE-STRUCTURED-LOCATION fungovalo i bez sítě (C6-A4).
     const location = baseLocation
       ? { ...baseLocation, ...(offlineGeocode(baseLocation) ?? {}) }
       : undefined;
@@ -117,7 +116,7 @@ export function CustomEntryDialog({
     };
     if (isEdit) updateCustomEntry(entry);
     else addCustomEntry(entry);
-    // Dohledá souřadnice, aby náhled mapy fungoval hned i po exportu (C10-1).
+
     if (location) {
       void geocodeAddress(location).then((coords) => {
         if (coords) {
@@ -129,162 +128,197 @@ export function CustomEntryDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 shadow-xl">
-        <h2 className="mb-3 text-lg font-semibold">
-          {isEdit ? 'Upravit událost' : 'Vlastní událost'}
-        </h2>
-
-        <label className="mb-2 block text-sm">
-          Název
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded border border-slate-200 px-2 py-1"
-            placeholder="Např. Logopedie"
-          />
-        </label>
-
-        <div className="mb-2">
-          <div className="mb-1 text-sm">Termíny</div>
-          {rows.map((r, i) => (
-            <div key={i} className="mb-1 flex items-center gap-1">
-              <select
-                value={r.weekday}
-                onChange={(e) =>
-                  updateRow(i, { weekday: Number(e.target.value) as Weekday })
-                }
-                className="rounded border border-slate-200 px-1 py-1 text-sm"
-              >
-                {WEEKDAYS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.short}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="time"
-                value={r.start}
-                onChange={(e) => updateRow(i, { start: e.target.value })}
-                className="rounded border border-slate-200 px-1 py-1 text-sm"
-              />
-              <span>–</span>
-              <input
-                type="time"
-                value={r.end}
-                onChange={(e) => updateRow(i, { end: e.target.value })}
-                className="rounded border border-slate-200 px-1 py-1 text-sm"
-              />
-              {rows.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeRow(i)}
-                  className="text-red-600"
-                  aria-label="Odebrat termín"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={addRow}
-            className="text-sm text-blue-600"
-          >
-            + Přidat další čas
-          </button>
-        </div>
-
-        <div className="mb-2">
-          <label className="mb-1 block text-sm">Opakování</label>
-          <select
-            value={everyWeeks}
-            onChange={(e) => setEveryWeeks(Number(e.target.value))}
-            className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-          >
-            <option value={1}>Každý týden</option>
-            <option value={2}>Každé 2 týdny</option>
-            <option value={3}>Každé 3 týdny</option>
-            <option value={4}>Každé 4 týdny</option>
-          </select>
-        </div>
-
-        <div className="mb-2 grid grid-cols-2 gap-2">
-          <label className="text-xs text-slate-500">
-            Opakovat od
-            <input
-              type="date"
-              value={repeatFrom}
-              min={schoolYear.start}
-              max={schoolYear.end}
-              onChange={(e) => setRepeatFrom(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
-          </label>
-          <label className="text-xs text-slate-500">
-            Opakovat do
-            <input
-              type="date"
-              value={repeatTo}
-              min={schoolYear.start}
-              max={schoolYear.end}
-              onChange={(e) => setRepeatTo(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
-          </label>
-        </div>
-
-        <input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Ulice, město"
-          className="mb-2 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-        />
-        <input
-          value={instructor}
-          onChange={(e) => setInstructor(e.target.value)}
-          placeholder="Lektor"
-          className="mb-2 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-        />
-        <div className="mb-2 grid grid-cols-2 gap-2">
-          <input
-            type="number"
-            min={0}
-            value={priceAmount}
-            onChange={(e) => setPriceAmount(e.target.value)}
-            placeholder="Cena (Kč)"
-            className="rounded border border-slate-200 px-2 py-1 text-sm"
-          />
-          <select
-            value={pricePeriod}
-            onChange={(e) => setPricePeriod(e.target.value as PricePeriod)}
-            className="rounded border border-slate-200 px-2 py-1 text-sm"
-          >
-            <option value="per_month">měsíc</option>
-            <option value="per_semester">pololetí</option>
-            <option value="per_year">rok</option>
-            <option value="per_session">lekce</option>
-          </select>
-        </div>
-        <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="Telefon"
-          className="mb-2 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-        />
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Poznámka"
-          className="mb-3 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-        />
-
-        <div className="flex justify-end gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+          <h2 className="text-base font-bold text-slate-900">
+            {isEdit ? 'Upravit vlastní událost' : 'Přidat vlastní událost'}
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded px-3 py-1 text-sm text-slate-600"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+          >
+            <IconClose className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 text-xs">
+          <label className="block">
+            <span className="font-semibold text-slate-700">Název události / aktivity</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="Např. Logopedie, Doučování matematiky…"
+            />
+          </label>
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 space-y-2">
+            <div className="font-semibold text-slate-700">Termíny a časy</div>
+            {rows.map((r, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <select
+                  value={r.weekday}
+                  onChange={(e) =>
+                    updateRow(i, { weekday: Number(e.target.value) as Weekday })
+                  }
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs"
+                >
+                  {WEEKDAYS.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.short}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="time"
+                  value={r.start}
+                  onChange={(e) => updateRow(i, { start: e.target.value })}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
+                />
+                <span className="text-slate-400">–</span>
+                <input
+                  type="time"
+                  value={r.end}
+                  onChange={(e) => updateRow(i, { end: e.target.value })}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
+                />
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    className="p-1 text-red-500 hover:text-red-700 transition"
+                    aria-label="Odebrat termín"
+                  >
+                    <IconClose className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addRow}
+              className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline pt-0.5"
+            >
+              <IconPlus className="h-3 w-3" />
+              <span>Přidat další čas</span>
+            </button>
+          </div>
+
+          <div>
+            <label className="font-semibold text-slate-700 block mb-1">Frekvence opakování</label>
+            <select
+              value={everyWeeks}
+              onChange={(e) => setEveryWeeks(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-2xs"
+            >
+              <option value={1}>Každý týden</option>
+              <option value={2}>Každé 2 týdny</option>
+              <option value={3}>Každé 3 týdny</option>
+              <option value={4}>Každé 4 týdny</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="font-semibold text-slate-700">
+              Opakovat od
+              <input
+                type="date"
+                value={repeatFrom}
+                min={schoolYear.start}
+                max={schoolYear.end}
+                onChange={(e) => setRepeatFrom(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
+              />
+            </label>
+            <label className="font-semibold text-slate-700">
+              Opakovat do
+              <input
+                type="date"
+                value={repeatTo}
+                min={schoolYear.start}
+                max={schoolYear.end}
+                onChange={(e) => setRepeatTo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="font-semibold text-slate-700">Místo / Adresa</span>
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Ulice a číslo, Město"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-semibold text-slate-700">Lektor / Vyučující</span>
+            <input
+              value={instructor}
+              onChange={(e) => setInstructor(e.target.value)}
+              placeholder="Jméno lektora"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="font-semibold text-slate-700">Cena (Kč)</span>
+              <input
+                type="number"
+                min={0}
+                value={priceAmount}
+                onChange={(e) => setPriceAmount(e.target.value)}
+                placeholder="0"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+              />
+            </label>
+            <label className="block">
+              <span className="font-semibold text-slate-700">Období</span>
+              <select
+                value={pricePeriod}
+                onChange={(e) => setPricePeriod(e.target.value as PricePeriod)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-2xs"
+              >
+                <option value="per_month">měsíc</option>
+                <option value="per_semester">pololetí</option>
+                <option value="per_year">rok</option>
+                <option value="per_session">lekce</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="font-semibold text-slate-700">Telefonický kontakt</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+420 123 456 789"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-semibold text-slate-700">Poznámka</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Jakékoliv doplňující instrukce…"
+              rows={2}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
           >
             Zrušit
           </button>
@@ -292,7 +326,7 @@ export function CustomEntryDialog({
             type="button"
             onClick={save}
             disabled={!valid}
-            className="rounded bg-slate-800 px-3 py-1 text-sm text-white disabled:opacity-40"
+            className="rounded-xl bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-40 transition"
           >
             {isEdit ? 'Uložit' : 'Přidat'}
           </button>

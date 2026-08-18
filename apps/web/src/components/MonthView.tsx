@@ -65,15 +65,15 @@ export function MonthView({
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <div className="p-2">
-      <div className="grid grid-cols-7 gap-px">
+    <div className="p-3">
+      <div className="grid grid-cols-7 gap-1 border border-slate-200 rounded-xl overflow-hidden bg-slate-200/50 p-1">
         {WEEKDAYS.map((d) => (
-          <div key={d.value} className="bg-slate-50 py-1 text-center text-xs font-medium text-slate-600">
+          <div key={d.value} className="bg-slate-100/90 py-1.5 text-center text-xs font-bold text-slate-700 rounded-md">
             {d.short}
           </div>
         ))}
         {cells.map((date, i) => {
-          if (!date) return <div key={`b-${i}`} className="min-h-[76px] bg-white" />;
+          if (!date) return <div key={`b-${i}`} className="min-h-[84px] bg-slate-50/40 rounded-md" />;
           const dow = isoWeekdayOf(date);
           const iso = isoDate(date);
           const holiday = holidays.get(iso);
@@ -83,27 +83,29 @@ export function MonthView({
             <div
               key={iso}
               className={clsx(
-                'min-h-[76px] p-1 align-top text-[10px]',
-                holiday || !inSchoolYear ? 'bg-slate-100 text-slate-600' : 'bg-white',
+                'min-h-[84px] p-1.5 align-top text-[10px] rounded-lg transition',
+                holiday || !inSchoolYear ? 'bg-slate-100/80 text-slate-500' : 'bg-white shadow-2xs',
               )}
               title={holiday}
             >
-              <div className="mb-0.5 text-right text-[11px] text-slate-500">
+              <div className="mb-1 text-right text-[11px] font-semibold text-slate-500">
                 {date.getDate()}
               </div>
               {holiday ? (
-                <div className="truncate italic">{holiday}</div>
+                <div className="truncate italic text-slate-400 font-medium">{holiday}</div>
               ) : (
-                dayBlocks.map((b) => (
-                  <div
-                    key={b.sessionId}
-                    className="mb-0.5 truncate rounded px-1"
-                    style={{ backgroundColor: b.fill, color: b.text }}
-                    title={`${b.label} ${formatTime(b.startMinutes)}`}
-                  >
-                    {formatTime(b.startMinutes)} {b.label}
-                  </div>
-                ))
+                <div className="space-y-0.5">
+                  {dayBlocks.map((b) => (
+                    <div
+                      key={b.sessionId}
+                      className="truncate rounded-md px-1.5 py-0.5 font-medium shadow-2xs"
+                      style={{ backgroundColor: b.fill, color: b.text }}
+                      title={`${b.label} ${formatTime(b.startMinutes)}`}
+                    >
+                      <span className="opacity-90">{formatTime(b.startMinutes)}</span> {b.label}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           );

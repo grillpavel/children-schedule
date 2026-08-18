@@ -10,6 +10,15 @@ import {
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
+import {
+  IconSearch,
+  IconClose,
+  IconSparkles,
+  IconCheck,
+  IconPlus,
+  IconSliders,
+  IconChevronDown,
+} from './Icons';
 
 function normalizeCz(text: string): string {
   return text
@@ -44,7 +53,7 @@ function highlightMatch(text: string, query: string): ReactNode {
   return (
     <>
       {text.slice(0, srcStart)}
-      <mark className="rounded bg-amber-100 px-0.5 text-inherit">{text.slice(srcStart, srcEnd)}</mark>
+      <mark className="rounded bg-amber-200/80 px-0.5 font-medium text-slate-900">{text.slice(srcStart, srcEnd)}</mark>
       {text.slice(srcEnd)}
     </>
   );
@@ -182,6 +191,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const [endBefore, setEndBefore] = useState<string>('');
   const [collapsedRoots, setCollapsedRoots] = useState<Record<string, boolean>>({});
   const [collapsedSubs, setCollapsedSubs] = useState<Record<string, boolean>>({});
+  // Doporučení jsou sekundární (hlavní tok je výběr kroužků → kalendář → export),
+  // proto defaultně sbalená; uživatel je aktivuje ručně.
+  const [recsOpen, setRecsOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const collapseStateInitializedRef = useRef(false);
 
@@ -202,7 +214,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   // Doporučení (CHANGE-51): dnešek je vstup enginu, počítá se v app vrstvě.
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const recommendations = useMemo(
-    () => (child ? buildRecommendations(child, catalog, schedule, todayIso, { limit: 4 }) : []),
+    () => (child ? buildRecommendations(child, catalog, schedule, todayIso, { limit: 3 }) : []),
     [child, catalog, schedule, todayIso],
   );
   const catalogCategories = useMemo(() => {
@@ -442,48 +454,62 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
         type="button"
         onClick={() => handleCardClick(a.id)}
         className={clsx(
-          'w-full rounded-lg border p-2 text-left text-sm transition',
+          'group relative w-full rounded-xl border p-2.5 text-left text-sm transition-all duration-150',
           active
-            ? 'border-slate-400 bg-slate-50 ring-1 ring-slate-300'
-            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm',
-          isSelected && 'bg-emerald-50/60',
+            ? 'border-blue-500 bg-blue-50/40 shadow-sm ring-1 ring-blue-500'
+            : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/80 hover:shadow-2xs',
+          isSelected && !active && 'bg-emerald-50/40 border-emerald-200/80',
         )}
       >
         <div className="flex items-center gap-2">
           <span
-            className="h-3 w-3 shrink-0 rounded-full"
+            className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white shadow-2xs"
             style={{ backgroundColor: color.fill }}
             aria-hidden
           />
-          <span className="font-medium">{highlightMatch(a.name, query)}</span>
+          <span className="font-semibold text-slate-900 text-sm leading-tight flex-1">{highlightMatch(a.name, query)}</span>
           {hasSelectedVariant && (
-            <span className="ml-auto rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">
-              Přidáno
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 shadow-2xs">
+              <IconCheck className="h-3 w-3" />
+              <span>Přidáno</span>
             </span>
           )}
         </div>
-        <div className="mt-1 text-xs text-slate-500">
-          {providerName(a.providerId)} · {CATEGORY_LABELS[a.category]} · {a.ageMin}–{a.ageMax} let
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+          <span className="truncate max-w-[140px] text-slate-600 font-medium">{providerName(a.providerId)}</span>
+          <span>·</span>
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">{CATEGORY_LABELS[a.category]}</span>
+          <span>·</span>
+          <span className="text-[11px] text-slate-500">{a.ageMin}–{a.ageMax} let</span>
         </div>
-        <div className="mt-1 text-xs text-slate-500">
-          {sessionLabel(a.id)} ·{' '}
-          {Number.isFinite(monthly)
-            ? `${Math.round(monthly)} Kč/měs (${a.price.amount} Kč/${PRICE_PERIOD_LABELS[a.price.period]})`
-            : 'Cena neuvedena'}{' '}
-          · {groups.length} {pluralizeVariants(groups.length)}
-        </div>
-        {active && groups.length > 1 && (
-          <div className="mt-1 text-[11px] text-slate-600">
-            Vyberte termín kliknutím do mřížky:
-            {groups.map((g) => (
-              <span key={g.id} className="ml-1">
-                {g.label ??
-                  g.sessions
-                    .map((s) => `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}`)
-                    .join(', ')}
-                ;
+
+        <div className="mt-1.5 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-1.5">
+          <span className="font-medium text-slate-700">{sessionLabel(a.id)}</span>
+          <div className="text-right">
+            {Number.isFinite(monthly) ? (
+              <span className="font-semibold text-slate-800">
+                {Math.round(monthly)} Kč<span className="font-normal text-slate-500 text-[11px]">/měs</span>
               </span>
-            ))}
+            ) : (
+              <span className="text-slate-400">Cena neuvedena</span>
+            )}
+          </div>
+        </div>
+
+        {active && groups.length > 1 && (
+          <div className="mt-2 rounded-lg bg-blue-100/60 p-2 text-[11px] text-blue-950">
+            <span className="font-medium">Termíny k výběru v detailu či rozvrhu:</span>
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {groups.map((g) => (
+                <span key={g.id} className="rounded bg-white px-1.5 py-0.5 font-medium shadow-2xs">
+                  {g.label ??
+                    g.sessions
+                      .map((s) => `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}`)
+                      .join(', ')}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </button>
@@ -491,26 +517,40 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   };
 
   const handleCardClick = (activityId: string) => {
-    // Changes 8 (C8-S3): klik jen otevře čtecí detail, přidání je akce v detailu.
     selectActivity(selectedActivityId === activityId ? null : activityId);
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="space-y-2 border-b border-slate-100 p-3">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Hledat kroužek…"
-          data-catalog-search
-          className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-        />
+    <div className="flex h-full flex-col bg-slate-50/50">
+      {/* Vyhledávací panel a filtry */}
+      <div className="space-y-2.5 border-b border-slate-200/80 bg-white p-3 shadow-2xs">
+        <div className="relative">
+          <IconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Hledat kroužek…"
+            data-catalog-search
+            className="w-full rounded-lg border border-slate-200 bg-slate-50/60 pl-8.5 pr-8 py-1.5 text-sm text-slate-800 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600"
+              aria-label="Vymazat hledání"
+            >
+              <IconClose className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as ActivityCategory | '')}
-            className="rounded border border-slate-200 px-2 py-1 text-sm"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             aria-label="Kategorie kroužku"
           >
             <option value="">Všechny kategorie</option>
@@ -523,15 +563,17 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="rounded border border-slate-200 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 transition"
           >
-            Další filtry
+            <IconSliders className="h-3.5 w-3.5 text-slate-500" />
+            <span>Další filtry ▾</span>
           </button>
         </div>
+
         <select
           value={providerFilter}
           onChange={(e) => setProviderFilter(e.target.value)}
-          className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           aria-label="Pořadatel kroužku"
         >
           <option value="">Všichni pořadatelé</option>
@@ -543,7 +585,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
               </option>
             ))}
         </select>
-        <div className="flex flex-wrap gap-1">
+
+        {/* Filtr dnů */}
+        <div className="flex flex-wrap gap-1 pt-0.5">
           {WEEKDAYS.map((d) => {
             const active = weekdayFilter.includes(d.value);
             return (
@@ -558,8 +602,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                   )
                 }
                 className={clsx(
-                  'flex h-11 items-center justify-center rounded px-3 text-xs desk:h-auto desk:px-2 desk:py-0.5',
-                  active ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                  'flex h-11 items-center justify-center rounded-lg px-2.5 text-xs font-medium transition desk:h-7 desk:px-2',
+                  active
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900',
                 )}
               >
                 {d.short}
@@ -567,55 +613,77 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
             );
           })}
         </div>
-        <label className="flex items-center gap-2 text-xs text-slate-600">
-          <input
-            type="checkbox"
-            checked={ageOnly}
-            onChange={(e) => setAgeOnly(e.target.checked)}
-          />
-          Jen vhodné pro věk {child?.age}
-        </label>
-        <label className="flex items-center gap-2 text-xs text-slate-600">
-          <input
-            type="checkbox"
-            checked={fitOnly}
-            onChange={(e) => setFitOnly(e.target.checked)}
-            disabled={selectedActivityIds.size === 0 && schedule.customEntries.length === 0}
-          />
-          Bez konfliktu
-        </label>
+
+        <div className="flex flex-wrap gap-3 pt-0.5">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={ageOnly}
+              onChange={(e) => setAgeOnly(e.target.checked)}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>Jen vhodné pro věk {child?.age}</span>
+          </label>
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={fitOnly}
+              onChange={(e) => setFitOnly(e.target.checked)}
+              disabled={selectedActivityIds.size === 0 && schedule.customEntries.length === 0}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
+            />
+            <span>Bez konfliktu</span>
+          </label>
+        </div>
+
         {showAdvanced && (
-          <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50 p-2">
-            <label className="text-xs text-slate-600">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 animate-in fade-in-50">
+            <label className="text-xs font-medium text-slate-600">
               Začátek nejdřív v
               <input
                 type="time"
                 value={startAfter}
                 onChange={(e) => setStartAfter(e.target.value)}
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
               />
             </label>
-            <label className="text-xs text-slate-600">
+            <label className="text-xs font-medium text-slate-600">
               Konec nejpozději v
               <input
                 type="time"
                 value={endBefore}
                 onChange={(e) => setEndBefore(e.target.value)}
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
               />
             </label>
           </div>
         )}
       </div>
 
-      <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3">
+      {/* Seznam kroužků & Doporučení */}
+      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3">
         {!hasActiveFilters && child && (
           <section
             aria-label="Doporučení"
-            className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2"
+            className="space-y-3 rounded-2xl border border-blue-200 bg-white p-3 shadow-2xs"
           >
-            <div>
-              <p className="mb-1 text-xs text-slate-500">Co tě baví? (upraví doporučení)</p>
+            <button
+              type="button"
+              onClick={() => setRecsOpen((v) => !v)}
+              aria-expanded={recsOpen}
+              className="flex w-full items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-900"
+            >
+              <IconSparkles className="h-4 w-4 text-blue-600" />
+              <span>Doporučení na míru</span>
+              <IconChevronDown
+                className={clsx('ml-auto h-4 w-4 text-blue-600 transition', recsOpen && 'rotate-180')}
+              />
+            </button>
+
+            {recsOpen && (
+              <>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-slate-600">Co tě baví? (upraví doporučení)</p>
               <div className="flex flex-wrap gap-1">
                 {catalogCategories.map((cat) => {
                   const on = child.interests.includes(cat);
@@ -626,10 +694,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                       aria-pressed={on}
                       onClick={() => toggleInterest(cat)}
                       className={clsx(
-                        'rounded-full border px-2 py-0.5 text-xs',
+                        'rounded-full border px-2.5 py-0.5 text-xs font-medium transition',
                         on
-                          ? 'border-slate-800 bg-slate-800 text-white'
-                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100',
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-2xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
                       )}
                     >
                       {CATEGORY_LABELS[cat]}
@@ -638,8 +706,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                 })}
               </div>
             </div>
+
             <div>
-              <p className="mb-1 text-xs text-slate-500">Které dny může?</p>
+              <p className="mb-1.5 text-xs font-medium text-slate-600">Které dny může?</p>
               <div className="flex flex-wrap gap-1">
                 {WEEKDAYS.map((d) => {
                   const on = availableWeekdays.has(d.value);
@@ -651,10 +720,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                       aria-label={`Volno ${d.short}`}
                       onClick={() => toggleAvailableDay(d.value)}
                       className={clsx(
-                        'rounded-full border px-2 py-0.5 text-xs',
+                        'rounded-full border px-2.5 py-0.5 text-xs font-medium transition',
                         on
-                          ? 'border-slate-800 bg-slate-800 text-white'
-                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100',
+                          ? 'border-slate-800 bg-slate-800 text-white shadow-2xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
                       )}
                     >
                       {d.short}
@@ -663,8 +732,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                 })}
               </div>
             </div>
-            <label className="flex items-center gap-2 text-xs text-slate-600">
-              Měsíční rozpočet (Kč)
+
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              <span>Měsíční rozpočet (Kč):</span>
               <input
                 type="number"
                 min={0}
@@ -675,33 +745,37 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                   if (e.key === 'Enter') commitBudget();
                 }}
                 aria-label="Měsíční rozpočet v korunách"
-                className="w-24 rounded border border-slate-200 px-2 py-0.5 text-sm"
+                placeholder="Bez limitu"
+                className="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </label>
-            <div>              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Doporučujeme
               </h3>
               {recommendations.length > 0 ? (
-                <ul className="mt-1 space-y-1">
+                <ul className="mt-1.5 space-y-1.5">
                   {recommendations.map((rec) => (
                     <li key={rec.activity.id}>
                       <button
                         type="button"
                         aria-label={`Doporučeno: ${rec.activity.name}`}
                         onClick={() => selectActivity(rec.activity.id)}
-                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-slate-300 hover:shadow-sm"
+                        className="w-full rounded-xl border border-slate-200/90 bg-white p-2.5 text-left transition hover:border-blue-400 hover:shadow-xs"
                       >
-                        <div className="text-sm font-medium">{rec.activity.name}</div>
-                        <div className="text-xs text-slate-500" data-testid="rec-category">
+                        <div className="text-sm font-semibold text-slate-900">{rec.activity.name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5" data-testid="rec-category">
                           {CATEGORY_LABELS[rec.activity.category]}
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                        <div className="mt-1.5 flex flex-wrap gap-1">
                           {rec.fit.reasons
                             .filter((r) => r.ok)
                             .slice(0, 3)
                             .map((r) => (
-                              <span key={r.key} className="text-[11px] text-emerald-700">
-                                {r.label}
+                              <span key={r.key} className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+                                <IconCheck className="h-3 w-3" />
+                                <span>{r.label}</span>
                               </span>
                             ))}
                         </div>
@@ -710,14 +784,17 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-500">Zatím nemáme co doporučit.</p>
+                <p className="mt-1 text-xs text-slate-500">Zatím nemáme co doporučit.</p>
               )}
             </div>
+              </>
+            )}
           </section>
         )}
+
         {filtered.length === 0 ? (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-500">
+          <div className="space-y-3 rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
+            <p className="text-sm text-slate-600">
               {category
                 ? `Pro tento filtr nic v katalogu není.`
                 : `Vyberte věk dítěte a uvidíte, co je pro něj vhodné.`}
@@ -726,9 +803,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="rounded border border-slate-200 px-2 py-1 text-sm hover:bg-slate-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 transition"
               >
-                Zrušit filtry
+                <span>Zrušit filtry</span>
               </button>
             )}
           </div>
@@ -736,16 +813,21 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
           <>
             {inSchedule.length > 0 && (
               <section className="space-y-2">
-                <h3 className="sticky top-0 z-10 rounded bg-white/90 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  V rozvrhu ({inSchedule.length})
-                </h3>
-                {inSchedule.map(renderActivityCard)}
+                <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-1.5 border border-emerald-100 shadow-2xs">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    V rozvrhu ({inSchedule.length})
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  {inSchedule.map(renderActivityCard)}
+                </div>
               </section>
             )}
+
             {available.length > 0 && (
               <section className="space-y-2">
                 <div className="flex items-center justify-between pt-1">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Další kroužky ({available.length})
                   </h3>
                   <div className="flex gap-1">
@@ -764,7 +846,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                         setCollapsedSubs(nextSubs);
                         if (listRef.current) listRef.current.scrollTop = 0;
                       }}
-                      className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-slate-50"
+                      className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-2xs hover:bg-slate-50"
                     >
                       Rozbalit vše
                     </button>
@@ -783,17 +865,18 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                         setCollapsedSubs(nextSubs);
                         if (listRef.current) listRef.current.scrollTop = 0;
                       }}
-                      className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-slate-50"
+                      className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-2xs hover:bg-slate-50"
                     >
                       Sbalit vše
                     </button>
                   </div>
                 </div>
+
                 {groupedAvailable.map((group) => {
                   const rootCollapsed = collapsedRoots[group.key] ?? false;
                   const showSubGroups = group.key === 'sport_pohyb' || group.items.length >= 3;
                   return (
-                    <div key={group.key} className="space-y-1">
+                    <div key={group.key} className="space-y-1.5">
                       <button
                         type="button"
                         onClick={() =>
@@ -802,10 +885,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                             [group.key]: !rootCollapsed,
                           }))
                         }
-                        className="flex w-full items-center justify-between rounded bg-white py-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
+                        className="flex w-full items-center justify-between rounded-lg bg-slate-200/60 px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-200 transition"
                       >
                         <span>{rootCollapsed ? '▸' : '▾'} {group.label}</span>
-                        <span className="text-slate-600">({group.items.length})</span>
+                        <span className="text-slate-600 font-semibold">({group.items.length})</span>
                       </button>
                       {!rootCollapsed && (
                         <div className="space-y-2 pl-1">
@@ -814,7 +897,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                                 const subKey = `${group.key}::${sub.subLabel}`;
                                 const subCollapsed = collapsedSubs[subKey] ?? false;
                                 return (
-                                  <div key={subKey} className="space-y-1">
+                                  <div key={subKey} className="space-y-1.5">
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -823,16 +906,24 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                                           [subKey]: !subCollapsed,
                                         }))
                                       }
-                                      className="flex w-full items-center justify-between rounded py-0.5 text-left text-xs font-medium text-slate-500"
+                                      className="flex w-full items-center justify-between rounded-md py-1 px-1 text-left text-xs font-semibold text-slate-600 hover:text-slate-900"
                                     >
                                       <span>{subCollapsed ? '▸' : '▾'} {sub.subLabel}</span>
-                                      <span className="text-slate-600">({sub.subItems.length})</span>
+                                      <span className="text-slate-400 font-normal">({sub.subItems.length})</span>
                                     </button>
-                                    {!subCollapsed && sub.subItems.map(renderActivityCard)}
+                                    {!subCollapsed && (
+                                      <div className="space-y-1.5">
+                                        {sub.subItems.map(renderActivityCard)}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })
-                            : group.items.map(renderActivityCard)}
+                            : (
+                              <div className="space-y-1.5">
+                                {group.items.map(renderActivityCard)}
+                              </div>
+                            )}
                         </div>
                       )}
                     </div>
@@ -844,13 +935,14 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
         )}
       </div>
 
-      <div className="border-t border-slate-100 p-3">
+      <div className="border-t border-slate-200/80 bg-white p-3 shadow-2xs">
         <button
           type="button"
           onClick={onOpenCustom}
-          className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2.5 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 transition"
         >
-          + Vlastní událost
+          <IconPlus className="h-3.5 w-3.5 text-slate-500" />
+          <span>Vlastní událost</span>
         </button>
       </div>
     </div>

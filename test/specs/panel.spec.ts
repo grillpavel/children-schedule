@@ -64,7 +64,7 @@ test('T-140: detail ukazuje odkaz na přihlášku', async ({ page }, testInfo) =
   await selectFirstCard(page, width);
   await expandSheetIfCompact(page, width);
   const detail = detailScope(page, width);
-  await expect(detail.getByRole('link', { name: /Přihlásit se/ })).toBeVisible();
+  await expect(detail.getByRole('link', { name: /Oficiální přihláška/ })).toBeVisible();
   // Uzávěrka přihlášek se v zeštíhleném detailu už nezobrazuje (Changes 11, BL-023).
   await expect(detail.getByText(/Uzávěrka přihlášek/)).toHaveCount(0);
 });
@@ -80,7 +80,7 @@ test('T-141: součet ceny hlásí položky bez ceny, ne holý součet', async ({
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
   await page.keyboard.press('Escape');
   await openSummaryIfMedium(page, width);
-  await expect(detailScope(page, width).getByText(/kroužků bez ceny/)).toBeVisible();
+  await expect(detailScope(page, width).getByText(/bez ceny/)).toBeVisible();
 });
 
 test('T-142: metriky souhrnu mají tooltip s definicí', async ({ page }, testInfo) => {
@@ -174,7 +174,7 @@ test('T-155: mapa nabízí Mapy.cz a nativní mapy, bez OSM náhledu', async ({ 
   await expandSheetIfCompact(page, width);
   const detail = detailScope(page, width);
   await expect(detail.getByRole('link', { name: /Mapy\.cz/ })).toBeVisible();
-  await expect(detail.getByRole('link', { name: /Otevřít v (Apple|Google) Mapy/ })).toBeVisible();
+  await expect(detail.getByRole('link', { name: /(Apple|Google) Mapy/ })).toBeVisible();
   await expect(detail.locator('iframe')).toHaveCount(0);
   await expect(detail.getByRole('link', { name: /OpenStreetMap/ })).toHaveCount(0);
 });
@@ -183,7 +183,7 @@ test('T-156: DetailsPanel je v DOM jen jednou → jeden odkaz na nativní mapy',
   const width = testInfo.project.use.viewport!.width;
   await selectFirstCard(page, width);
   await expandSheetIfCompact(page, width);
-  await expect(page.getByRole('link', { name: /Otevřít v (Apple|Google) Mapy/ })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /(Apple|Google) Mapy/ })).toHaveCount(1);
   await expect(page.getByRole('link', { name: /Mapy\.cz/ })).toHaveCount(1);
 });
 

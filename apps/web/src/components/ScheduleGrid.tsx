@@ -27,6 +27,7 @@ import {
   visibleDates,
   type ViewMode,
 } from '@/lib/grid';
+import { IconCalendar, IconPlus } from './Icons';
 
 interface Ghost {
   activityId: string;
@@ -85,6 +86,7 @@ export function ScheduleGrid({
   const view = useScheduleView();
   const catalog = usePlannerStore((s) => s.catalog);
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
+  const selectedCustomEntryId = usePlannerStore((s) => s.selectedCustomEntryId);
   const hoveredGroupId = usePlannerStore((s) => s.hoveredGroupId);
   const enrollGroup = usePlannerStore((s) => s.enrollGroup);
   const setHoveredGroup = usePlannerStore((s) => s.setHoveredGroup);
@@ -153,7 +155,6 @@ export function ScheduleGrid({
         : (DAY_WINDOW_START_MIN + DAY_WINDOW_END_MIN) / 2;
     const centered = topPx(focus) + 26 - el.clientHeight / 2;
     el.scrollTop = Math.max(0, centered);
-    // závislé jen na režimu a zobrazení mřížky — nepřerolovat každou minutu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, hasBlocks]);
 
@@ -202,54 +203,61 @@ export function ScheduleGrid({
   return (
     <div className="flex h-full flex-col">
       {/* Ovládání pohledu (FR-6) */}
-      <div className="no-print mb-2 flex items-center gap-2">
-        {/* Přepínač Den/3 dny/Týden/Měsíc jen na desktopu; na mobilu je výchozí Agenda (C11 UX). */}
-        {!isMobile && (
-          <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 text-sm">
-            {(['day', '3day', 'week', 'month'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={clsx(
-                  'px-3 py-1',
-                  mode === m ? 'bg-slate-800 text-white' : 'bg-white text-slate-600',
-                )}
-              >
-                {VIEW_LABELS[m]}
-              </button>
-            ))}
+      <div className="no-print mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {/* Přepínač Den/3 dny/Týden/Měsíc jen na desktopu */}
+          {!isMobile && (
+            <div className="inline-flex rounded-lg border border-slate-200/90 bg-slate-100/80 p-0.5 text-xs shadow-2xs">
+              {(['day', '3day', 'week', 'month'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={clsx(
+                    'rounded-md px-3 py-1 font-medium transition',
+                    mode === m
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  {VIEW_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Navigace pro všechny pohledy */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setAnchorDate((d) => shiftAnchor(mode, d, -1))}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 transition"
+              aria-label="Předchozí"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={() => setAnchorDate(new Date())}
+              className="rounded-lg border border-slate-200/80 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+            >
+              Dnes
+            </button>
+            <button
+              type="button"
+              onClick={() => setAnchorDate((d) => shiftAnchor(mode, d, 1))}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 transition"
+              aria-label="Další"
+            >
+              ›
+            </button>
           </div>
-        )}
-        {/* Navigace pro všechny pohledy */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setAnchorDate((d) => shiftAnchor(mode, d, -1))}
-            className="rounded px-2 py-1 text-sm hover:bg-slate-100"
-            aria-label="Předchozí"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={() => setAnchorDate(new Date())}
-            className="rounded border border-slate-200 px-2 py-1 text-xs hover:bg-slate-100"
-          >
-            Dnes
-          </button>
-          <button
-            type="button"
-            onClick={() => setAnchorDate((d) => shiftAnchor(mode, d, 1))}
-            className="rounded px-2 py-1 text-sm hover:bg-slate-100"
-            aria-label="Další"
-          >
-            ›
-          </button>
         </div>
-        <span className="text-sm text-slate-600" data-testid="view-range">
-          {dateRangeLabel(mode, anchorDate)}
-        </span>
+
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700" data-testid="view-range">
+          <IconCalendar className="h-3.5 w-3.5 text-slate-500" />
+          <span>{dateRangeLabel(mode, anchorDate)}</span>
+        </div>
       </div>
 
       <div className="print-only mb-2 text-lg font-semibold">
@@ -260,7 +268,7 @@ export function ScheduleGrid({
         <div
           role="tablist"
           aria-label="Zobrazení rozvrhu"
-          className="no-print mb-2 flex items-center gap-1 rounded-lg border border-slate-200 p-1 text-sm"
+          className="no-print mb-2 flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100/70 p-1 text-sm shadow-2xs"
         >
           <button
             type="button"
@@ -268,8 +276,8 @@ export function ScheduleGrid({
             aria-selected={mobileAgendaMode === 'agenda'}
             onClick={() => setMobileAgendaMode('agenda')}
             className={clsx(
-              'flex flex-1 items-center justify-center h-11 rounded px-2',
-              mobileAgendaMode === 'agenda' ? 'bg-slate-800 text-white' : 'text-slate-600',
+              'flex flex-1 items-center justify-center h-11 rounded-lg text-xs font-medium transition',
+              mobileAgendaMode === 'agenda' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900',
             )}
           >
             Agenda
@@ -280,8 +288,8 @@ export function ScheduleGrid({
             aria-selected={mobileAgendaMode === 'calendar'}
             onClick={() => setMobileAgendaMode('calendar')}
             className={clsx(
-              'flex flex-1 items-center justify-center h-11 rounded px-2',
-              mobileAgendaMode === 'calendar' ? 'bg-slate-800 text-white' : 'text-slate-600',
+              'flex flex-1 items-center justify-center h-11 rounded-lg text-xs font-medium transition',
+              mobileAgendaMode === 'calendar' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900',
             )}
           >
             Mřížka
@@ -290,24 +298,31 @@ export function ScheduleGrid({
       )}
 
       {view.blocks.length === 0 && (
-        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
+        <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-300/80 bg-white p-8 shadow-xs">
           <div className="max-w-md text-center">
-            <h2 className="text-xl font-semibold text-slate-800">Rozvrh je zatím prázdný</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Přidejte první kroužek z katalogu a hned uvidíte kolize i volné dny.
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-xs">
+              <IconCalendar className="h-6 w-6" />
+            </div>
+            <h2 className="mt-3 text-lg font-bold text-slate-900">Rozvrh je zatím prázdný</h2>
+            <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
+              Vyberte v katalogu nalevo zájmové kroužky pro dítě a rozvrh vám okamžitě ukáže časovou osu i případné kolize.
             </p>
             <button
               type="button"
               onClick={onAddFirstActivity}
-              className="mt-4 rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
             >
-              Přidat první kroužek
+              <IconPlus className="h-4 w-4" />
+              <span>Přidat první kroužek</span>
             </button>
-            <ul className="mt-4 text-left text-xs text-slate-500">
-              <li>Tip: klik na kartu kroužku otevře jeho detail.</li>
-              <li>Tip: tlačítko + na kartě kroužek rovnou přidá do rozvrhu.</li>
-              <li>Tip: po změnách rozvrh uložte přes tlačítko Uložit.</li>
-            </ul>
+            <div className="mt-6 rounded-xl bg-slate-50 p-3 text-left text-xs text-slate-600 border border-slate-100">
+              <span className="font-semibold text-slate-700 block mb-1">Rychlé tipy:</span>
+              <ul className="space-y-1 list-disc list-inside text-[11px] text-slate-500">
+                <li>Kliknutím na kroužek v katalogu otevřete jeho detail a termíny.</li>
+                <li>Změny se automaticky ukládají v prohlížeči.</li>
+                <li>Hotový rozvrh můžete exportovat do Apple / Google Kalendáře (.ics).</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
@@ -315,49 +330,66 @@ export function ScheduleGrid({
       {view.blocks.length > 0 && (
         <>
           {isMobile && mobileAgendaMode === 'agenda' ? (
-            <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
-              {agendaItems.map((item) => (
-                <button
-                  key={item.sessionId}
-                  type="button"
-                  onClick={() =>
-                    item.activityId
-                      ? selectActivity(item.activityId)
-                      : selectCustomEntry(item.ownerId)
-                  }
-                  className="mb-2 w-full rounded-md border border-slate-200 px-3 py-2 text-left"
-                >
-                  <div className="text-xs text-slate-500">
-                    {WEEKDAYS[item.weekday - 1]?.long} · {formatTime(item.startMinutes)}–{formatTime(item.endMinutes)}
-                  </div>
-                  <div className="text-sm font-medium" style={{ color: item.fill }}>
-                    {item.label}
-                  </div>
-                </button>
-              ))}
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs space-y-2">
+              {agendaItems.map((item) => {
+                const isSelected =
+                  (item.activityId && item.activityId === selectedActivityId) ||
+                  (item.ownerId && item.ownerId === selectedCustomEntryId);
+                return (
+                  <button
+                    key={item.sessionId}
+                    type="button"
+                    onClick={() =>
+                      item.activityId
+                        ? selectActivity(item.activityId)
+                        : selectCustomEntry(item.ownerId)
+                    }
+                    className={clsx(
+                      'w-full rounded-xl border p-3 text-left transition shadow-2xs',
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
+                    )}
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-medium text-slate-700">{WEEKDAYS[item.weekday - 1]?.long}</span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700">
+                        {formatTime(item.startMinutes)}–{formatTime(item.endMinutes)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: item.fill }}
+                      />
+                      <span className="text-sm font-semibold text-slate-900">{item.label}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : mode === 'month' ? (
             <div
               ref={gridRef}
-              className="print-grid flex-1 overflow-auto rounded-lg border border-slate-200 bg-white"
+              className="print-grid flex-1 overflow-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs"
             >
               <MonthView blocks={view.blocks} anchorDate={anchorDate} />
             </div>
           ) : (
             <div
               ref={gridRef}
-              className="print-grid flex flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white"
+              className="print-grid flex flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs"
             >
               <div ref={scrollRef} className="flex flex-1 overflow-y-auto">
                 {/* Časová osa 00:00–24:00 */}
                 <div
-                  className="relative w-12 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-600"
+                  className="relative w-10 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-500 font-medium"
                   style={{ height: GRID_HEIGHT_PX + 26 }}
                 >
                   {HOUR_MARKS.map((m) => (
                     <div
                       key={m}
-                      className="absolute left-0 right-0 -translate-y-1/2 pl-1"
+                      className="absolute left-0 right-0 -translate-y-1/2 pl-1.5 text-slate-400"
                       style={{ top: topPx(m) + 26 }}
                     >
                       {formatTime(m)}
@@ -414,26 +446,28 @@ export function ScheduleGrid({
                         onFocus={() => setFocusedCol(idx)}
                         className={clsx(
                           'relative border-r border-slate-100 last:border-r-0',
-                          holiday && 'bg-slate-50',
+                          holiday && 'bg-slate-50/60',
                         )}
                       >
                         <div
                           className={clsx(
-                            'sticky top-0 z-10 border-b border-slate-100 py-1 text-center text-xs font-medium',
+                            'sticky top-0 z-10 border-b border-slate-100 py-1.5 text-center text-xs font-semibold transition',
                             isToday
-                              ? 'bg-red-50 text-red-700'
+                              ? 'bg-blue-50 text-blue-800'
                               : holiday
                                 ? 'bg-slate-100 text-slate-600'
-                                : 'bg-slate-50 text-slate-600',
+                                : 'bg-slate-50/80 text-slate-700',
                           )}
                           title={holiday ? 'Svátek nebo prázdniny' : undefined}
                         >
-                          {info.short} {date.getDate()}.{date.getMonth() + 1}.
+                          <span className={isToday ? 'inline-block rounded-full bg-blue-600 px-2 py-0.5 text-white' : ''}>
+                            {info.short} {date.getDate()}.{date.getMonth() + 1}.
+                          </span>
                         </div>
                         {HOUR_MARKS.map((m) => (
                           <div
                             key={m}
-                            className="absolute left-0 right-0 border-t border-slate-50"
+                            className="absolute left-0 right-0 border-t border-slate-100"
                             style={{ top: topPx(m) + 26 }}
                           />
                         ))}
@@ -445,7 +479,7 @@ export function ScheduleGrid({
                             className="pointer-events-none absolute left-0 right-0 z-20 border-t-2 border-red-500"
                             style={{ top: topPx(nowMinutes) + 26 }}
                           >
-                            <span className="absolute -left-0 -top-1 h-2 w-2 rounded-full bg-red-500" />
+                            <span className="absolute -left-1 -top-1.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white shadow-xs" />
                           </div>
                         )}
 
@@ -460,7 +494,7 @@ export function ScheduleGrid({
                               onMouseLeave={() => setHoveredGroup(null)}
                               onClick={() => enrollGroup(g.activityId, g.groupId)}
                               className={clsx(
-                                'absolute rounded border-2 border-dashed text-[10px] transition-opacity',
+                                'absolute rounded-lg border-2 border-dashed text-[10px] transition-all duration-150 hover:opacity-90',
                                 dim ? 'opacity-20' : 'opacity-60',
                               )}
                               style={{
@@ -469,6 +503,7 @@ export function ScheduleGrid({
                                 left: '4%',
                                 width: '92%',
                                 borderColor: g.fill,
+                                backgroundColor: `${g.fill}15`,
                               }}
                               title="Klikněte pro výběr této varianty"
                             />
@@ -476,55 +511,64 @@ export function ScheduleGrid({
                         })}
 
                         {/* Vybrané bloky */}
-                        {positioned.map(({ item, leftPct, widthPct }) => (
-                          <button
-                            key={item.sessionId}
-                            type="button"
-                            onClick={() =>
-                              item.activityId
-                                ? selectActivity(item.activityId)
-                                : selectCustomEntry(item.ownerId)
-                            }
-                            className="absolute overflow-hidden rounded px-1 py-0.5 text-left text-[10px] leading-tight shadow-sm motion-safe:animate-[blockIn_180ms_ease-out]"
-                            style={{
-                              top: topPx(item.startMinutes) + 26,
-                              height: heightPx(item.startMinutes, item.endMinutes),
-                              left: `${leftPct}%`,
-                              width: `${widthPct}%`,
-                              backgroundColor: item.fill,
-                              color: item.text,
-                            }}
-                          >
-                            <span className="font-medium">{item.label}</span>
-                            <br />
-                            {formatTime(item.startMinutes)}–{formatTime(item.endMinutes)}
-                            {item.hasHardConflict && (
-                              <span
-                                className="conflict-stripes pointer-events-none absolute inset-0"
-                                aria-hidden
-                              />
-                            )}
-                            {item.hasHardConflict && (
-                              <span className="absolute right-0.5 top-0.5" title="Tvrdý konflikt">
-                                ⚠
-                              </span>
-                            )}
-                            {item.hasSoftConflict && !item.hasHardConflict && (
-                              <span
-                                className="absolute right-0.5 top-0.5 text-amber-300"
-                                title="Upozornění"
-                                aria-hidden
-                              >
-                                ●
-                              </span>
-                            )}
-                            {item.ownerKind === 'custom' && (
-                              <span className="absolute bottom-0.5 right-0.5" title="Vlastní událost">
-                                ✎
-                              </span>
-                            )}
-                          </button>
-                        ))}
+                        {positioned.map(({ item, leftPct, widthPct }) => {
+                          const isSelected =
+                            (item.activityId && item.activityId === selectedActivityId) ||
+                            (item.ownerId && item.ownerId === selectedCustomEntryId);
+                          return (
+                            <button
+                              key={item.sessionId}
+                              type="button"
+                              onClick={() =>
+                                item.activityId
+                                  ? selectActivity(item.activityId)
+                                  : selectCustomEntry(item.ownerId)
+                              }
+                              className={clsx(
+                                'absolute overflow-hidden rounded-lg p-1.5 text-left text-[11px] leading-tight shadow-sm transition motion-safe:animate-[blockIn_180ms_ease-out]',
+                                isSelected && 'ring-2 ring-blue-600 ring-offset-1 z-10 shadow-md',
+                              )}
+                              style={{
+                                top: topPx(item.startMinutes) + 26,
+                                height: heightPx(item.startMinutes, item.endMinutes),
+                                left: `${leftPct}%`,
+                                width: `${widthPct}%`,
+                                backgroundColor: item.fill,
+                                color: item.text,
+                              }}
+                            >
+                              <div className="font-bold truncate">{item.label}</div>
+                              <div className="text-[10px] opacity-90 font-medium">
+                                {formatTime(item.startMinutes)}–{formatTime(item.endMinutes)}
+                              </div>
+                              {item.hasHardConflict && (
+                                <span
+                                  className="conflict-stripes pointer-events-none absolute inset-0 rounded-lg"
+                                  aria-hidden
+                                />
+                              )}
+                              {item.hasHardConflict && (
+                                <span className="absolute right-1 top-1 rounded bg-red-600/90 text-white px-1 text-[10px] font-bold" title="Tvrdý konflikt">
+                                  ⚠
+                                </span>
+                              )}
+                              {item.hasSoftConflict && !item.hasHardConflict && (
+                                <span
+                                  className="absolute right-1 top-1 text-amber-300"
+                                  title="Upozornění"
+                                  aria-hidden
+                                >
+                                  ●
+                                </span>
+                              )}
+                              {item.ownerKind === 'custom' && (
+                                <span className="absolute bottom-1 right-1 opacity-75" title="Vlastní událost">
+                                  ✎
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     );
                   })}

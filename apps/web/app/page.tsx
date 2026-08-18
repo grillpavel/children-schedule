@@ -12,6 +12,7 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
+import { IconHome, IconFolderOpen, IconCalendar, IconUser } from '@/components/Icons';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
 // serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
@@ -148,7 +149,7 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col bg-slate-100/50">
       <Toolbar gridRef={gridRef} isDirty={isDirty} onMarkSaved={markSaved} />
       {/* Varianty rozvrhu jsou pokročilá funkce — na mobilu skryté (C11 UX). */}
       <div className="hidden desk:block">
@@ -168,8 +169,8 @@ export default function Page() {
         )}
         <aside
           className={clsx(
-            'no-print w-72 shrink-0 overflow-hidden border-r border-slate-200 bg-white desk:block',
-            mobileTab === 'catalog' ? 'block w-full desk:w-72' : 'hidden',
+            'no-print shrink-0 overflow-hidden border-r border-slate-200/80 bg-white desk:block shadow-2xs',
+            mobileTab === 'catalog' ? 'block w-full desk:w-80' : 'hidden desk:w-80',
           )}
         >
           <CatalogPanel onOpenCustom={() => setCustomOpen(true)} />
@@ -177,7 +178,7 @@ export default function Page() {
 
         <section
           className={clsx(
-            'flex-1 overflow-hidden p-3 desk:block',
+            'flex-1 overflow-hidden p-2 desk:block',
             mobileTab === 'grid' ? 'block' : 'hidden desk:block',
           )}
         >
@@ -200,9 +201,9 @@ export default function Page() {
             na mobilu je to záložka a mezi 900–1440 slide-over níže. */}
         <aside
           className={clsx(
-            'no-print overflow-hidden border-l border-slate-200 bg-white',
+            'no-print overflow-hidden border-l border-slate-200/80 bg-white shadow-2xs',
             isWide
-              ? clsx('block shrink-0', hasScheduleContent ? 'w-80' : 'w-60')
+              ? clsx('block shrink-0', hasScheduleContent ? 'w-80' : 'w-64')
               : isMobile
                 ? mobileTab === 'details'
                   ? 'block w-full'
@@ -219,9 +220,9 @@ export default function Page() {
         {!isMobile && !isWide && (hasSelection || mediumInfoOpen) && (
           <div
             data-testid="info-drawer"
-            className="no-print absolute inset-y-0 right-0 z-40 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xl"
+            className="no-print absolute inset-y-0 right-0 z-40 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right"
           >
-            <div className="flex shrink-0 justify-end border-b border-slate-200 p-1">
+            <div className="flex shrink-0 justify-end border-b border-slate-200 p-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -229,7 +230,7 @@ export default function Page() {
                   selectCustomEntry(null);
                   setMediumInfoOpen(false);
                 }}
-                className="rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
+                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
                 aria-label="Zavřít detail"
               >
                 Zavřít
@@ -243,27 +244,31 @@ export default function Page() {
       </main>
 
       {/* Mobilní spodní navigace */}
-      <nav className="no-print flex border-t border-slate-200 bg-white desk:hidden">
+      <nav className="no-print flex border-t border-slate-200/90 bg-white/95 backdrop-blur desk:hidden shadow-lg">
         {(
           [
-            ['home', 'Domů'],
-            ['catalog', 'Katalog'],
-            ['grid', 'Rozvrh'],
-            ['details', 'Děti'],
+            ['home', 'Domů', IconHome],
+            ['catalog', 'Katalog', IconFolderOpen],
+            ['grid', 'Rozvrh', IconCalendar],
+            ['details', 'Děti', IconUser],
           ] as const
-        ).map(([tab, label]) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setMobileTab(tab)}
-            className={clsx(
-              'flex flex-1 items-center justify-center h-11 text-xs',
-              mobileTab === tab ? 'font-medium text-slate-900' : 'text-slate-500',
-            )}
-          >
-            {label}
-          </button>
-        ))}
+        ).map(([tab, label, Icon]) => {
+          const active = mobileTab === tab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setMobileTab(tab)}
+              className={clsx(
+                'flex flex-1 flex-col items-center justify-center h-12 gap-0.5 text-[11px] transition',
+                active ? 'font-bold text-blue-600' : 'text-slate-500 hover:text-slate-800',
+              )}
+            >
+              <Icon className={clsx('h-4 w-4 transition', active ? 'text-blue-600 scale-110' : 'text-slate-400')} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {/* Info slide-over pro střední šířky 900–1440 (C9-L1): Info není stálý
@@ -272,7 +277,7 @@ export default function Page() {
         <button
           type="button"
           onClick={() => setMediumInfoOpen(true)}
-          className="no-print fixed right-0 top-1/2 z-30 -translate-y-1/2 rounded-l-md bg-slate-800 px-2 py-4 text-xs font-medium text-white shadow-lg hover:bg-slate-700"
+          className="no-print fixed right-0 top-1/2 z-30 -translate-y-1/2 rounded-l-xl bg-slate-900 px-2 py-4 text-xs font-semibold text-white shadow-xl hover:bg-slate-800 transition"
         >
           Souhrn
         </button>
@@ -283,8 +288,8 @@ export default function Page() {
         <div className="no-print fixed inset-x-0 bottom-12 z-40 desk:hidden">
           <div
             className={clsx(
-              'glass flex flex-col rounded-t-2xl border border-slate-200 shadow-2xl transition-[height] motion-safe:duration-200',
-              sheetExpanded ? 'h-[70vh]' : 'h-56',
+              'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
+              sheetExpanded ? 'h-[70vh]' : 'h-60',
             )}
           >
             <div className="flex items-center justify-between px-3">
@@ -295,12 +300,12 @@ export default function Page() {
                 className="flex flex-1 items-center justify-center py-2"
                 aria-label={sheetExpanded ? 'Zmenšit detail' : 'Zvětšit detail'}
               >
-                <span className="h-1 w-10 rounded-full bg-slate-300" />
+                <span className="h-1.5 w-12 rounded-full bg-slate-300" />
               </button>
               <button
                 type="button"
                 onClick={() => setGlassOff((v) => !v)}
-                className="w-10 text-[11px] text-slate-500"
+                className="w-12 text-[11px] font-medium text-slate-500"
                 aria-pressed={glassOff}
               >
                 {glassOff ? 'Sklo' : 'Bez skla'}
@@ -315,7 +320,7 @@ export default function Page() {
 
       {showChangeToast && (
         <div className="no-print pointer-events-none fixed bottom-16 left-1/2 z-50 -translate-x-1/2">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg motion-safe:animate-[toastIn_180ms_ease-out]">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-xl motion-safe:animate-[toastIn_180ms_ease-out]">
             <span>Změna uložena do varianty</span>
             <button
               type="button"
@@ -323,7 +328,7 @@ export default function Page() {
                 undo();
                 setShowChangeToast(false);
               }}
-              className="rounded bg-white/15 px-2 py-0.5 text-xs hover:bg-white/25"
+              className="rounded bg-white/20 px-2 py-0.5 text-xs font-semibold hover:bg-white/30 transition"
             >
               Zpět
             </button>

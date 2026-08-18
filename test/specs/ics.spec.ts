@@ -22,7 +22,7 @@ async function addCustom(
   if (opts.weekdayValue) await d.locator('select').first().selectOption(opts.weekdayValue);
   await d.locator('input[type="time"]').nth(0).fill(opts.start ?? '16:00');
   await d.locator('input[type="time"]').nth(1).fill(opts.end ?? '17:00');
-  if (opts.address) await d.getByPlaceholder('Ulice, město').fill(opts.address);
+  if (opts.address) await d.getByPlaceholder('Ulice a číslo, Město').fill(opts.address);
   await d.getByRole('button', { name: 'Přidat', exact: true }).click();
 }
 

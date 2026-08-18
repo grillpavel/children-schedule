@@ -16,6 +16,12 @@ async function openCatalog(page: import('@playwright/test').Page, width: number)
   }
 }
 
+/** Otevře katalog a rozbalí sekci Doporučení (defaultně sbalená). */
+async function openRecs(page: import('@playwright/test').Page, width: number) {
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: /Doporučení na míru/ }).click();
+}
+
 async function expandAll(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
 }
@@ -219,7 +225,7 @@ test('T-120: skloňování počtu termínů je gramaticky správně', async ({ p
 // --- 5.7 Doporučení (CHANGE-51) ---
 
 test('T-122: doporučení jsou v nefiltrovaném katalogu a při hledání zmizí', async ({ page }, testInfo) => {
-  await openCatalog(page, testInfo.project.use.viewport!.width);
+  await openRecs(page, testInfo.project.use.viewport!.width);
   const section = page.getByRole('region', { name: 'Doporučení' });
   await expect(section.getByRole('heading', { name: 'Doporučujeme' })).toBeVisible();
   await page.getByRole('searchbox').fill('Atletika');
@@ -227,7 +233,7 @@ test('T-122: doporučení jsou v nefiltrovaném katalogu a při hledání zmizí
 });
 
 test('T-123: zapnutý zájem přidá do doporučení důvod „Odpovídá zájmu"', async ({ page }, testInfo) => {
-  await openCatalog(page, testInfo.project.use.viewport!.width);
+  await openRecs(page, testInfo.project.use.viewport!.width);
   const section = page.getByRole('region', { name: 'Doporučení' });
   const firstRec = section.getByRole('button', { name: /^Doporučeno: / }).first();
   await expect(firstRec).toBeVisible();
@@ -240,12 +246,13 @@ test('T-123: zapnutý zájem přidá do doporučení důvod „Odpovídá zájmu
 test('T-124: klik na doporučení otevře detail kroužku', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(isCompact(width), 'detail v pravém panelu je jen na desktopu');
+  await page.getByRole('button', { name: /Doporučení na míru/ }).click();
   await page.getByRole('button', { name: /^Doporučeno: / }).first().click();
   await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toBeVisible();
 });
 
 test('T-125: nastavený rozpočet přidá k doporučení důvod „V rozpočtu"', async ({ page }, testInfo) => {
-  await openCatalog(page, testInfo.project.use.viewport!.width);
+  await openRecs(page, testInfo.project.use.viewport!.width);
   const section = page.getByRole('region', { name: 'Doporučení' });
   const budget = section.getByRole('spinbutton', { name: 'Měsíční rozpočet v korunách' });
   await budget.fill('100000');
@@ -254,7 +261,7 @@ test('T-125: nastavený rozpočet přidá k doporučení důvod „V rozpočtu"'
 });
 
 test('T-126: volné dny přidají k doporučení důvod „Termín ve volném čase"', async ({ page }, testInfo) => {
-  await openCatalog(page, testInfo.project.use.viewport!.width);
+  await openRecs(page, testInfo.project.use.viewport!.width);
   const section = page.getByRole('region', { name: 'Doporučení' });
   // Zpřístupni všechny dny (celodenní okna) → každý termín se vejde.
   for (const short of ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']) {

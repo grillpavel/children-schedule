@@ -5,6 +5,13 @@ import clsx from 'clsx';
 import { buildRecommendations, type ActivityCategory } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
+import {
+  IconCalendar,
+  IconSparkles,
+  IconCheck,
+  IconFolderOpen,
+  IconUser,
+} from './Icons';
 
 const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   sport: 'Sport',
@@ -91,14 +98,26 @@ export function HomeScreen({
   };
 
   return (
-    <div className="h-full space-y-4 overflow-y-auto p-4">
-      <h1 className="text-lg font-semibold text-slate-900">Přehled — {child.name}</h1>
+    <div className="h-full space-y-4 overflow-y-auto p-4 bg-slate-50/40">
+      {/* Profilová hlavička */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-bold text-white shadow-xs">
+          {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-5 w-5" />}
+        </div>
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 leading-tight">Přehled — {child.name}</h1>
+          <p className="text-xs text-slate-500 font-medium">Věk {child.age} let · {view.scheduleName}</p>
+        </div>
+      </div>
 
       {showOnboarding && (
-        <section aria-label="Rychlé nastavení" className="space-y-3 rounded-lg border border-slate-300 bg-slate-50 p-3">
-          <h2 className="text-sm font-semibold text-slate-800">Vítejte! Rychlé nastavení (30 s)</h2>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            Věk dítěte
+        <section aria-label="Rychlé nastavení" className="space-y-3 rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <IconSparkles className="h-5 w-5 text-blue-600" />
+            <h2 className="text-sm font-bold text-blue-950">Vítejte! Rychlé nastavení (30 s)</h2>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <span>Věk dítěte:</span>
             <input
               type="number"
               min={3}
@@ -106,12 +125,13 @@ export function HomeScreen({
               value={child.age}
               onChange={(e) => setChildAge(child.id, Number(e.target.value))}
               aria-label="Věk dítěte"
-              className="w-16 rounded border border-slate-200 px-2 py-1 text-sm"
+              className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
+            <span className="text-slate-400 font-normal">let</span>
           </label>
           <div>
-            <p className="mb-1 text-xs text-slate-500">Co dítě baví?</p>
-            <div className="flex flex-wrap gap-1">
+            <p className="mb-1.5 text-xs font-medium text-slate-600">Co dítě baví?</p>
+            <div className="flex flex-wrap gap-1.5">
               {catalogCategories.map((cat) => {
                 const on = child.interests.includes(cat);
                 return (
@@ -121,10 +141,10 @@ export function HomeScreen({
                     aria-pressed={on}
                     onClick={() => toggleInterest(cat)}
                     className={clsx(
-                      'rounded-full border px-2 py-0.5 text-xs',
+                      'rounded-full border px-2.5 py-1 text-xs font-medium transition',
                       on
-                        ? 'border-slate-800 bg-slate-800 text-white'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100',
+                        ? 'border-blue-600 bg-blue-600 text-white shadow-2xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
                     )}
                   >
                     {CATEGORY_LABELS[cat]}
@@ -139,36 +159,37 @@ export function HomeScreen({
               dismissOnboarding();
               onOpenCatalog();
             }}
-            className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+            className="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
           >
             Hotovo, vybrat kroužky
           </button>
         </section>
       )}
 
-      <section aria-label="Tento týden" className="rounded-lg border border-slate-200 bg-white p-3">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tento týden</h2>
+      {/* Tento týden dashboard widget */}
+      <section aria-label="Tento týden" className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2.5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Tento týden</h2>
         {view.summary.activityCount === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-xs text-slate-500 leading-relaxed">
             Zatím žádný kroužek. Přidejte první z katalogu a hned uvidíte kolize i volné dny.
           </p>
         ) : (
-          <dl className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <dt className="text-xs text-slate-500">Kroužky</dt>
-              <dd className="font-medium">{view.summary.activityCount}</dd>
+          <dl className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+              <dt className="text-[11px] font-semibold text-slate-500">Kroužky</dt>
+              <dd className="mt-0.5 text-lg font-bold text-slate-900">{view.summary.activityCount}</dd>
             </div>
-            <div>
-              <dt className="text-xs text-slate-500">Volné všední dny</dt>
-              <dd className="font-medium">{view.summary.freeWeekdays.length}</dd>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+              <dt className="text-[11px] font-semibold text-slate-500">Volné všední dny</dt>
+              <dd className="mt-0.5 text-lg font-bold text-slate-900">{view.summary.freeWeekdays.length}</dd>
             </div>
-            <div>
-              <dt className="text-xs text-slate-500">Náklady</dt>
-              <dd className="font-medium">{monthlyTotal} Kč/měs</dd>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+              <dt className="text-[11px] font-semibold text-slate-500">Náklady</dt>
+              <dd className="mt-0.5 text-base font-bold text-slate-900">{monthlyTotal} Kč<span className="text-[11px] font-normal text-slate-500">/měs</span></dd>
             </div>
-            <div>
-              <dt className="text-xs text-slate-500">Kolize</dt>
-              <dd className={clsx('font-medium', conflictCount > 0 ? 'text-red-700' : 'text-emerald-700')}>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+              <dt className="text-[11px] font-semibold text-slate-500">Kolize</dt>
+              <dd className={clsx('mt-0.5 text-lg font-bold', conflictCount > 0 ? 'text-red-600' : 'text-emerald-600')}>
                 {conflictCount > 0 ? conflictCount : 'žádné'}
               </dd>
             </div>
@@ -176,27 +197,29 @@ export function HomeScreen({
         )}
       </section>
 
+      {/* Doporučení sekce */}
       <section aria-label="Doporučení" className="space-y-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Doporučujeme</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Doporučujeme</h2>
         {recommendations.length > 0 ? (
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {recommendations.map((rec) => (
               <li key={rec.activity.id}>
                 <button
                   type="button"
                   aria-label={`Doporučeno: ${rec.activity.name}`}
                   onClick={() => selectActivity(rec.activity.id)}
-                  className="w-full rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-slate-300 hover:shadow-sm"
+                  className="w-full rounded-xl border border-slate-200/90 bg-white p-3 text-left transition hover:border-blue-400 hover:shadow-xs"
                 >
-                  <div className="text-sm font-medium">{rec.activity.name}</div>
-                  <div className="text-xs text-slate-500">{CATEGORY_LABELS[rec.activity.category]}</div>
-                  <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                  <div className="text-sm font-bold text-slate-900 leading-snug">{rec.activity.name}</div>
+                  <div className="mt-0.5 text-xs text-slate-500 font-medium">{CATEGORY_LABELS[rec.activity.category]}</div>
+                  <div className="mt-2 flex flex-wrap gap-1">
                     {rec.fit.reasons
                       .filter((r) => r.ok)
                       .slice(0, 3)
                       .map((r) => (
-                        <span key={r.key} className="text-[11px] text-emerald-700">
-                          {r.label}
+                        <span key={r.key} className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
+                          <IconCheck className="h-3 w-3" />
+                          <span>{r.label.replace(/^✓\s*/, '')}</span>
                         </span>
                       ))}
                   </div>
@@ -209,20 +232,23 @@ export function HomeScreen({
         )}
       </section>
 
-      <div className="flex gap-2">
+      {/* Rychlá navigační tlačítka */}
+      <div className="flex gap-2 pt-2">
         <button
           type="button"
           onClick={onOpenCatalog}
-          className="flex-1 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition"
         >
-          Procházet katalog
+          <IconFolderOpen className="h-4 w-4" />
+          <span>Procházet katalog</span>
         </button>
         <button
           type="button"
           onClick={onOpenGrid}
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
         >
-          Zobrazit rozvrh
+          <IconCalendar className="h-4 w-4 text-slate-500" />
+          <span>Zobrazit rozvrh</span>
         </button>
       </div>
     </div>

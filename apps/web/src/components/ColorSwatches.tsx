@@ -14,7 +14,7 @@ export function ColorSwatches({
   disabled?: boolean;
 }) {
   return (
-    <div className={`flex flex-wrap gap-1 ${disabled ? 'opacity-40' : ''}`}>
+    <div className={`flex flex-wrap items-center gap-1.5 ${disabled ? 'opacity-40' : ''}`}>
       {PALETTE.map((c) => {
         const active = c.css === value;
         return (
@@ -26,9 +26,11 @@ export function ColorSwatches({
             title={c.name}
             aria-label={`Barva ${c.name}`}
             aria-pressed={active}
-            className={`h-5 w-5 rounded-full border ${
-              active ? 'border-slate-800 ring-2 ring-slate-400' : 'border-slate-300'
-            } ${disabled ? '' : 'hover:scale-110'}`}
+            className={`h-5 w-5 rounded-full border transition-all duration-150 ${
+              active
+                ? 'border-white ring-2 ring-slate-800 scale-110 shadow-xs'
+                : 'border-slate-300 hover:scale-110'
+            }`}
             style={{ backgroundColor: c.fill }}
           />
         );

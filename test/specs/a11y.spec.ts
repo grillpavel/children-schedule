@@ -62,10 +62,11 @@ test('T-301: sklo nezpůsobuje neurčitý kontrast', async ({ page }, testInfo) 
   expect(contrastViolations, 'skutečné porušení kontrastu').toEqual([]);
 
   // Spec cílí na incomplete z průsvitných povrchů (sklo). Vyloučíme neškodné příčiny,
-  // které se sklem nesouvisí: `nonBmp` (axe neumí změřit symbolovou glyfu ↶ ● ⚠) a
-  // `elmPartiallyObscured/Obscuring` (prvek je schovaný za / překrývá jiný prvek, např. sheet/toast).
+  // které se sklem nesouvisí: `nonBmp` (axe neumí změřit symbolovou glyfu ↶ ● ⚠),
+  // `elmPartiallyObscured/Obscuring` a `bgOverlap` (prvek je schovaný za / překrytý
+  // jiným prvkem — např. sheet/toast/Info drawer — takže axe pozadí nedopočítá).
   const isBenign = (key?: string) =>
-    key === 'nonBmp' || (key ?? '').startsWith('elmPartiallyObscur');
+    key === 'nonBmp' || key === 'bgOverlap' || (key ?? '').startsWith('elmPartiallyObscur');
   const contrastUnknown = results.incomplete
     .filter((r) => r.id === 'color-contrast')
     .flatMap((r) => r.nodes)

@@ -8,6 +8,7 @@ import {
   activitySignature,
   schoolYearHolidays,
   districtSchoolHolidays,
+  applySessionOverrides,
   type ActivityCategory,
   type ActivityOverride,
   type AvailabilityWindow,
@@ -18,6 +19,7 @@ import {
   type Enrollment,
   type NamedSchedule,
   type PlannerState,
+  type SessionOverride,
   type TravelMode,
   type Weekday,
 } from '@krouzky/domain';
@@ -82,6 +84,14 @@ interface PlannerStore {
     patch: Partial<Omit<ActivityOverride, 'activityId'>>,
   ): void;
   clearActivityOverride(activityId: string): void;
+
+  /** Přepis času katalogové Session (design_review_69.md) — katalog nemusí odrážet
+   * aktuální stav; efektivní hodnota = `override ?? katalog`. */
+  setSessionOverride(
+    sessionId: string,
+    patch: Partial<Omit<SessionOverride, 'sessionId'>>,
+  ): void;
+  clearSessionOverride(sessionId: string): void;
 
   // ---- pojmenované varianty rozvrhu ----
   setActiveSchedule(scheduleId: string): void;
@@ -148,7 +158,9 @@ export const usePlannerStore = create<PlannerStore>()(
 
     return {
       state: initialState,
-      catalog: NOVE_STRASECI_CATALOG,
+      // Katalog s aplikovanými přepisy časů Sessions (design_review_69.md) — přepočítá se
+      // při setSessionOverride/clearSessionOverride i při obnově stavu (loadState/hydrate).
+      catalog: applySessionOverrides(NOVE_STRASECI_CATALOG, initialState.sessionOverrides),
       // Výchozí výjimky = státní svátky školního roku (C6-A9) + školní prázdniny okresu Rakovník
       // (design_review_68.md FR-3) → EXDATE v exportu i potlačení v mřížce.
       exceptions: [
@@ -375,6 +387,57 @@ export const usePlannerStore = create<PlannerStore>()(
           );
         }),
 
+      setSessionOverride: (sessionId, patch) =>
+        commit(
+          (draft) => {
+            let override = draft.sessionOverrides.find((o) => o.sessionId === sessionId);
+            if (!override) {
+              override = { sessionId };
+              draft.sessionOverrides.push(override);
+            }
+            // undefined v patchi ruší dané pole (návrat na katalogový čas).
+            for (const [key, value] of Object.entries(patch)) {
+              if (value === undefined) {
+                delete (override as Record<string, unknown>)[key];
+              } else {
+                (override as Record<string, unknown>)[key] = value;
+              }
+            }
+            // Prázdný přepis (jen sessionId) se odstraní.
+            const hasRealOverride = Object.keys(override).some((k) => k !== 'sessionId');
+            if (!hasRealOverride) {
+              draft.sessionOverrides = draft.sessionOverrides.filter(
+                (o) => o.sessionId !== sessionId,
+              );
+              return;
+            }
+            // Kanonické pořadí klíčů (dle schématu) → stabilní round-trip (viz BL-021/CHANGE-73).
+            const src = override as Record<string, unknown>;
+            const canonical: Record<string, unknown> = { sessionId };
+            for (const k of ['weekday', 'startMinutes', 'endMinutes']) {
+              if (src[k] !== undefined) canonical[k] = src[k];
+            }
+            draft.sessionOverrides = draft.sessionOverrides.map((o) =>
+              o.sessionId === sessionId ? (canonical as typeof o) : o,
+            );
+          },
+          (store) => {
+            store.catalog = applySessionOverrides(NOVE_STRASECI_CATALOG, store.state.sessionOverrides);
+          },
+        ),
+
+      clearSessionOverride: (sessionId) =>
+        commit(
+          (draft) => {
+            draft.sessionOverrides = draft.sessionOverrides.filter(
+              (o) => o.sessionId !== sessionId,
+            );
+          },
+          (store) => {
+            store.catalog = applySessionOverrides(NOVE_STRASECI_CATALOG, store.state.sessionOverrides);
+          },
+        ),
+
       setActiveSchedule: (scheduleId) =>
         set((s) => {
           if (s.state.schedules.some((x) => x.id === scheduleId)) {
@@ -470,6 +533,7 @@ export const usePlannerStore = create<PlannerStore>()(
           s.history.push(current(s.state));
           s.future = [];
           s.state = state;
+          s.catalog = applySessionOverrides(NOVE_STRASECI_CATALOG, state.sessionOverrides);
           s.activeChildId = state.children[0]?.id ?? s.activeChildId;
           s.selectedActivityId = null;
           s.hoveredGroupId = null;
@@ -480,6 +544,7 @@ export const usePlannerStore = create<PlannerStore>()(
         set((s) => {
           // Autosave obnova: čistý start bez historie, aby undo nesmazal obnovená data.
           s.state = state;
+          s.catalog = applySessionOverrides(NOVE_STRASECI_CATALOG, state.sessionOverrides);
           s.activeChildId = state.children[0]?.id ?? s.activeChildId;
           s.selectedActivityId = null;
           s.selectedCustomEntryId = null;

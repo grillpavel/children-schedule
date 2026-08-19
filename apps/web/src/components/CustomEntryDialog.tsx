@@ -6,6 +6,7 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { newId } from '@/lib/ids';
 import { WEEKDAYS } from '@/lib/grid';
 import { geocodeAddress, offlineGeocode } from '@/lib/geocode';
+import { ColorSwatches } from './ColorSwatches';
 import { IconClose, IconPlus } from './Icons';
 
 /** Předvolený typ vlastní události (FR-4, design_review_58.md) — určuje výchozí barvu. */
@@ -49,6 +50,9 @@ export function CustomEntryDialog({
 
   const [name, setName] = useState(editEntry?.name ?? '');
   const [kind, setKind] = useState<CustomEntryKind>(editEntry?.kind ?? 'other');
+  const [colorOverride, setColorOverride] = useState<string | undefined>(
+    editEntry?.colorOverride,
+  );
   const [rows, setRows] = useState<TimeRow[]>(
     editEntry
       ? editEntry.sessions.map((s) => ({
@@ -123,6 +127,7 @@ export function CustomEntryDialog({
         ? { price: { amount, period: pricePeriod } }
         : {}),
       ...(note ? { note: note.trim() } : {}),
+      ...(colorOverride ? { colorOverride } : {}),
     };
     if (isEdit) updateCustomEntry(entry);
     else addCustomEntry(entry);
@@ -174,6 +179,22 @@ export function CustomEntryDialog({
                   <span>{opt.label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="font-semibold text-slate-700">Barva</span>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <ColorSwatches value={colorOverride} onPick={setColorOverride} />
+              {colorOverride && (
+                <button
+                  type="button"
+                  onClick={() => setColorOverride(undefined)}
+                  className="text-xs font-semibold text-red-600 hover:underline"
+                >
+                  Výchozí barva
+                </button>
+              )}
             </div>
           </div>
 

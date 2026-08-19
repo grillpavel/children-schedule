@@ -31,14 +31,18 @@ export function parseExceptionsFile(input: unknown): Result<ExceptionsFile> {
 }
 
 /**
- * Migruje starší uložený stav na aktuální `schemaVersion` (řetězeně 1 → 2 → 3 → 4 → 5 → 6).
+ * Migruje starší uložený stav na aktuální `schemaVersion` (řetězeně 1 → 2 → … → 8).
  * v1 → v2: `session.biweekly.parity` (sudý/lichý týden) → `everyWeeks: 2`.
  * v2 → v3: doplní prázdné `overrides` (uživatelské přepisy aktivit).
  * v3 → v4: personalizační pole `Child` (`interests`/`availability`) — defaulty doplní schema.
  * v4 → v5: `CustomEntry.kind` (typ vlastní události, CHANGE-63) — default `'other'` doplní schema.
  * v5 → v6: `Child.travelBufferMinutes`/`travelMode` (BL-038, design_review_67.md) — oba
- * volitelé (`undefined`), žádná transformace dat potřeba. * v6 → v7: `ActivityOverride.allowOnHolidays` (design_review_68.md, CHANGE-73) — volitelné
- * (`undefined`), žádná transformace dat potřeba. */
+ * volitelné (`undefined`), žádná transformace dat potřeba.
+ * v6 → v7: `ActivityOverride.allowOnHolidays` (design_review_68.md, CHANGE-73) — volitelné
+ * (`undefined`), žádná transformace dat potřeba.
+ * v7 → v8: `sessionOverrides` (design_review_69.md, CHANGE-74) — nové pole, doplní prázdné,
+ * pokud chybí.
+ */
 function migrateToCurrent(input: unknown): unknown {
   if (typeof input !== 'object' || input === null) return input;
 
@@ -54,6 +58,7 @@ function migrateToCurrent(input: unknown): unknown {
     schemaVersion?: number;
     schedules?: { enrollments?: unknown; customEntries?: { sessions?: unknown[] }[] }[];
     overrides?: unknown;
+    sessionOverrides?: unknown;
   };
 
   // v1 → v2: přepis biweekly u vlastních událostí (katalog migruje volající zvlášť).
@@ -91,6 +96,11 @@ function migrateToCurrent(input: unknown): unknown {
   // v6 → v7: ActivityOverride.allowOnHolidays (design_review_68.md) — volitelné, jen bump verze.
   if (clone.schemaVersion === 6) {
     clone = { ...clone, schemaVersion: 7 };
+  }
+
+  // v7 → v8: sessionOverrides (design_review_69.md) — nové pole, doplní prázdné, pokud chybí.
+  if (clone.schemaVersion === 7) {
+    clone = { ...clone, schemaVersion: 8, sessionOverrides: clone.sessionOverrides ?? [] };
   }
 
   return clone;

@@ -308,3 +308,59 @@ test('T-176: kroužek se v den školních prázdnin nevykreslí v mřížce, po 
   }
   await expect(thursday.getByRole('button', { name: /Fotbal/ })).toBeVisible();
 });
+
+// --- Vlastní barva u vlastní události + editace času katalogové aktivity (CHANGE-74, design_review_69.md) ---
+
+test('T-177: vlastní událost může mít vlastní barvu, ne jen výchozí podle typu', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await dialog.getByPlaceholder('Např. Logopedie').fill('Barevná událost');
+  await dialog.locator('input[type="time"]').nth(0).fill('16:00');
+  await dialog.locator('input[type="time"]').nth(1).fill('17:00');
+  // „Jiné" (výchozí typ) nemá vlastní barvu v KIND_DEFAULT_CSS — bez přepisu by byla šedomodrá.
+  await dialog.getByRole('button', { name: 'Barva cihlová' }).click();
+  await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  const block = page.getByRole('grid').getByRole('button', { name: /Barevná událost/ });
+  await expect(block).toHaveCSS('background-color', 'rgb(196, 78, 82)');
+});
+
+test('T-178: čas katalogové aktivity lze upravit — katalog nemusí odrážet aktuální stav', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  await openCatalog(page, width);
+  await page.getByRole('searchbox').fill('mini přípravka');
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await cards(page).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+
+  if (isCompact(width)) {
+    await openCatalog(page, width);
+    await cards(page).first().click();
+  }
+  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
+  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+
+  await detail.getByRole('button', { name: 'Upravit časy' }).click();
+  // Fotbal — mini přípravka má termín v úterý (16:00) — posuneme na 18:30.
+  await detail.locator('input[type="time"]').first().fill('18:30');
+  await detail.locator('input[type="time"]').first().blur();
+  await expect(detail.getByText('upraveno vámi').first()).toBeVisible();
+  await detail.getByRole('button', { name: 'Hotovo' }).click();
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Zavřít detail' }).click();
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  await expect(
+    page.getByRole('grid').getByRole('button', { name: /Fotbal/ }).filter({ hasText: '18:30' }),
+  ).toBeVisible();
+});

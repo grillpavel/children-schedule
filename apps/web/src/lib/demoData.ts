@@ -218,7 +218,7 @@ export const DEMO_CHILD: Child = {
 
 export function buildInitialState(): PlannerState {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     children: [DEMO_CHILD],
     schedules: [
       {
@@ -233,6 +233,7 @@ export function buildInitialState(): PlannerState {
     activeScheduleId: 'sch-a',
     constraints: [],
     overrides: [],
+    sessionOverrides: [],
     schoolYear: SCHOOL_YEAR,
     districtCode: 'DEMO',
   };

@@ -10,6 +10,9 @@ import {
   type CustomEntryKind,
   type PricePeriod,
   type Provider,
+  type SessionGroup,
+  type SessionOverride,
+  type Weekday,
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
@@ -125,6 +128,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const clearCatalogSearch = usePlannerStore((s) => s.clearCatalogSearch);
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
   const clearActivityOverride = usePlannerStore((s) => s.clearActivityOverride);
+  const setSessionOverride = usePlannerStore((s) => s.setSessionOverride);
+  const clearSessionOverride = usePlannerStore((s) => s.clearSessionOverride);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
   const [variantChoice, setVariantChoice] = useState('');
   const [descOpen, setDescOpen] = useState(false);
@@ -315,6 +320,14 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             </button>
           )}
         </div>
+
+        <SessionTimeEditor
+          key={activity.id}
+          groups={groups}
+          sessionOverrides={state.sessionOverrides}
+          onChange={(sessionId, patch) => setSessionOverride(sessionId, patch)}
+          onReset={(sessionId) => clearSessionOverride(sessionId)}
+        />
 
         {/* Popis */}
         {activity.description && (
@@ -656,6 +669,134 @@ function ActivityEditor({
           Hotovo
         </button>
       </div>
+    </div>
+  );
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function toHhmm(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Editace časů katalogových Sessions (design_review_69.md) — katalog nemusí odrážet
+ * aktuální stav (změna tréninkového dne/času apod.), zapisuje do `sessionOverrides`.
+ */
+function SessionTimeEditor({
+  groups,
+  sessionOverrides,
+  onChange,
+  onReset,
+}: {
+  groups: SessionGroup[];
+  sessionOverrides: SessionOverride[];
+  onChange: (
+    sessionId: string,
+    patch: { weekday: Weekday; startMinutes: number; endMinutes: number },
+  ) => void;
+  onReset: (sessionId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const overrideById = new Map(sessionOverrides.map((o) => [o.sessionId, o]));
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs font-semibold text-blue-600 hover:underline"
+      >
+        Upravit časy
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 animate-in fade-in-50">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Časy termínů
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50"
+        >
+          Hotovo
+        </button>
+      </div>
+      {groups.flatMap((g) =>
+        g.sessions.map((session) => {
+          const isEdited = overrideById.has(session.id);
+          return (
+            <div
+              key={`${session.id}:${session.weekday}:${session.startMinutes}:${session.endMinutes}`}
+              className="flex items-center gap-1.5"
+            >
+              <select
+                value={session.weekday}
+                onChange={(e) =>
+                  onChange(session.id, {
+                    weekday: Number(e.target.value) as Weekday,
+                    startMinutes: session.startMinutes,
+                    endMinutes: session.endMinutes,
+                  })
+                }
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs"
+              >
+                {WEEKDAYS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.short}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="time"
+                defaultValue={toHhmm(session.startMinutes)}
+                onBlur={(e) =>
+                  onChange(session.id, {
+                    weekday: session.weekday,
+                    startMinutes: toMinutes(e.target.value),
+                    endMinutes: session.endMinutes,
+                  })
+                }
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
+              />
+              <span className="text-slate-400">–</span>
+              <input
+                type="time"
+                defaultValue={toHhmm(session.endMinutes)}
+                onBlur={(e) =>
+                  onChange(session.id, {
+                    weekday: session.weekday,
+                    startMinutes: session.startMinutes,
+                    endMinutes: toMinutes(e.target.value),
+                  })
+                }
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
+              />
+              {isEdited && (
+                <>
+                  <EditedMark />
+                  <button
+                    type="button"
+                    onClick={() => onReset(session.id)}
+                    className="text-xs font-semibold text-red-600 hover:underline"
+                  >
+                    Obnovit
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        }),
+      )}
     </div>
   );
 }

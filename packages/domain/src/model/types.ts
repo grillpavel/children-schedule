@@ -11,6 +11,7 @@ import type {
   weekdaySchema,
   sessionSchema,
   sessionGroupSchema,
+  sessionOverrideSchema,
   venueSchema,
   childSchema,
   availabilityWindowSchema,
@@ -41,6 +42,7 @@ export type Price = z.infer<typeof priceSchema>;
 export type Weekday = z.infer<typeof weekdaySchema>;
 export type Session = z.infer<typeof sessionSchema>;
 export type SessionGroup = z.infer<typeof sessionGroupSchema>;
+export type SessionOverride = z.infer<typeof sessionOverrideSchema>;
 export type Venue = z.infer<typeof venueSchema>;
 export type Catalog = z.infer<typeof catalogSchema>;
 

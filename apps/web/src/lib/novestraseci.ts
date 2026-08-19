@@ -122,7 +122,7 @@ const DEFAULT_CHILD: Child = {
 
 export function buildNovestraseciState(): PlannerState {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     children: [DEFAULT_CHILD],
     schedules: [
       {
@@ -137,6 +137,7 @@ export function buildNovestraseciState(): PlannerState {
     activeScheduleId: 'sch-a',
     constraints: [],
     overrides: [],
+    sessionOverrides: [],
     schoolYear: SCHOOL_YEAR,
     // Rakovník = skutečný okres NS_CATALOG (design_review_68.md FR-3); umožňuje district-scope výjimky.
     districtCode: 'rakovnik',

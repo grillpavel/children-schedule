@@ -4,3 +4,4 @@ export * from './hash.js';
 export * from './palette.js';
 export * from './result.js';
 export * from './override-drift.js';
+export * from './session-override.js';

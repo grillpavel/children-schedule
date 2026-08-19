@@ -6,6 +6,30 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlastní barva u vlastních událostí + editace času katalogové aktivity (CHANGE-74)
+
+Trigger: uživatel požádal o dvě úpravy — (1) možnost zvolit barvu u vlastních událostí, (2) možnost
+editovat čas katalogové aktivity (cena/adresa už editovatelné byly, `ActivityOverride`, CHANGE-4; čas
+ne — katalog nemusí odrážet aktuální stav). Scope: **engine `@krouzky/domain` 0.6.0 → 0.7.0** + **app
+`@krouzky/web`**, `schemaVersion` 7 → 8.
+
+- `CustomEntryDialog.tsx` získal sekci „Barva“ (`ColorSwatches`) zapisující do existujícího
+  `CustomEntry.colorOverride` (doména ho už podporovala, jen chybělo UI).
+- Nová entita `SessionOverride` (`sessionId` + volitelné `weekday`/`startMinutes`/`endMinutes`) —
+  `PlannerState.sessionOverrides`. Nové čisté funkce `effectiveSession()`/`applySessionOverrides()`
+  ([session-override.ts](packages/domain/src/model/session-override.ts)).
+  `plannerStore.ts`'s `catalog` pole se nově přepočítává s aplikovanými přepisy při každé změně i při
+  `loadState`/`hydrate` — všichni čtenáři katalogu (konflikty, ICS export, souhrn, doporučení, UI) tak
+  transparentně vidí opravený čas beze změny vlastního kódu.
+- `DetailsPanel.tsx` získal sekci „Upravit časy“ (per Session, s označením „upraveno vámi“ a tlačítkem
+  „Obnovit“).
+
+Spec: `.github/specs/design_review_69.md`. Nové testy: `session-override.test.ts` (6 testů),
+`state.test.ts` (migrace v7→v8), E2E `T-177` (barva vlastní události) + `T-178` (editace času
+katalogové aktivity) v `schedule.spec.ts`. `vitest` (domain, 125 testů) zelené; `tsc --noEmit`
+(domain+web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech (621 passed / 123 skipped / 0
+failed).
+
 ### Školní prázdniny okresu Rakovník + potlačení výskytu v mřížce (CHANGE-73)
 
 Trigger: uživatelský spec požadoval, aby se aktivity ve výchozím stavu negenerovaly o školních

@@ -144,6 +144,26 @@ export const sessionGroupSchema = z.object({
   sessions: z.array(sessionSchema).min(1),
 });
 
+/**
+ * Uživatelský přepis času jedné katalogové Session (design_review_69.md) — katalog
+ * nemusí odrážet aktuální stav (změna tréninkového času apod.), klíčem je `sessionId`.
+ * Efektivní hodnota = `override ?? katalog` (viz `effectiveSession()`).
+ */
+export const sessionOverrideSchema = z
+  .object({
+    sessionId: z.string(),
+    weekday: weekdaySchema.optional(),
+    startMinutes: minutesOfDay.optional(),
+    endMinutes: minutesOfDay.optional(),
+  })
+  .refine(
+    (s) =>
+      s.startMinutes === undefined ||
+      s.endMinutes === undefined ||
+      s.startMinutes < s.endMinutes,
+    { message: 'startMinutes musí být menší než endMinutes', path: ['startMinutes'] },
+  );
+
 // ---------- Uživatelský stav (jen v paměti) ----------
 
 /** Časové okno dostupnosti dítěte (personalizace, CHANGE-45). */
@@ -348,12 +368,13 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(7),
+  schemaVersion: z.literal(8),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),
   constraints: z.array(constraintRecordSchema),
   overrides: z.array(activityOverrideSchema),
+  sessionOverrides: z.array(sessionOverrideSchema),
   schoolYear: z.object({ start: isoDate, end: isoDate }),
   districtCode: z.string(),
 });

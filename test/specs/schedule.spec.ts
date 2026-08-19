@@ -349,9 +349,12 @@ test('T-178: čas katalogové aktivity lze upravit — katalog nemusí odrážet
   if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
-  // Fotbal — mini přípravka má termín v úterý (16:00) — posuneme na 18:30.
-  await detail.locator('input[type="time"]').first().fill('18:30');
-  await detail.locator('input[type="time"]').first().blur();
+  // Fotbal — mini přípravka má termín v úterý (16:00–17:00) — posuneme na 18:30–19:30.
+  // Obě pole se mění spolu, ať zůstane začátek < konec (validace, design_review_69.md).
+  await detail.locator('input[type="time"]').nth(0).fill('18:30');
+  await detail.locator('input[type="time"]').nth(0).blur();
+  await detail.locator('input[type="time"]').nth(1).fill('19:30');
+  await detail.locator('input[type="time"]').nth(1).blur();
   await expect(detail.getByText('upraveno vámi').first()).toBeVisible();
   await detail.getByRole('button', { name: 'Hotovo' }).click();
 
@@ -362,5 +365,37 @@ test('T-178: čas katalogové aktivity lze upravit — katalog nemusí odrážet
   }
   await expect(
     page.getByRole('grid').getByRole('button', { name: /Fotbal/ }).filter({ hasText: '18:30' }),
+  ).toBeVisible();
+});
+
+test('T-179: editace času odmítne neplatný rozsah (začátek po konci) beze změny rozvrhu', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  await openCatalog(page, width);
+  await page.getByRole('searchbox').fill('mini přípravka');
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await cards(page).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+
+  if (isCompact(width)) {
+    await openCatalog(page, width);
+    await cards(page).first().click();
+  }
+  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
+  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+
+  await detail.getByRole('button', { name: 'Upravit časy' }).click();
+  // Začátek (18:30) po dosavadním konci (17:00, nezměněn) — neplatné, nesmí se zapsat.
+  await detail.locator('input[type="time"]').nth(0).fill('18:30');
+  await detail.locator('input[type="time"]').nth(0).blur();
+  await expect(detail.getByText('upraveno vámi')).toHaveCount(0);
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Zavřít detail' }).click();
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  await expect(
+    page.getByRole('grid').getByRole('button', { name: /Fotbal/ }).filter({ hasText: '16:00' }).first(),
   ).toBeVisible();
 });

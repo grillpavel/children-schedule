@@ -76,3 +76,29 @@ editovatelné byly (`ActivityOverride`, CHANGE-4); čas ne.
 - **`SessionOverride` je jen na úrovni celé Session** (den + čas), ne na úrovni jednoho konkrétního
   kalendářního výskytu (`validFrom`/`validTo` zůstávají katalogové) — konzistentní s tím, jak
   `ActivityOverride` funguje na úrovni celé aktivity, ne jednoho zápisu.
+
+## 4. Dodatečná zjištění ze SOTA vizuální kontroly (po prvním IMPLEMENTED)
+
+Manuální průchod aplikací (všechny šířky, skutečný prohlížeč) odhalil tři reálné vady v FR-5
+(`SessionTimeEditor`), které Playwright DOM assertions samy o sobě nezachytily:
+
+1. **Chybějící validace `start < end` při editaci jen jednoho pole.** Původní implementace posílala
+   `onChange` s `session.startMinutes`/`endMinutes` z PROPS (může být zastaralé, pokud uživatel právě
+   edituje jen jedno pole) — bylo možné zapsat neplatný rozsah (např. start 18:30, end zůstalo 17:00) do
+   `sessionOverrides` bez jakékoliv kontroly, protože store's `setSessionOverride` mutuje `draft` přímo
+   (mimo zod `.parse()`), takže schémový `refine` se při interaktivní editaci vůbec neuplatní. **Oprava:**
+   `SessionTimeRow` nyní drží řízený místní stav (`weekday`/`start`/`end`) a validuje AKTUÁLNÍ dvojici
+   před voláním `onChange` — neplatná kombinace se tiše nezapíše. Nový test **T-179** tohle uzamyká.
+2. **Vizuální přetečení/oříznutí „upraveno vámi" + „Obnovit".** Jeden řádek `flex items-center gap-1.5`
+   se 4 prvky (den, začátek, konec) + značkou + tlačítkem přetékal z pravého panelu na desktopu — značka
+   se vizuálně ořezávala o okraj panelu. **Oprava:** značka + tlačítko se přesunuly na vlastní řádek pod
+   časy (`flex flex-wrap`), místo aby se tísnily do jednoho řádku.
+3. **Duplicitní React `key`.** `SessionTimeEditor` dostal `key={activity.id}` — stejnou hodnotu už jako
+   přímý sourozenec (ve stejném rodičovském `<div>`) používal `ActivityEditor`. React hlásil konzoli
+   varování „Encountered two children with the same key" (neškodné funkčně, ale reálná chyba). **Oprava:**
+   `key={`times-${activity.id}`}`.
+
+Žádná z těchto vad nebyla zachycena existující E2E sadou před touto kontrolou (T-178 předtím testoval jen
+jednopolní úpravu, která se nyní chová jinak — správně odmítnuta — proto byl T-178 upraven na
+dvoupolní platnou úpravu a přidán T-179 pro záporný případ). Plná E2E `--workers=1`: 627 passed / 123
+skipped / 0 failed (6 profilů).

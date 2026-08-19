@@ -6,6 +6,28 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### SOTA vizuální kontrola: 3 opravené vady v editaci času (CHANGE-74, dodatek)
+
+Trigger: uživatel požádal o kompletní vizuální otestování napříč rozhraními po CHANGE-74 se zaměřením
+na chyby, překrytý text a symetrii. Manuální průchod skutečným prohlížečem (ne jen DOM assertions)
+napříč šířkami odhalil tři reálné vady v novém `SessionTimeEditor` (FR-5, `design_review_69.md`), které
+Playwright asercemi samy o sobě nezachytila předchozí E2E sada. Scope: **app `@krouzky/web`** (bez
+schema/verze změny), + úprava 1 existujícího a 1 nový E2E test.
+
+- **Chybějící validace `start < end`** — editace jen jednoho pole (start nebo konec) mohla zapsat
+  neplatný časový rozsah do `sessionOverrides` bez kontroly (store mutuje přímo, mimo zod validaci).
+  Oprava: `SessionTimeRow` nyní drží řízený místní stav a validuje aktuální dvojici před zápisem. Nový
+  test **T-179**.
+- **Vizuální přetečení „upraveno vámi" + „Obnovit"** z pravého panelu na desktopu (jeden přeplněný
+  `flex` řádek). Oprava: značka a tlačítko na vlastní řádek pod časy (`flex-wrap`).
+- **Duplicitní React `key={activity.id}`** mezi `SessionTimeEditor` a `ActivityEditor` (přímí
+  sourozenci) — konzolové varování „two children with the same key". Oprava: `key={`times-${activity.id}`}`.
+
+Spec: `.github/specs/design_review_69.md` §4. Upraven **T-178** (dvoupolní platná úprava místo
+jednopolní, která je nyní správně odmítnuta), nový **T-179** (negativní případ). `vitest` (domain, 125
+testů) zelené; `tsc --noEmit` (domain+web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech
+(627 passed / 123 skipped / 0 failed).
+
 ### Vlastní barva u vlastních událostí + editace času katalogové aktivity (CHANGE-74)
 
 Trigger: uživatel požádal o dvě úpravy — (1) možnost zvolit barvu u vlastních událostí, (2) možnost

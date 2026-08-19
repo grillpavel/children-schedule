@@ -10,6 +10,7 @@ import {
   type CustomEntryKind,
   type PricePeriod,
   type Provider,
+  type Session,
   type SessionGroup,
   type SessionOverride,
   type Weekday,
@@ -322,7 +323,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
         </div>
 
         <SessionTimeEditor
-          key={activity.id}
+          key={`times-${activity.id}`}
           groups={groups}
           sessionOverrides={state.sessionOverrides}
           onChange={(sessionId, patch) => setSessionOverride(sessionId, patch)}
@@ -685,6 +686,84 @@ function toHhmm(minutes: number): string {
 }
 
 /**
+ * Jeden řádek editace času Session — místní stav (ne `defaultValue`), aby šlo ověřit
+ * `start < end` z AKTUÁLNĚ zadané dvojice, ne z případně zastaralé katalogové hodnoty
+ * (design_review_69.md; oprava nálezu ze SOTA vizuální kontroly, viz CHANGELOG).
+ */
+function SessionTimeRow({
+  session,
+  isEdited,
+  onChange,
+  onReset,
+}: {
+  session: Session;
+  isEdited: boolean;
+  onChange: (patch: { weekday: Weekday; startMinutes: number; endMinutes: number }) => void;
+  onReset: () => void;
+}) {
+  const [weekday, setWeekday] = useState<Weekday>(session.weekday);
+  const [start, setStart] = useState(toHhmm(session.startMinutes));
+  const [end, setEnd] = useState(toHhmm(session.endMinutes));
+
+  const commit = (next: { weekday?: Weekday; start?: string; end?: string }) => {
+    const w = next.weekday ?? weekday;
+    const s = next.start ?? start;
+    const e = next.end ?? end;
+    if (toMinutes(s) >= toMinutes(e)) return; // začátek musí být před koncem — neplatné se nezapíše
+    onChange({ weekday: w, startMinutes: toMinutes(s), endMinutes: toMinutes(e) });
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-2 space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <select
+          value={weekday}
+          onChange={(e) => {
+            const wd = Number(e.target.value) as Weekday;
+            setWeekday(wd);
+            commit({ weekday: wd });
+          }}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs"
+        >
+          {WEEKDAYS.map((d) => (
+            <option key={d.value} value={d.value}>
+              {d.short}
+            </option>
+          ))}
+        </select>
+        <input
+          type="time"
+          value={start}
+          onChange={(e) => setStart(e.target.value)}
+          onBlur={() => commit({ start })}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
+        />
+        <span className="text-slate-400">–</span>
+        <input
+          type="time"
+          value={end}
+          onChange={(e) => setEnd(e.target.value)}
+          onBlur={() => commit({ end })}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
+        />
+      </div>
+      {isEdited && (
+        <div className="flex flex-wrap items-center gap-2">
+          <EditedMark />
+          <button
+            type="button"
+            onClick={onReset}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Obnovit
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Editace časů katalogových Sessions (design_review_69.md) — katalog nemusí odrážet
  * aktuální stav (změna tréninkového dne/času apod.), zapisuje do `sessionOverrides`.
  */
@@ -732,70 +811,15 @@ function SessionTimeEditor({
         </button>
       </div>
       {groups.flatMap((g) =>
-        g.sessions.map((session) => {
-          const isEdited = overrideById.has(session.id);
-          return (
-            <div
-              key={`${session.id}:${session.weekday}:${session.startMinutes}:${session.endMinutes}`}
-              className="flex items-center gap-1.5"
-            >
-              <select
-                value={session.weekday}
-                onChange={(e) =>
-                  onChange(session.id, {
-                    weekday: Number(e.target.value) as Weekday,
-                    startMinutes: session.startMinutes,
-                    endMinutes: session.endMinutes,
-                  })
-                }
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs"
-              >
-                {WEEKDAYS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.short}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="time"
-                defaultValue={toHhmm(session.startMinutes)}
-                onBlur={(e) =>
-                  onChange(session.id, {
-                    weekday: session.weekday,
-                    startMinutes: toMinutes(e.target.value),
-                    endMinutes: session.endMinutes,
-                  })
-                }
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
-              />
-              <span className="text-slate-400">–</span>
-              <input
-                type="time"
-                defaultValue={toHhmm(session.endMinutes)}
-                onBlur={(e) =>
-                  onChange(session.id, {
-                    weekday: session.weekday,
-                    startMinutes: session.startMinutes,
-                    endMinutes: toMinutes(e.target.value),
-                  })
-                }
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-2xs"
-              />
-              {isEdited && (
-                <>
-                  <EditedMark />
-                  <button
-                    type="button"
-                    onClick={() => onReset(session.id)}
-                    className="text-xs font-semibold text-red-600 hover:underline"
-                  >
-                    Obnovit
-                  </button>
-                </>
-              )}
-            </div>
-          );
-        }),
+        g.sessions.map((session) => (
+          <SessionTimeRow
+            key={`${session.id}:${session.weekday}:${session.startMinutes}:${session.endMinutes}`}
+            session={session}
+            isEdited={overrideById.has(session.id)}
+            onChange={(patch) => onChange(session.id, patch)}
+            onReset={() => onReset(session.id)}
+          />
+        )),
       )}
     </div>
   );

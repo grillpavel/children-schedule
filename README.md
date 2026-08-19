@@ -1,4 +1,4 @@
-# Krouzky Planner
+# Rozvrhni
 
 Webová aplikace, která rodiči pomůže sestavit rozvrh zájmových kroužků dítěte
 a vyexportovat ho jako `.ics` do Google, Apple i Outlook kalendáře — se správným

@@ -1,4 +1,4 @@
-# Report z testování — E2E sada Krouzky Planner
+# Report z testování — E2E sada Rozvrhni
 
 Datum: 2026-08-11 · Runner: Playwright 1.62 (Chromium) · Aplikace: `@krouzky/web` (Next.js 14, klientská SPA)
 Konfigurace: [test/playwright.config.ts](../playwright.config.ts) · Zdroj požadavků: [test/docs/test-spec.md](test-spec.md)

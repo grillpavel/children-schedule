@@ -24,49 +24,107 @@ const ScheduleGrid = dynamic(
 
 type MobileTab = 'home' | 'catalog' | 'grid' | 'details';
 
-/** Skutečná správa dětí pro mobilní záložku „Děti" (FR-13, design_review_65.md) —
- * dřív tato záložka jen mountovala `DetailsPanel` (souhrn/detail), přepínač dítěte,
+/** Skutečná správa kalendářů (dětí) pro mobilní záložku „Děti" (FR-13,
+ * design_review_65.md; přejmenování/přidání/odebrání design_review_70.md) —
+ * dřív tato záložka jen mountovala `DetailsPanel` (souhrn/detail), přepínač,
  * věk a přidání žily jen v Toolbaru (skryté na mobilu od FR-12). */
 function MobileChildrenPanel() {
   const state = usePlannerStore((s) => s.state);
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const setActiveChild = usePlannerStore((s) => s.setActiveChild);
   const addChild = usePlannerStore((s) => s.addChild);
+  const removeChild = usePlannerStore((s) => s.removeChild);
   const setChildAge = usePlannerStore((s) => s.setChildAge);
   const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
   const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
+  const [addingCalendar, setAddingCalendar] = useState(false);
+  const [newCalName, setNewCalName] = useState('');
   const child = state.children.find((c) => c.id === activeChildId);
   if (!child) return null;
 
   return (
     <section aria-label="Děti" className="shrink-0 space-y-2.5 border-b border-slate-200/80 bg-white p-3">
-      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Děti</h2>
+      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Kalendáře</h2>
       <div className="flex flex-wrap items-center gap-2">
         {state.children.map((c) => (
-          <button
+          <span
             key={c.id}
-            type="button"
-            onClick={() => setActiveChild(c.id)}
-            aria-pressed={c.id === activeChildId}
             className={clsx(
-              'flex h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition',
+              'flex h-11 items-center gap-1 rounded-full border pl-3 pr-1 text-xs font-semibold transition',
               c.id === activeChildId
                 ? 'border-blue-600 bg-blue-600 text-white shadow-xs'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                : 'border-slate-200 bg-white text-slate-700',
             )}
           >
-            <span>{c.name}</span>
-          </button>
+            <button type="button" onClick={() => setActiveChild(c.id)} aria-pressed={c.id === activeChildId}>
+              {c.name}
+            </button>
+            {state.children.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Opravdu odebrat kalendář „${c.name}“ a všechny jeho zápisy z rozvrhu?`)) {
+                    removeChild(c.id);
+                  }
+                }}
+                aria-label={`Odebrat kalendář ${c.name}`}
+                className={clsx(
+                  'flex h-7 w-7 items-center justify-center rounded-full transition',
+                  c.id === activeChildId ? 'hover:bg-blue-700' : 'hover:bg-slate-100',
+                )}
+              >
+                ✕
+              </button>
+            )}
+          </span>
         ))}
-        <button
-          type="button"
-          onClick={addChild}
-          className="flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50"
-          title="Přidat další dítě (samostatný rozvrh a export)"
-        >
-          <IconPlus className="h-3 w-3" />
-          <span>Přidat dítě</span>
-        </button>
+        {addingCalendar ? (
+          <form
+            className="flex h-11 items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addChild(newCalName);
+              setNewCalName('');
+              setAddingCalendar(false);
+            }}
+          >
+            <input
+              autoFocus
+              value={newCalName}
+              onChange={(e) => setNewCalName(e.target.value)}
+              placeholder="Název nového kalendáře"
+              aria-label="Název nového kalendáře"
+              className="h-11 w-36 rounded-lg border border-slate-200 bg-white px-2 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="flex h-11 items-center rounded-full border border-blue-600 bg-blue-600 px-3 text-xs font-medium text-white shadow-2xs hover:bg-blue-700"
+            >
+              Přidat
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddingCalendar(false);
+                setNewCalName('');
+              }}
+              aria-label="Zrušit přidání kalendáře"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+            >
+              ✕
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingCalendar(true)}
+            className="flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50"
+            title="Přidat další kalendář (samostatný rozvrh a export)"
+          >
+            <IconPlus className="h-3 w-3" />
+            <span>Přidat kalendář</span>
+          </button>
+        )}
       </div>
       <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
         <span>Věk ({child.name}):</span>

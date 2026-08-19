@@ -1,4 +1,4 @@
-# Instrukce pro agenta: testovací sada Krouzky Planner
+# Instrukce pro agenta: testovací sada Rozvrhni
 
 Tento soubor řídí implementaci E2E testů. Zdrojem požadavků je `test/docs/test-spec.md`, který obsahuje kompletní seznam testů s ID (T-000 až T-609) a manuální matici (M-01 až M-08).
 

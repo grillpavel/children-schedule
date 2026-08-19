@@ -1,4 +1,5 @@
 import { test, expect, isCompact, isThreeColumn } from '../helpers/profiles';
+import { readFileSync } from 'node:fs';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -398,4 +399,51 @@ test('T-179: editace času odmítne neplatný rozsah (začátek po konci) beze z
   await expect(
     page.getByRole('grid').getByRole('button', { name: /Fotbal/ }).filter({ hasText: '16:00' }).first(),
   ).toBeVisible();
+});
+
+test('T-180: kalendář lze přejmenovat, přidat další s vlastním názvem a odebrat i s jeho zápisy (design_review_70.md)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  const banner = page.getByRole('banner');
+  const nameInput = banner.getByRole('textbox', { name: 'Název kalendáře' });
+
+  await expect(nameInput).toHaveValue('Moje dítě');
+  await nameInput.fill('Anežka');
+  await nameInput.blur();
+
+  // Přidání druhého kalendáře s vlastním názvem (místo 'Přidat dítě' → 'Přidat kalendář').
+  await banner.getByRole('button', { name: 'Přidat kalendář' }).click();
+  await banner.getByRole('textbox', { name: 'Název nového kalendáře' }).fill('Bedřich');
+  await banner.getByRole('button', { name: 'Přidat', exact: true }).click();
+
+  const switcher = banner.getByRole('combobox', { name: 'Přepnout kalendář' });
+  await expect(switcher.locator('option')).toHaveCount(2);
+  await expect(nameInput, 'přidání aktivuje nově přidaný kalendář').toHaveValue('Bedřich');
+
+  // Vlastní událost na novém kalendáři — po odebrání musí zmizet i ona (kaskádové smazání).
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await dialog.getByPlaceholder('Např. Logopedie').fill('Bedřichova aktivita');
+  await dialog.locator('input[type="time"]').nth(0).fill('09:00');
+  await dialog.locator('input[type="time"]').nth(1).fill('10:00');
+  await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+
+  page.once('dialog', (d) => d.accept());
+  await banner.getByRole('button', { name: 'Odebrat kalendář Bedřich' }).click();
+
+  await expect(switcher).toHaveCount(0);
+  await expect(nameInput, 'po odebrání aktivního kalendáře se aktivuje zbývající').toHaveValue('Anežka');
+
+  if (isCompact(width)) await banner.getByRole('button', { name: /Další ▾/ }).click();
+  const pending = page.waitForEvent('download');
+  await banner.getByRole('button', { name: 'Uložit', exact: true }).click();
+  const download = await pending;
+  const saved = JSON.parse(readFileSync((await download.path())!, 'utf8'));
+  expect(saved.children, 'odebraný kalendář zmizel ze seznamu').toHaveLength(1);
+  expect(saved.children[0].name).toBe('Anežka');
+  const allCustomEntries = saved.schedules.flatMap((s: { customEntries: { name: string }[] }) => s.customEntries);
+  expect(
+    allCustomEntries.some((e: { name: string }) => e.name === 'Bedřichova aktivita'),
+    'zápis odebraného kalendáře nesmí zůstat osiřelý v uloženém stavu',
+  ).toBe(false);
 });

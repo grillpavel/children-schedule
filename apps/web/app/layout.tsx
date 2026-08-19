@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Krouzky Planner',
+  title: 'Rozvrhni',
   description:
     'Sestavte rozvrh zájmových kroužků dítěte a vyexportujte ho do kalendáře (.ics).',
 };

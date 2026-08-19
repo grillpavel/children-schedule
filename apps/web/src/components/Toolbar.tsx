@@ -45,6 +45,8 @@ export function Toolbar({
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const setActiveChild = usePlannerStore((s) => s.setActiveChild);
   const addChild = usePlannerStore((s) => s.addChild);
+  const renameChild = usePlannerStore((s) => s.renameChild);
+  const removeChild = usePlannerStore((s) => s.removeChild);
   const setChildAge = usePlannerStore((s) => s.setChildAge);
   const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
   const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
@@ -61,7 +63,8 @@ export function Toolbar({
   const child = state.children.find((c) => c.id === activeChildId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [calTitle, setCalTitle] = useState('');
+  const [addingCalendar, setAddingCalendar] = useState(false);
+  const [newCalName, setNewCalName] = useState('');
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -83,7 +86,6 @@ export function Toolbar({
       colorMode,
       overrides: state.overrides,
       sequence: editCount,
-      ...(calTitle.trim() ? { calendarTitle: calTitle.trim() } : {}),
       ...(mode ? { mode } : {}),
     });
     setMenuOpen(false);
@@ -220,20 +222,30 @@ export function Toolbar({
 
   return (
     <header className="no-print relative z-50 flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white px-3 py-2 shadow-sm">
-      {/* Sekce Profil dítěte. Přepínač/přidání/věk žijí jen na desktopu — na mobilu
-          (FR-12/FR-13, design_review_65.md) je to jen čitelný odznak, správu dětí
-          řeší záložka „Děti" (page.tsx), aby horní lišta nebyla přeplněná. */}
-      <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm">
+      {/* Správa kalendářů (design_review_70.md): název (přejmenovatelné pole),
+          přepínač mezi kalendáři a přidání/odebrání jsou VŽDY v horní liště, na
+          všech šířkách — dřív žila správa jen na mobilní záložce „Děti". */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white text-xs shadow-sm">
           {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-3.5 w-3.5" />}
         </div>
-        <span className="truncate font-medium text-slate-800 px-1 desk:hidden">{child.name}</span>
-        {state.children.length > 1 ? (
+        <input
+          key={activeChildId}
+          defaultValue={child.name}
+          onBlur={(e) => renameChild(child.id, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+          placeholder="Název kalendáře"
+          aria-label="Název kalendáře"
+          className="min-w-0 w-28 rounded-md border-0 bg-transparent px-1 py-0.5 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
+        />
+        {state.children.length > 1 && (
           <select
             value={activeChildId}
             onChange={(e) => setActiveChild(e.target.value)}
-            aria-label="Dítě"
-            className="hidden min-w-0 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 font-medium text-slate-800 text-sm focus:ring-1 focus:ring-blue-500 desk:block"
+            aria-label="Přepnout kalendář"
+            className="min-w-0 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
           >
             {state.children.map((c) => (
               <option key={c.id} value={c.id}>
@@ -241,20 +253,75 @@ export function Toolbar({
               </option>
             ))}
           </select>
-        ) : (
-          <span className="hidden truncate font-medium text-slate-800 px-1 desk:inline">{child.name}</span>
         )}
-        <button
-          type="button"
-          onClick={addChild}
-          className="hidden shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition desk:inline-flex"
-          title="Přidat další dítě (samostatný rozvrh a export)"
-        >
-          <span className="inline-flex items-center gap-1">
-            <IconPlus className="h-3 w-3" />
-            <span>Přidat dítě</span>
-          </span>
-        </button>
+        {addingCalendar ? (
+          <form
+            className="flex items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addChild(newCalName);
+              setNewCalName('');
+              setAddingCalendar(false);
+            }}
+          >
+            <input
+              autoFocus
+              value={newCalName}
+              onChange={(e) => setNewCalName(e.target.value)}
+              placeholder="Název nového kalendáře"
+              aria-label="Název nového kalendáře"
+              className="w-32 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded-md border border-blue-600 bg-blue-600 px-2 py-0.5 text-xs font-medium text-white shadow-2xs hover:bg-blue-700 transition"
+            >
+              Přidat
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddingCalendar(false);
+                setNewCalName('');
+              }}
+              aria-label="Zrušit přidání kalendáře"
+              className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-100"
+            >
+              ✕
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingCalendar(true)}
+            className="shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
+            title="Přidat další kalendář (samostatný rozvrh a export)"
+          >
+            <span className="inline-flex items-center gap-1">
+              <IconPlus className="h-3 w-3" />
+              <span>Přidat kalendář</span>
+            </span>
+          </button>
+        )}
+        {state.children.length > 1 && (
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Opravdu odebrat kalendář „${child.name}“ a všechny jeho zápisy z rozvrhu? Akci lze vrátit tlačítkem Zpět.`,
+                )
+              ) {
+                removeChild(child.id);
+              }
+            }}
+            aria-label={`Odebrat kalendář ${child.name}`}
+            title="Odebrat tento kalendář (nevratné, jde vrátit přes Zpět)"
+            className="shrink-0 rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs font-medium text-red-600 shadow-2xs hover:bg-red-50 transition"
+          >
+            Odebrat
+          </button>
+        )}
       </div>
 
       {/* Věk dítěte (jen desktop — na mobilu se edituje v záložce „Děti") */}
@@ -303,18 +370,6 @@ export function Toolbar({
           <option value="car">auto</option>
           <option value="transit">MHD</option>
         </select>
-      </label>
-
-      {/* Kalendář title (Desktop) */}
-      <label className="hidden min-w-0 desk:flex items-center gap-1.5 text-xs text-slate-600">
-        <span className="font-medium text-slate-700">Kalendář:</span>
-        <input
-          value={calTitle}
-          onChange={(e) => setCalTitle(e.target.value)}
-          placeholder="Název kalendáře"
-          className="w-32 min-w-0 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          aria-label="Název kalendáře"
-        />
       </label>
 
       {/* Color picker kroužku (Desktop) */}
@@ -446,16 +501,6 @@ export function Toolbar({
           </button>
           {mobileMenuOpen && (
             <div className="absolute right-0 z-50 mt-1 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl">
-              <label className="block p-3 bg-slate-50 border-b border-slate-100 text-xs font-medium text-slate-600">
-                Název kalendáře
-                <input
-                  value={calTitle}
-                  onChange={(e) => setCalTitle(e.target.value)}
-                  placeholder="Název kalendáře"
-                  aria-label="Název kalendáře"
-                  className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-sm shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </label>
               <div className="py-1">
                 <MenuItem
                   onClick={() => {

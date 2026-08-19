@@ -42,12 +42,10 @@ test('T-100: věkový filtr je při prvním načtení vypnutý', async ({ page }
   await expect(page.getByRole('checkbox', { name: /Jen vhodné pro věk/ })).not.toBeChecked();
 });
 
-test('T-101: název rozvrhu je při prvním načtení prázdný', async ({ page }, testInfo) => {
-  // Na mobilu je pole názvu kalendáře v mobilním menu „Další ▾".
-  if (isCompact(testInfo.project.use.viewport!.width)) {
-    await page.getByRole('button', { name: /Další ▾/ }).click();
-  }
-  await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toHaveValue('');
+test('T-101: pole názvu kalendáře odráží jméno aktivního kalendáře', async ({ page }) => {
+  // Od design_review_70.md je pole vždy v horní liště (na všech šířkách) a představuje
+  // přímo přejmenovatelný název kalendáře (dříve jen dočasný export titulek).
+  await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toHaveValue('Moje dítě');
 });
 
 test('T-102: prázdný kalendář má empty state s cestou do katalogu', async ({ page }, testInfo) => {

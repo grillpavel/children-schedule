@@ -4,7 +4,7 @@ applyTo: ".github/specs/**/*.md,CHANGELOG.md,docs/backlog.md,docs/backlog-guidel
 
 # Development process — spec, backlog, changelog & SOTA workflow
 
-How we design, track, ship, and record every change to **Krouzky Planner** —
+How we design, track, ship, and record every change to **Rozvrhni** —
 the engine `@krouzky/domain` (`packages/domain`) and the app `@krouzky/web` (`apps/web`).
 This is the **process contract**. The rules it references live in their own files:
 
@@ -118,7 +118,7 @@ not ready — refine it before writing the instructions. Reference prior design;
 ### The prompt (upload the instructions + this guideline to Copilot, then send)
 
 ```text
-You are authoring a spec-dev document for Krouzky Planner (engine `@krouzky/domain`,
+You are authoring a spec-dev document for Rozvrhni (engine `@krouzky/domain`,
 app `@krouzky/web`).
 
 Follow `.github/instructions/dev-process.instructions.md` §3 exactly for the file

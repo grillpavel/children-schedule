@@ -1,6 +1,6 @@
 # Instrukce pro GitHub Copilot
 
-Projekt: **Krouzky Planner** — webová aplikace pro sestavení rozvrhu zájmových
+Projekt: **Rozvrhni** — webová aplikace pro sestavení rozvrhu zájmových
 kroužků dítěte a export do kalendáře (`.ics`).
 
 Kompletní specifikace je v `docs/`. Před generováním kódu k dané oblasti

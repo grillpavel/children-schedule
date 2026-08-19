@@ -160,18 +160,20 @@ test('T-162: na středních šířkách (900–1439) zůstává katalog vedle de
   ).toBeLessThanOrEqual(detailBox.x + 1);
 });
 
-test('T-167: mobilní horní lišta je odlehčená, správu dětí nese záložka „Děti" (FR-12/FR-13)', async ({ page }, testInfo) => {
+test('T-167: mobilní horní lišta skrývá věk/přesun, ale správa kalendářů zůstává v liště (design_review_70.md)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'odlehčená lišta platí jen na mobilu <900px');
 
-  // Lišta neukazuje "Věk:" vstup ani "Přidat dítě" přímo — jen čitelné jméno dítěte.
+  // Věk/Přesun zůstávají skryté (editují se v záložce „Děti"), ale správa kalendářů
+  // (název/přidat/přepnout) je od design_review_70.md vždy v liště, i na mobilu.
   await expect(page.getByRole('banner').getByText('Věk:', { exact: true })).toBeHidden();
-  await expect(page.getByRole('banner').getByRole('button', { name: /Přidat dítě/ })).toBeHidden();
+  await expect(page.getByRole('banner').getByRole('button', { name: /Přidat kalendář/ })).toBeVisible();
+  await expect(page.getByRole('banner').getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
 
-  // Záložka „Děti" nese skutečnou správu: přepnutí/chip dítěte, editovatelný věk, přidání.
+  // Záložka „Děti" nadále nese editovatelný věk a přesun.
   await page.getByRole('button', { name: 'Děti', exact: true }).click();
   const childrenSection = page.getByRole('main').locator('section[aria-label="Děti"]');
-  await expect(childrenSection.getByRole('button', { name: /Přidat dítě/ })).toBeVisible();
+  await expect(childrenSection.getByRole('button', { name: /Přidat kalendář/ })).toBeVisible();
   await expect(childrenSection.getByLabel('Věk dítěte')).toBeVisible();
 });
 

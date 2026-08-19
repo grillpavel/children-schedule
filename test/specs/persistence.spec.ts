@@ -146,17 +146,17 @@ test('T-154: soubor se starším schemaVersion se načte přes migraci', async (
   expect(dialogMsg, 'migrace nesmí hlásit chybu').toBeNull();
 });
 
-test('T-158: na mobilu jsou Kalendář/Otevřít/Uložit v menu „Další ▾"', async ({ page }, testInfo) => {
+test('T-158: na mobilu jsou Otevřít/Uložit v menu „Další ▾", název kalendáře je vždy v liště', async ({ page }, testInfo) => {
   test.skip(!isCompact(testInfo.project.use.viewport!.width), 'platí jen pro mobilní lištu');
-  // V zavřené liště nejsou akce přímo dostupné.
+  // Název kalendáře je od design_review_70.md vždy viditelný přímo v liště.
+  await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
+  // V zavřené liště nejsou ostatní akce přímo dostupné.
   await expect(page.getByRole('button', { name: 'Uložit', exact: true })).toBeHidden();
-  await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toBeHidden();
 
   await page.getByRole('button', { name: /Další ▾/ }).click();
   const menu = page.locator('div.absolute').filter({ hasText: 'Kalendář (.ics)' });
   await expect(menu.getByRole('button', { name: 'Uložit', exact: true })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Otevřít', exact: true })).toBeVisible();
-  await expect(menu.getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
   await expect(menu.getByText('Kalendář (.ics)')).toBeVisible();
 });
 

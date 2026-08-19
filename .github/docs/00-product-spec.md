@@ -1,6 +1,6 @@
 # 00 — Produktová specifikace
 
-**Pracovní název:** Krouzky Planner
+**Název:** Rozvrhni (dříve pracovní název „Krouzky Planner“)
 **Verze specu:** 0.1 (draft)
 **Stav:** k připomínkování
 

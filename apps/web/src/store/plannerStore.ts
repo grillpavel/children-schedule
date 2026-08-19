@@ -124,7 +124,13 @@ interface PlannerStore {
   setChildTravelBuffer(childId: string, minutes: number | undefined): void;
   /** Dopravní mód pro odhad času na přesun (BL-038); `undefined` = výchozí `'car'`. */
   setChildTravelMode(childId: string, mode: TravelMode | undefined): void;
-  addChild(): void;
+  /** Přidá nový kalendář (dítě); volitelný `name` — jinak `Kalendář N` (design_review_70.md). */
+  addChild(name?: string): void;
+  /** Přejmenuje kalendář (design_review_70.md); prázdný/whitespace název je ignorován. */
+  renameChild(childId: string, name: string): void;
+  /** Odebere kalendář i všechny jeho zápisy/vlastní události ve VŠECH variantách rozvrhu
+   * (design_review_70.md); no-op, pokud by zbyl 0 kalendářů. */
+  removeChild(childId: string): void;
 }
 
 function activeSchedule(state: PlannerState): NamedSchedule {
@@ -596,14 +602,14 @@ export const usePlannerStore = create<PlannerStore>()(
           else child.travelMode = mode;
         }),
 
-      // Víc dětí = samostatný rozvrh i export na dítě (C6-C2).
-      addChild: () => {
+      // Víc kalendářů = samostatný rozvrh i export na kalendář (C6-C2).
+      addChild: (name) => {
         const id = newId('child');
         commit((draft) => {
           const first = draft.children[0];
           draft.children.push({
             id,
-            name: `Dítě ${draft.children.length + 1}`,
+            name: name?.trim() || `Kalendář ${draft.children.length + 1}`,
             age: first?.age ?? 9,
             interests: [],
             availability: [],
@@ -614,6 +620,33 @@ export const usePlannerStore = create<PlannerStore>()(
         set((s) => {
           s.activeChildId = id;
         });
+      },
+
+      renameChild: (childId, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        commit((draft) => {
+          const child = draft.children.find((c) => c.id === childId);
+          if (child) child.name = trimmed;
+        });
+      },
+
+      removeChild: (childId) => {
+        if (get().state.children.length <= 1) return;
+        commit(
+          (draft) => {
+            draft.children = draft.children.filter((c) => c.id !== childId);
+            for (const schedule of draft.schedules) {
+              schedule.enrollments = schedule.enrollments.filter((e) => e.childId !== childId);
+              schedule.customEntries = schedule.customEntries.filter((e) => e.childId !== childId);
+            }
+          },
+          (store) => {
+            if (store.activeChildId === childId) {
+              store.activeChildId = store.state.children[0]?.id ?? store.activeChildId;
+            }
+          },
+        );
       },
     };
   }),

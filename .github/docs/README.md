@@ -1,4 +1,4 @@
-# Krouzky Planner — specifikační dokumentace
+# Rozvrhni — specifikační dokumentace
 
 Webová aplikace, která rodiči pomůže sestavit rozvrh zájmových kroužků dítěte
 a vyexportovat ho jako `.ics` do Google, Apple i Outlook kalendáře — včetně

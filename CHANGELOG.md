@@ -6,6 +6,34 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Rozvrhni: přejmenování + správa kalendářů v horní liště (CHANGE-75)
+
+Trigger: uživatel zadal 5 bodů — (1) přejmenovat aplikaci na „Rozvrhni“, (2) umožnit napsat vlastní
+jméno kalendáře, (3) oprava nefunkčního odebrání kalendáře (dítěte), (4) „Přidat dítě“ → „Přidat
+kalendář“ s volbou jména, (5) horní lišta neumožňovala přepínat mezi více kalendáři. Scope: **app
+`@krouzky/web`** (bez schema/verze změny) + přejmenování v aktivní (ne-historické) dokumentaci.
+
+- Zobrazovaný název aplikace je „Rozvrhni“ (`<title>`, README, aktivní `.github`/`test/docs`
+  instrukce); historické `.github/specs/krouzky-planner-changes-*.md` záměrně beze změny.
+- `plannerStore.ts`: nové akce `renameChild(childId, name)` a `removeChild(childId)` (kaskádově smaže
+  `enrollments`/`customEntries` daného kalendáře ze VŠECH variant rozvrhu, no-op pro poslední zbývající
+  kalendář, po smazání aktivního přepne na první zbývající). `addChild(name?)` nyní přijímá volitelné
+  jméno (výchozí `Kalendář N` místo `Dítě N`).
+- `Toolbar.tsx`: efemérní, nepersistované pole „Kalendář:“ (`calTitle`, ovlivňovalo jen jednorázový
+  export) nahrazeno editovatelným polem „Název kalendáře“ vázaným přímo na `child.name` (commit
+  onBlur/Enter) — to je teď i výchozí `X-WR-CALNAME`/název `.ics` souboru. Přepínač kalendářů, pole
+  názvu, „Přidat kalendář“ (dřív „Přidat dítě“, teď s inline formulářem na jméno) a nové tlačítko
+  „Odebrat“ (s `window.confirm`) jsou od teď VŽDY viditelné v horní liště na všech šířkách (dřív jen
+  na desktopu, FR-12/FR-13 z `design_review_65.md` — vědomá revize jen pro tuto skupinu prvků). Stejné
+  přejmenování/přidání/odebrání doplněno i do mobilní záložky „Děti" (`MobileChildrenPanel`, `page.tsx`).
+- Testy: **T-101** (catalog), **T-158** (persistence), **T-167** (responsive), **T-609/T-610** (ics)
+  přepsány na nové UI; nový **T-180** (schedule) ověřuje přejmenování + přidání s vlastním jménem +
+  odebrání včetně kaskádového úklidu (přes uložený JSON). Vizuální baseline `toolbar`/`empty-info`/
+  `catalog-filtered`/`info-dark` přegenerovány (layout lišty se změnil).
+
+Spec: `.github/specs/design_review_70.md`. Verifikováno: `tsc --noEmit` (web) čisté; plná E2E
+`--workers=1` na všech 6 profilech zelená po přegenerování vizuálních baselinů.
+
 ### SOTA vizuální kontrola: 3 opravené vady v editaci času (CHANGE-74, dodatek)
 
 Trigger: uživatel požádal o kompletní vizuální otestování napříč rozhraními po CHANGE-74 se zaměřením

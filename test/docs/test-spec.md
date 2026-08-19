@@ -1,4 +1,4 @@
-# Krouzky Planner: testovací specifikace
+# Rozvrhni: testovací specifikace
 
 **Verze:** 1.0
 **Datum:** 11. 8. 2026

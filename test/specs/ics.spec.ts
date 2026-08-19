@@ -10,10 +10,14 @@ async function openCatalog(page: import('@playwright/test').Page, width: number)
   if (isCompact(width)) await page.getByRole('button', { name: 'Katalog', exact: true }).click();
 }
 
-// Na mobilu (FR-12/FR-13, design_review_65.md) žije "Přidat dítě" jen v záložce
-// „Děti" — v Toolbaru je od CHANGE-66 skrytá stejně jako Věk/přepínač.
-async function openChildrenTab(page: import('@playwright/test').Page, width: number) {
-  if (isCompact(width)) await page.getByRole('button', { name: 'Děti', exact: true }).click();
+// Správa kalendářů (přidání/přepnutí/přejmenování/odebrání) je od design_review_70.md
+// VŽDY v horní liště (banner), na všech šířkách — už nežije jen v mobilní záložce „Děti".
+async function addCalendar(page: import('@playwright/test').Page, name?: string) {
+  await page.getByRole('banner').getByRole('button', { name: 'Přidat kalendář' }).click();
+  if (name) {
+    await page.getByRole('banner').getByRole('textbox', { name: 'Název nového kalendáře' }).fill(name);
+  }
+  await page.getByRole('banner').getByRole('button', { name: 'Přidat', exact: true }).click();
 }
 
 async function addCustom(
@@ -140,22 +144,19 @@ test('T-608: RRULE obsahuje WKST=MO a UNTIL na konci sezony', async ({ page }, t
   expect(weekly!, 'RRULE nese WKST=MO').toContain('WKST=MO');
 });
 
-test('T-609: export s více dětmi dá samostatný soubor na dítě', async ({ page }, testInfo) => {
+test('T-609: export s více kalendáři dá samostatný soubor na kalendář', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await addCustom(page, width, { name: 'Kalendář dítěte' });
   const raw = await exportIcsRaw(page);
-  expect(getProperty(raw, 'X-WR-CALNAME')[0], 'kalendář nese jméno dítěte').toBeTruthy();
+  expect(getProperty(raw, 'X-WR-CALNAME')[0], 'kalendář nese svůj název').toBeTruthy();
 
-  // C6-C2: víc dětí = samostatný kalendář na dítě (vyžaduje správu více dětí).
-  await openChildrenTab(page, width);
-  await expect(page.getByRole('button', { name: /Přidat dítě|Další dítě|Nové dítě/ })).toBeVisible();
+  // C6-C2: víc kalendářů = samostatný export na kalendář (design_review_70.md).
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Přidat kalendář' })).toBeVisible();
 });
 
-test('T-610: export všech dětí stáhne samostatný soubor na každé dítě', async ({ page }, testInfo) => {
-  const width = testInfo.project.use.viewport!.width;
-  // C6-C2: druhé dítě → jedním kliknutím dva samostatné .ics.
-  await openChildrenTab(page, width);
-  await page.getByRole('button', { name: /Přidat dítě/ }).click();
+test('T-610: export všech kalendářů stáhne samostatný soubor na každý kalendář', async ({ page }) => {
+  // C6-C2: druhý kalendář → jedním exportem dva samostatné .ics.
+  await addCalendar(page, 'Druhé dítě');
 
   const downloads: import('@playwright/test').Download[] = [];
   page.on('download', (d) => downloads.push(d));
@@ -165,5 +166,5 @@ test('T-610: export všech dětí stáhne samostatný soubor na každé dítě',
 
   await expect.poll(() => downloads.length, { timeout: 5000 }).toBe(2);
   const names = downloads.map((d) => d.suggestedFilename());
-  expect(new Set(names).size, 'každé dítě má vlastní soubor').toBe(2);
+  expect(new Set(names).size, 'každý kalendář má vlastní soubor').toBe(2);
 });

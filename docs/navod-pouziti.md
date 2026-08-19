@@ -1,8 +1,8 @@
-# Návod k použití — Krouzky Planner
+# Návod k použití — Rozvrhni
 
 Jednoduchý průvodce pro rodiče: jak si za pár minut poskládat týdenní rozvrh
 kroužků pro dítě, vidět případné kolize a rozvrh si vyexportovat do kalendáře
-v telefonu.
+v telefonu, PC nebo vytisknout na lednici.
 
 **Vyzkoušejte aplikaci zdarma:** [children-schedule-web.vercel.app](https://children-schedule-web.vercel.app)
 
@@ -101,7 +101,7 @@ kdykoliv vrátit tlačítkem **„Obnovit“**/**„Obnovit z katalogu“**.
 
 ---
 
-## 7. Export do kalendáře v telefonu / počítači
+## 7. Export do kalendáře v telefonu, v PC — nebo rovnou na lednici
 
 Tlačítkem **„Další ▾“** v horní liště otevřete nabídku exportu.
 
@@ -112,7 +112,8 @@ Tlačítkem **„Další ▾“** v horní liště otevřete nabídku exportu.
   připomínkami.
 - **„Obrázek rozvrhu (.png)“** — obrázek pro vytištění nebo poslání někomu
   jinému.
-- **„Tisk rozvrhu“** — rovnou vytiskne aktuální týden.
+- **„Tisk rozvrhu“** — rovnou vytiskne aktuální týden, ať už na nástěnku, nebo
+  rovnou na lednici.
 
 ## 8. Uložit a otevřít rozvrh
 

@@ -90,22 +90,6 @@ export function PrivacyDialog({ onClose }: { onClose: () => void }) {
               aktuální; před přihlášením je vždy ověřte přímo u pořadatele.
             </p>
           </section>
-
-          <section>
-            <h3 className="font-semibold text-slate-900">Kontakt</h3>
-            <p>
-              Projekt je osobní, nekomerční. Zdrojový kód a kontakt na autora najdete na{' '}
-              <a
-                href="https://github.com/grillpavel/children-schedule"
-                target="_blank"
-                rel="noreferrer"
-                className="text-blue-600 underline"
-              >
-                GitHubu
-              </a>
-              .
-            </p>
-          </section>
         </div>
       </div>
     </div>

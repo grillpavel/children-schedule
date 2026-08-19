@@ -623,25 +623,23 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const renderMobileCategoryBrowser = () => {
     const root = mobileDrillRoot ? groupedAvailable.find((g) => g.key === mobileDrillRoot) : undefined;
     if (!root) {
+      // Nadpis „Další kroužky (N)" i Rozbalit/Sbalit vše už vykresluje obalující
+      // <section> o pár řádků výš — tady stačí jen seznam kořenových kategorií,
+      // jinak by se nadpis zobrazil dvakrát pod sebou.
       return (
-        <>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Další kroužky ({available.length})
-          </h3>
-          <div className="space-y-1.5">
-            {groupedAvailable.map((group) => (
-              <button
-                key={group.key}
-                type="button"
-                onClick={() => setMobileDrillRoot(group.key)}
-                className="flex w-full items-center justify-between rounded-lg bg-slate-200/60 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-200 transition"
-              >
-                <span>{group.label}</span>
-                <span className="text-slate-500 font-medium text-xs">({group.items.length})</span>
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="space-y-1.5">
+          {groupedAvailable.map((group) => (
+            <button
+              key={group.key}
+              type="button"
+              onClick={() => setMobileDrillRoot(group.key)}
+              className="flex w-full items-center justify-between rounded-lg bg-slate-200/60 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-200 transition"
+            >
+              <span>{group.label}</span>
+              <span className="text-slate-500 font-medium text-xs">({group.items.length})</span>
+            </button>
+          ))}
+        </div>
       );
     }
     const showSubGroups = root.key === 'sport_pohyb' || root.items.length >= 3;

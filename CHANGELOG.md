@@ -6,6 +6,21 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Kompletní mobil/tablet audit: duplicitní nadpis v katalogu (CHANGE-77)
+
+Trigger: uživatel požádal o kompletní otestování mobil/tablet UX (ne jen horní lištu). Reálný headless
+screenshot audit (360/390/834/1112px, přes Home/Katalog/Detail/Rozvrh/Děti) odhalil skutečnou, dřív
+nezachycenou vadu nezávislou na CHANGE-76: v mobilním drill-down procházení katalogu (`<900px`, výchozí
+stav bez rozkliknuté kategorie/filtru) se nadpis „Další kroužky (N)" vykresloval **dvakrát pod sebou** —
+`CatalogPanel.tsx`'s `renderMobileCategoryBrowser()` měl vlastní kopii stejného nadpisu navíc k tomu, co
+už vykresloval obalující `<section>`. Opraveno odstraněním duplicitní kopie. Nový test **T-183**
+(catalog.spec.ts) hlídá počet výskytů nadpisu = 1. Toolbarová oprava z CHANGE-76 (`desk:ml-auto`) byla při
+tomto auditu znovu vizuálně ověřena jako správná na všech čtyřech šířkách — žádná další "rozházená" lišta
+nenalezena.
+
+Verifikováno: `tsc --noEmit` (web) čisté; plná E2E `--workers=1` na všech 6 profilech = 645 passed / 123
+skipped / 0 failed (+ T-183 zvlášť zeleně na kompaktních profilech).
+
 ### Soukromí a data v menu „Další ▾" + oprava rozházené mobilní lišty (CHANGE-76)
 
 Trigger: uživatel požádal o vysvětlení automatického geokódování adresy na Nominatim, přidání položky

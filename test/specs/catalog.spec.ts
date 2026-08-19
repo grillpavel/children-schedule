@@ -371,6 +371,14 @@ test('T-160: mobil prochází kategorie po jedné úrovni místo „Rozbalit vš
   await expect(cards(page).first()).toBeVisible();
 });
 
+test('T-183: nadpis „Další kroužky (N)" se v mobilním drill-down kořeni nezobrazí dvakrát', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'drill-down platí jen na mobilu <900px');
+  await openCatalog(page, width);
+
+  await expect(page.getByText(/^Další kroužky \(\d+\)$/)).toHaveCount(1);
+});
+
 // --- Cenový rozsahový filtr (CHANGE-67, design_review_65/67.md BL-042) ---
 
 test('T-172: cenový filtr omezí katalog, „bez ceny" lze zahrnout zvlášť', async ({ page }, testInfo) => {

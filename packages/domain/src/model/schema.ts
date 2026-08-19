@@ -167,6 +167,10 @@ export const childSchema = z.object({
   interests: z.array(activityCategorySchema).default([]),
   availability: z.array(availabilityWindowSchema).default([]),
   budgetMonthlyCzk: z.number().optional(),
+  // Per-dítě nastavení přesunu (BL-038, design_review_67.md) — nezadáno = globální
+  // výchozí hodnoty (`DEFAULT_TRAVEL_BUFFER_MIN`, mód `'car'`) v H9 detekci.
+  travelBufferMinutes: z.number().int().min(0).max(120).optional(),
+  travelMode: z.enum(['walk', 'car', 'transit']).optional(),
   colorSeed: z.string().optional(),
   schoolEndByWeekday: z.record(z.string(), minutesOfDay),
   schoolAddress: addressSchema.optional(),
@@ -341,7 +345,7 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(5),
+  schemaVersion: z.literal(6),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),

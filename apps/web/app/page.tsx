@@ -33,6 +33,8 @@ function MobileChildrenPanel() {
   const setActiveChild = usePlannerStore((s) => s.setActiveChild);
   const addChild = usePlannerStore((s) => s.addChild);
   const setChildAge = usePlannerStore((s) => s.setChildAge);
+  const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
+  const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
   const child = state.children.find((c) => c.id === activeChildId);
   if (!child) return null;
 
@@ -79,6 +81,39 @@ function MobileChildrenPanel() {
         />
         <span className="text-slate-400 font-normal">let</span>
       </label>
+      {/* Přesun mezi kroužky (BL-038, design_review_67.md) — H9 detekce z toho čte
+          per-dítě rezervu/mód místo globálního výchozího nastavení. */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700">
+        <span>Čas na přesun:</span>
+        <select
+          value={child.travelBufferMinutes ?? ''}
+          onChange={(e) =>
+            setChildTravelBuffer(child.id, e.target.value === '' ? undefined : Number(e.target.value))
+          }
+          aria-label="Minimální čas na přesun"
+          className="h-11 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">výchozí (10 min)</option>
+          {[0, 5, 10, 15, 20, 30].map((m) => (
+            <option key={m} value={m}>
+              {m} min
+            </option>
+          ))}
+        </select>
+        <select
+          value={child.travelMode ?? ''}
+          onChange={(e) =>
+            setChildTravelMode(child.id, (e.target.value || undefined) as typeof child.travelMode)
+          }
+          aria-label="Způsob přesunu"
+          className="h-11 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">výchozí (auto)</option>
+          <option value="walk">pěšky</option>
+          <option value="car">auto</option>
+          <option value="transit">MHD</option>
+        </select>
+      </div>
     </section>
   );
 }

@@ -181,14 +181,54 @@ test('T-163: krátký přesun mezi různými místy nese logistické upozorněn�
 
   // Dva různé kroužky na stejný den, jen 5 minut mezi koncem a začátkem,
   // na dvou různých adresách — logisticky těsné (FR-8, design_review_58.md).
-  await addCustomWithAddress('Kroužek Sever', '16:00', '17:00', 'Hlavní 1, Praha');
-  await addCustomWithAddress('Kroužek Jih', '17:05', '18:05', 'Vedlejší 2, Brno');
+  // Fiktivní města mimo TOWN_CENTERS i mimo reálné geokódování (Z-01, žádná data
+  // se nesmí tvářit jako skutečná) — zůstává jen fallback rezerva, bez závislosti
+  // na síti/online geokódování.
+  await addCustomWithAddress('Kroužek Sever', '16:00', '17:00', 'Ulice 1, Xilonovo');
+  await addCustomWithAddress('Kroužek Jih', '17:05', '18:05', 'Ulice 2, Yzemnice');
 
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
     await page.getByRole('tab', { name: 'Mřížka' }).click();
   }
-  await expect(page.getByTitle(/přesun/).first()).toBeVisible();
+  await expect(page.getByTestId('grid-soft-conflict-badge').first()).toBeVisible();
+});
+
+// --- Per-dítě nastavení času na přesun (CHANGE-67, design_review_67.md BL-038) ---
+
+test('T-175: zkrácení času na přesun na 0 min odstraní logistické upozornění', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  const addCustomWithAddress = async (name: string, start: string, end: string, address: string) => {
+    await openCatalog(page, width);
+    await page.getByRole('button', { name: /Vlastní událost/ }).click();
+    const dialog = page.locator('.fixed.inset-0.z-50');
+    await dialog.getByPlaceholder('Např. Logopedie').fill(name);
+    await dialog.locator('input[type="time"]').nth(0).fill(start);
+    await dialog.locator('input[type="time"]').nth(1).fill(end);
+    await dialog.getByPlaceholder('Ulice a číslo, Město').fill(address);
+    await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+  };
+
+  await addCustomWithAddress('Přesun Sever', '16:00', '17:00', 'Ulice 1, Xilonovo');
+  await addCustomWithAddress('Přesun Jih', '17:05', '18:05', 'Ulice 2, Yzemnice');
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  await expect(page.getByTestId('grid-soft-conflict-badge').first()).toBeVisible();
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Děti', exact: true }).click();
+  }
+  await page.getByRole('combobox', { name: 'Minimální čas na přesun' }).selectOption('0');
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  await expect(page.getByTestId('grid-soft-conflict-badge')).toHaveCount(0);
 });
 
 // --- Konkrétní odůvodnění i pro tvrdé kolize (CHANGE-66, design_review_65.md FR-11) ---
@@ -202,7 +242,7 @@ test('T-165: tvrdý konflikt v mřížce jmenuje obě kolidující události, ne
     await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
     await page.getByRole('tab', { name: 'Mřížka' }).click();
   }
-  const badge = page.getByTitle(/Konflikt (Sever|Jih)/).first();
+  const badge = page.getByTestId('grid-hard-conflict-badge').first();
   await expect(badge).toBeVisible();
   const title = await badge.getAttribute('title');
   expect(title, 'zpráva nejmenuje první kolidující událost').toContain('Konflikt Sever');
@@ -216,5 +256,5 @@ test('T-166: Agenda na mobilu ukazuje konfliktní odznak, ne jen mřížka', asy
   await addCustom(page, width, 'Agenda Jih', '16:00', '17:00');
   await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
   // Agenda je výchozí mobilní pohled (T-215) — odznak musí být vidět bez přepnutí do Mřížky.
-  await expect(page.getByText('Kolize', { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('agenda-hard-conflict-badge').first()).toBeVisible();
 });

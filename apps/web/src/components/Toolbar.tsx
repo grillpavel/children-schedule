@@ -46,6 +46,8 @@ export function Toolbar({
   const setActiveChild = usePlannerStore((s) => s.setActiveChild);
   const addChild = usePlannerStore((s) => s.addChild);
   const setChildAge = usePlannerStore((s) => s.setChildAge);
+  const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
+  const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
   const loadState = usePlannerStore((s) => s.loadState);
   const addCustomEntries = usePlannerStore((s) => s.addCustomEntries);
   const undo = usePlannerStore((s) => s.undo);
@@ -267,6 +269,40 @@ export function Toolbar({
           className="w-12 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-center font-semibold text-slate-800 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         <span className="text-slate-400">let</span>
+      </label>
+
+      {/* Přesun mezi kroužky (BL-038, design_review_67.md) — jen desktop, na mobilu
+          v záložce „Děti". Prázdná volba = globální výchozí hodnoty motoru. */}
+      <label className="hidden items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-2 py-1 text-xs text-slate-600 desk:flex">
+        <span className="font-medium text-slate-700">Přesun:</span>
+        <select
+          value={child.travelBufferMinutes ?? ''}
+          onChange={(e) =>
+            setChildTravelBuffer(child.id, e.target.value === '' ? undefined : Number(e.target.value))
+          }
+          aria-label="Minimální čas na přesun"
+          className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">výchozí (10 min)</option>
+          {[0, 5, 10, 15, 20, 30].map((m) => (
+            <option key={m} value={m}>
+              {m} min
+            </option>
+          ))}
+        </select>
+        <select
+          value={child.travelMode ?? ''}
+          onChange={(e) =>
+            setChildTravelMode(child.id, (e.target.value || undefined) as typeof child.travelMode)
+          }
+          aria-label="Způsob přesunu"
+          className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">výchozí (auto)</option>
+          <option value="walk">pěšky</option>
+          <option value="car">auto</option>
+          <option value="transit">MHD</option>
+        </select>
       </label>
 
       {/* Kalendář title (Desktop) */}

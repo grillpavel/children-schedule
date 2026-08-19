@@ -147,7 +147,8 @@ export function CustomEntryDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition desk:h-8 desk:w-8"
+            aria-label="Zavřít"
           >
             <IconClose className="h-4 w-4" />
           </button>
@@ -220,7 +221,7 @@ export function CustomEntryDialog({
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
-                    className="p-1 text-red-500 hover:text-red-700 transition"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center text-red-500 hover:text-red-700 transition desk:h-7 desk:w-7"
                     aria-label="Odebrat termín"
                   >
                     <IconClose className="h-3.5 w-3.5" />

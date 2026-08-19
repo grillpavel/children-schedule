@@ -16,10 +16,12 @@ async function openCatalog(page: import('@playwright/test').Page, width: number)
   }
 }
 
-/** Otevře katalog a rozbalí sekci Doporučení (defaultně sbalená). */
+/** Otevře katalog a rozbalí sekci Doporučení (defaultně sbalená). Popisek se
+ * mění na „Co se hodí [dítě]? (N)“, když existuje plnohodnotná shoda (BL-040,
+ * design_review_67.md) — regex pokrývá obě varianty. */
 async function openRecs(page: import('@playwright/test').Page, width: number) {
   await openCatalog(page, width);
-  await page.getByRole('button', { name: /Doporučení na míru/ }).click();
+  await page.getByRole('button', { name: /Doporučení na míru|Co se hodí/ }).click();
 }
 
 async function expandAll(page: import('@playwright/test').Page) {
@@ -246,7 +248,7 @@ test('T-123: zapnutý zájem přidá do doporučení důvod „Odpovídá zájmu
 test('T-124: klik na doporučení otevře detail kroužku', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(isCompact(width), 'detail v pravém panelu je jen na desktopu');
-  await page.getByRole('button', { name: /Doporučení na míru/ }).click();
+  await page.getByRole('button', { name: /Doporučení na míru|Co se hodí/ }).click();
   await page.getByRole('button', { name: /^Doporučeno: / }).first().click();
   await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toBeVisible();
 });
@@ -371,5 +373,49 @@ test('T-160: mobil prochází kategorie po jedné úrovni místo „Rozbalit vš
   await expect(cards(page).first()).toBeVisible();
 });
 
+// --- Cenový rozsahový filtr (CHANGE-67, design_review_65/67.md BL-042) ---
+
+test('T-172: cenový filtr omezí katalog, „bez ceny" lze zahrnout zvlášť', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await expandAll(page);
+  await expect(cards(page).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Další filtry' }).click();
+  // Celý reálný katalog stojí ≥ 800 Kč/rok — limit 100 Kč musí vše vyfiltrovat.
+  await page.getByRole('spinbutton', { name: 'Cena do (Kč)' }).fill('100');
+  expect(await cards(page).count(), 'limit 100 Kč měl vyfiltrovat úplně vše').toBe(0);
+
+  // Zapnutí „Zahrnout i bez uvedené ceny" přidá zpět aktivity bez ceny (fotbal).
+  await page.getByRole('checkbox', { name: 'Zahrnout i bez uvedené ceny' }).check();
+  await expect(page.getByText('Cena neuvedena').first()).toBeVisible();
+});
+
+// --- 3-stavový náhled kolize na kartě katalogu (CHANGE-67, design_review_65/67.md BL-039) ---
+
+test('T-173: karta katalogu ukazuje náhled kolize před přidáním', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await dialog.getByPlaceholder('Např. Logopedie').fill('Celopondělní blok');
+  // Pondělí (hodnota 1) pokryté téměř celým dnem — koliduje s libovolným pondělním kroužkem.
+  await dialog.locator('select').first().selectOption('1');
+  await dialog.locator('input[type="time"]').nth(0).fill('00:01');
+  await dialog.locator('input[type="time"]').nth(1).fill('23:59');
+  await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+
+  await openCatalog(page, width);
+  await expandAll(page);
+  await expect(page.getByTestId('conflict-preview-badge').first()).toBeVisible();
+});
+
+// --- Prominentnější CTA doporučení (CHANGE-67, design_review_65/67.md BL-040) ---
+
+test('T-174: doporučení mají popisek „Co se hodí…“ místo obecného názvu, když existuje plná shoda', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await openCatalog(page, width);
+  await expect(page.getByRole('button', { name: /Co se hodí .+\?\s*\(\d+\)/ })).toBeVisible();
+});
 
 

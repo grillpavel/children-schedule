@@ -122,7 +122,7 @@ const DEFAULT_CHILD: Child = {
 
 export function buildNovestraseciState(): PlannerState {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     children: [DEFAULT_CHILD],
     schedules: [
       {

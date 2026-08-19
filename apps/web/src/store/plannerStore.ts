@@ -17,6 +17,7 @@ import {
   type Enrollment,
   type NamedSchedule,
   type PlannerState,
+  type TravelMode,
   type Weekday,
 } from '@krouzky/domain';
 import {
@@ -108,6 +109,10 @@ interface PlannerStore {
   setChildAvailability(childId: string, availability: AvailabilityWindow[]): void;
   /** Nastaví měsíční rozpočet dítěte (CHANGE-52); `undefined` = bez limitu. */
   setChildBudget(childId: string, budgetMonthlyCzk: number | undefined): void;
+  /** Minimální čas na přesun mezi různými místy (BL-038, design_review_67.md); `undefined` = globální výchozí. */
+  setChildTravelBuffer(childId: string, minutes: number | undefined): void;
+  /** Dopravní mód pro odhad času na přesun (BL-038); `undefined` = výchozí `'car'`. */
+  setChildTravelMode(childId: string, mode: TravelMode | undefined): void;
   addChild(): void;
 }
 
@@ -502,6 +507,22 @@ export const usePlannerStore = create<PlannerStore>()(
           if (!child) return;
           if (budgetMonthlyCzk === undefined) delete child.budgetMonthlyCzk;
           else child.budgetMonthlyCzk = budgetMonthlyCzk;
+        }),
+
+      setChildTravelBuffer: (childId, minutes) =>
+        commit((draft) => {
+          const child = draft.children.find((c) => c.id === childId);
+          if (!child) return;
+          if (minutes === undefined) delete child.travelBufferMinutes;
+          else child.travelBufferMinutes = minutes;
+        }),
+
+      setChildTravelMode: (childId, mode) =>
+        commit((draft) => {
+          const child = draft.children.find((c) => c.id === childId);
+          if (!child) return;
+          if (mode === undefined) delete child.travelMode;
+          else child.travelMode = mode;
         }),
 
       // Víc dětí = samostatný rozvrh i export na dítě (C6-C2).

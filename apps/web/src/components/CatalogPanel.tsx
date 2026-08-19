@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import {
   colorForActivity,
   buildRecommendations,
+  previewGroupConflict,
   type ActivityCategory,
   type Weekday,
 } from '@krouzky/domain';
@@ -161,6 +162,7 @@ function overlaps(a: SessionSpan, b: SessionSpan): boolean {
 
 export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const catalog = usePlannerStore((s) => s.catalog);
+  const state = usePlannerStore((s) => s.state);
   const schedule = usePlannerStore((s) => activeSchedule(s.state));
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const child = usePlannerStore((s) =>
@@ -182,6 +184,11 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const [budgetInput, setBudgetInput] = useState('');
   const [startAfter, setStartAfter] = useState<string>('');
   const [endBefore, setEndBefore] = useState<string>('');
+  // Cenový rozsahový filtr (BL-042, design_review_65/67.md) — katalog dnes má všechny
+  // aktivity v periodě `per_year`, takže srovnání syrové částky je jednoznačné; pokud by
+  // se v budoucnu objevily jiné periody v katalogu, filtr by potřeboval normalizaci.
+  const [maxPriceInput, setMaxPriceInput] = useState('');
+  const [includePriceless, setIncludePriceless] = useState(false);
   const [collapsedRoots, setCollapsedRoots] = useState<Record<string, boolean>>({});
   const [collapsedSubs, setCollapsedSubs] = useState<Record<string, boolean>>({});
   // Doporučení jsou sekundární (hlavní tok je výběr kroužků → kalendář → export),
@@ -225,7 +232,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   }, [query]);
 
   const hasActiveFilters = Boolean(
-    query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore,
+    query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore || maxPriceInput,
   );
   const resetFilters = () => {
     setQuery('');
@@ -236,6 +243,8 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     setFitOnly(false);
     setStartAfter('');
     setEndBefore('');
+    setMaxPriceInput('');
+    setIncludePriceless(false);
   };
 
   // Doporučení (CHANGE-51): dnešek je vstup enginu, počítá se v app vrstvě.
@@ -243,6 +252,12 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const recommendations = useMemo(
     () => (child ? buildRecommendations(child, catalog, schedule, todayIso, { limit: 3 }) : []),
     [child, catalog, schedule, todayIso],
+  );
+  // Počet plnohodnotných shod (všechny relevantní důvody splněny) pro CTA popisek
+  // (BL-040, design_review_67.md) — „Co se hodí [dítě]?" místo obecného názvu sekce.
+  const qualifyingRecommendations = useMemo(
+    () => recommendations.filter((r) => r.fit.score === 1).length,
+    [recommendations],
   );
   const catalogCategories = useMemo(() => {
     const set = new Set<ActivityCategory>();
@@ -302,6 +317,35 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     }
     return map;
   }, [catalog]);
+
+  // 3-stavový náhled kolize na kartě (BL-039, design_review_67.md): pro každou
+  // aktivitu vezme NEJLEPŠÍ výsledek napříč jejími skupinami (uživatel si může
+  // vybrat kteroukoli) — 🟢 aspoň jedna skupina bez konfliktu, 🟡 nejhorší nalezená
+  // je jen soft (kapacita/přesun), 🔴 všechny skupiny mají tvrdý konflikt.
+  const conflictPreviewByActivity = useMemo(() => {
+    const map = new Map<string, { severity: 'hard' | 'soft' | null; message: string | undefined }>();
+    if (!activeChildId) return map;
+    const previewInput = { schedule, catalog, children: state.children, schoolYear: state.schoolYear };
+    for (const a of catalog.activities) {
+      const groups = groupsByActivity.get(a.id) ?? [];
+      if (groups.length === 0) continue;
+      let best: { severity: 'hard' | 'soft' | null; message: string | undefined } = {
+        severity: 'hard',
+        message: undefined,
+      };
+      for (const g of groups) {
+        const preview = previewGroupConflict(previewInput, activeChildId, a.id, g.id);
+        if (preview.severity === null) {
+          best = preview;
+          break;
+        }
+        if (preview.severity === 'soft' && best.severity === 'hard') best = preview;
+        else if (best.message === undefined) best.message = preview.message;
+      }
+      map.set(a.id, best);
+    }
+    return map;
+  }, [catalog, schedule, activeChildId, groupsByActivity, state.children, state.schoolYear]);
 
   const providerName = (id: string) =>
     catalog.providers.find((p) => p.id === id)?.name ?? '—';
@@ -398,6 +442,14 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
       );
       if (!canFit) return false;
     }
+    if (maxPriceInput.trim() !== '') {
+      const maxPrice = Number(maxPriceInput);
+      if (!Number.isFinite(a.price.amount)) {
+        if (!includePriceless) return false;
+      } else if (a.price.amount > maxPrice) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -474,6 +526,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     const active = selectedActivityId === a.id;
     const isSelected = selectedActivityIds.has(a.id);
     const hasSelectedVariant = groups.some((g) => selectedEnrollmentIds.has(`${a.id}::${g.id}`));
+    const conflictPreview = conflictPreviewByActivity.get(a.id);
     return (
       <button
         key={a.id}
@@ -494,11 +547,29 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
             aria-hidden
           />
           <span className="font-semibold text-slate-900 text-sm leading-tight flex-1">{highlightMatch(a.name, query)}</span>
-          {hasSelectedVariant && (
+          {hasSelectedVariant ? (
             <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 shadow-2xs">
               <IconCheck className="h-3 w-3" />
               <span>Přidáno</span>
             </span>
+          ) : (
+            conflictPreview && conflictPreview.severity !== null && (
+              // 🟡/🔴 náhled kolize (BL-039, design_review_67.md) — 🟢 (bez kolize) se
+              // nezobrazuje textem, ať karty nejsou přeplněné; jen barevná tečka na kartě.
+              <span
+                data-testid="conflict-preview-badge"
+                title={conflictPreview.message}
+                className={clsx(
+                  'inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold shadow-2xs',
+                  conflictPreview.severity === 'hard'
+                    ? 'bg-rose-100 text-rose-800'
+                    : 'bg-amber-100 text-amber-800',
+                )}
+              >
+                <span aria-hidden>{conflictPreview.severity === 'hard' ? '🔴' : '🟡'}</span>
+                <span>{conflictPreview.severity === 'hard' ? 'Kolize' : 'Napjato'}</span>
+              </span>
+            )
           )}
         </div>
 
@@ -763,6 +834,26 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
                 className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
               />
             </label>
+            <label className="text-xs font-medium text-slate-600">
+              Cena do (Kč)
+              <input
+                type="number"
+                min={0}
+                value={maxPriceInput}
+                onChange={(e) => setMaxPriceInput(e.target.value)}
+                placeholder="Bez limitu"
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
+              />
+            </label>
+            <label className="flex items-center gap-1.5 self-end pb-1 text-xs font-medium text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includePriceless}
+                onChange={(e) => setIncludePriceless(e.target.checked)}
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>Zahrnout i bez uvedené ceny</span>
+            </label>
           </div>
         )}
       </div>
@@ -781,7 +872,11 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
               className="flex w-full items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-900"
             >
               <IconSparkles className="h-4 w-4 text-blue-600" />
-              <span>Doporučení na míru</span>
+              <span>
+                {qualifyingRecommendations > 0
+                  ? `Co se hodí ${child.name}? (${qualifyingRecommendations})`
+                  : `Doporučení na míru`}
+              </span>
               <IconChevronDown
                 className={clsx('ml-auto h-4 w-4 text-blue-600 transition', recsOpen && 'rotate-180')}
               />

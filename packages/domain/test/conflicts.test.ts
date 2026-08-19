@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectConflicts, type CustomEntry, type Enrollment } from '../src/index.js';
+import { detectConflicts, previewGroupConflict, type CustomEntry, type Enrollment } from '../src/index.js';
 import {
   TEST_CATALOG,
   TEST_CHILD,
@@ -194,5 +194,144 @@ describe('detectConflicts — H9 travel_infeasible (FR-8, design_review_58.md)',
     });
     expect(report.conflicts.some((c) => c.kind === 'time_overlap')).toBe(true);
     expect(report.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
+  });
+});
+
+describe('detectConflicts — H9 per-dítě travelBufferMinutes/travelMode (BL-038, design_review_67.md)', () => {
+  const customA: CustomEntry = {
+    id: 'ce_a2',
+    childId: 'TEST_child',
+    name: 'TEST Kroužek A2',
+    kind: 'other',
+    location: { street: 'TEST Ulice A', city: 'TEST_Město', lat: 50.0, lon: 15.0 },
+    sessions: [
+      { id: 'ce_a2_s', weekday: 1, startMinutes: 960, endMinutes: 1020, validFrom: TEST_SCHOOL_YEAR.start, validTo: TEST_SCHOOL_YEAR.end },
+    ],
+  };
+  const customBTight: CustomEntry = {
+    id: 'ce_b2',
+    childId: 'TEST_child',
+    name: 'TEST Kroužek B2',
+    kind: 'other',
+    location: { street: 'TEST Ulice B', city: 'TEST_Město', lat: 50.02, lon: 15.02 },
+    sessions: [
+      { id: 'ce_b2_s', weekday: 1, startMinutes: 1025, endMinutes: 1085, validFrom: TEST_SCHOOL_YEAR.start, validTo: TEST_SCHOOL_YEAR.end },
+    ],
+  };
+
+  it('travelMode "walk" zpřísní požadovaný čas oproti výchozímu "car"', () => {
+    const laterByWalk: CustomEntry = {
+      ...customBTight,
+      sessions: [{ ...customBTight.sessions[0]!, startMinutes: 1050, endMinutes: 1110 }],
+    };
+    const schedule = makeSchedule({ customEntries: [customA, laterByWalk] });
+
+    const byCar = detectConflicts({
+      schedule,
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(byCar.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
+
+    const byWalk = detectConflicts({
+      schedule,
+      catalog: TEST_CATALOG,
+      children: [{ ...TEST_CHILD, travelMode: 'walk' }],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(byWalk.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(true);
+  });
+
+  it('travelBufferMinutes přepíše globální výchozí rezervu, když chybí souřadnice', () => {
+    const noCoordsA: CustomEntry = {
+      ...customA,
+      location: { street: 'TEST Ulice A', city: 'TEST_Město' },
+    };
+    const noCoordsB: CustomEntry = {
+      ...customBTight,
+      location: { street: 'TEST Ulice B', city: 'TEST_Jiné' },
+      sessions: [{ ...customBTight.sessions[0]!, startMinutes: 1028, endMinutes: 1088 }],
+    };
+    const schedule = makeSchedule({ customEntries: [noCoordsA, noCoordsB] });
+
+    const defaultBuffer = detectConflicts({
+      schedule,
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(defaultBuffer.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(true);
+
+    const shorterBuffer = detectConflicts({
+      schedule,
+      catalog: TEST_CATALOG,
+      children: [{ ...TEST_CHILD, travelBufferMinutes: 5 }],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(shorterBuffer.conflicts.some((c) => c.kind === 'travel_infeasible')).toBe(false);
+  });
+});
+
+describe('previewGroupConflict (BL-039, design_review_67.md)', () => {
+  const baseInput = {
+    catalog: TEST_CATALOG,
+    children: [TEST_CHILD],
+    schoolYear: TEST_SCHOOL_YEAR,
+  };
+
+  it('prázdný rozvrh → žádný konflikt (severity null)', () => {
+    const preview = previewGroupConflict(
+      { ...baseInput, schedule: makeSchedule() },
+      'TEST_child',
+      'TEST_keramika',
+      'TEST_keramika_po',
+    );
+    expect(preview.severity).toBeNull();
+    expect(preview.message).toBeUndefined();
+  });
+
+  it('přidání by se přímo časově překrývalo → hard konflikt se jménem obou kroužků', () => {
+    const withKeramika = makeSchedule({ enrollments: [enrollKeramika] });
+    const preview = previewGroupConflict(
+      { ...baseInput, schedule: withKeramika },
+      'TEST_child',
+      'TEST_florbal',
+      'TEST_florbal_posT',
+    );
+    expect(preview.severity).toBe('hard');
+    expect(preview.message).toContain('TEST Keramika');
+    expect(preview.message).toContain('TEST Florbal');
+  });
+
+  it('přidání do prázdného slotu bez časové/logistické kolize → severity null i když chybí kapacita', () => {
+    // TEST_tanec nemá v katalogu uvedenou kapacitu (stejně jako TEST_florbal), ale
+    // capacity_unknown je záměrně VYNECHÁNO z náhledu — je to gap v datech katalogu,
+    // ne skutečná kolize v rozvrhu, jinak by se takto označila skoro každá aktivita.
+    const withKeramika = makeSchedule({ enrollments: [enrollKeramika] });
+    const preview = previewGroupConflict(
+      { ...baseInput, schedule: withKeramika },
+      'TEST_child',
+      'TEST_tanec',
+      'TEST_tanec_po',
+    );
+    expect(preview.severity).toBeNull();
+    expect(preview.message).toBeUndefined();
+  });
+
+  it('rozvrh se skutečně nezmění (jen náhled, ne zápis)', () => {
+    const schedule = makeSchedule();
+    previewGroupConflict({ ...baseInput, schedule }, 'TEST_child', 'TEST_keramika', 'TEST_keramika_po');
+    expect(schedule.enrollments).toHaveLength(0);
+  });
+
+  it('neplatná kombinace activityId/sessionGroupId → severity null (bez chyby)', () => {
+    const preview = previewGroupConflict(
+      { ...baseInput, schedule: makeSchedule() },
+      'TEST_child',
+      'TEST_keramika',
+      'TEST_florbal_posT',
+    );
+    expect(preview.severity).toBeNull();
   });
 });

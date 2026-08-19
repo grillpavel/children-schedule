@@ -226,6 +226,15 @@ test('T-213: primární dotykové cíle na mobilu mají ≥44px', async ({ page 
   await page.getByRole('button', { name: 'Katalog', exact: true }).click();
   const po = await page.getByRole('button', { name: 'Po', exact: true }).boundingBox();
   expect(po!.height, `Po = ${Math.round(po!.height)}px`).toBeGreaterThanOrEqual(44);
+
+  // Dialog „Vlastní událost" — zavírací a odebírací ikonová tlačítka (BL-045, design_review_67.md).
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await dialog.getByRole('button', { name: /Přidat další čas/ }).click();
+  const removeBox = await dialog.getByRole('button', { name: 'Odebrat termín' }).first().boundingBox();
+  expect(removeBox!.height, `Odebrat termín = ${Math.round(removeBox!.height)}px`).toBeGreaterThanOrEqual(44);
+  const closeBox = await dialog.getByRole('button', { name: 'Zavřít' }).boundingBox();
+  expect(closeBox!.height, `Zavřít dialog = ${Math.round(closeBox!.height)}px`).toBeGreaterThanOrEqual(44);
 });
 
 test('T-214: na 320px není vodorovný scroll', async ({ page }) => {

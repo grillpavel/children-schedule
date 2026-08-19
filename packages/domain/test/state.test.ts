@@ -63,7 +63,7 @@ describe('scheduleSummary', () => {
 
 describe('state IO', () => {
   const state: PlannerState = {
-    schemaVersion: 5,
+    schemaVersion: 6,
     children: [
       { id: 'c', name: 'TEST Dítě', age: 9, interests: [], availability: [], schoolEndByWeekday: {} },
     ],
@@ -130,7 +130,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v1);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(5);
+      expect(parsed.value.schemaVersion).toBe(6);
       expect(parsed.value.schedules[0]!.customEntries[0]!.sessions[0]!.everyWeeks).toBe(2);
     }
   });
@@ -142,7 +142,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v2);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(5);
+      expect(parsed.value.schemaVersion).toBe(6);
       expect(parsed.value.overrides).toEqual([]);
     }
   });
@@ -156,7 +156,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v3);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(5);
+      expect(parsed.value.schemaVersion).toBe(6);
       expect(parsed.value.children[0]!.interests).toEqual([]);
       expect(parsed.value.children[0]!.availability).toEqual([]);
     }
@@ -192,8 +192,19 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v4);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(5);
+      expect(parsed.value.schemaVersion).toBe(6);
       expect(parsed.value.schedules[0]!.customEntries[0]!.kind).toBe('other');
+    }
+  });
+
+  it('migruje v5 (bez travelBufferMinutes/travelMode) → v6 (undefined, výchozí chování)', () => {
+    const v5 = { ...state, schemaVersion: 5 };
+    const parsed = parsePlannerState(v5);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.schemaVersion).toBe(6);
+      expect(parsed.value.children[0]!.travelBufferMinutes).toBeUndefined();
+      expect(parsed.value.children[0]!.travelMode).toBeUndefined();
     }
   });
 

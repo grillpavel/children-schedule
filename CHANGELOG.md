@@ -6,6 +6,18 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Realizace backlogu z v6/v7 UX kol (CHANGE-68 až CHANGE-72)
+
+Trigger: uživatel po validaci `design_review_65.md`/`design_review_66.md` požádal o realizaci vybraných otevřených položek backlogu. Scope: **engine `@krouzky/domain` 0.4.0 → 0.5.0** (CHANGE-68, CHANGE-69) + **app `@krouzky/web`** + testy.
+
+- **CHANGE-68 (BL-038)**: per-dítě konfigurovatelný čas na přesun (`Child.travelBufferMinutes`) a dopravní mód (`Child.travelMode`: pěšky/auto/MHD) — `schemaVersion` 5→6. H9 detekce (`detectTightTransfers`) je používá místo globálního výchozího nastavení. UI v Toolbaru (desktop) i záložce „Děti" (mobil).
+- **CHANGE-69 (BL-039)**: nová doménová funkce `previewGroupConflict()` simuluje přidání aktivity do rozvrhu BEZ zápisu a vrátí nejzávažnější konflikt — karta katalogu tak ukáže 🔴/🟡 odznak ještě před přidáním. `capacity_unknown` je z náhledu záměrně vyloučeno (jinak by označilo skoro každou kartu, viz `design_review_67.md` §0.2).
+- **CHANGE-70 (BL-040)**: tlačítko sekce doporučení nese popisek „Co se hodí [dítě]? (N)" s počtem plnohodnotných shod místo obecného „Doporučení na míru".
+- **CHANGE-71 (BL-042)**: cenový rozsahový filtr („Cena do (Kč)") s přepínačem „Zahrnout i aktivity bez uvedené ceny" (výchozí vypnuto).
+- **CHANGE-72 (BL-045, částečně)**: zavírací tlačítko a „Odebrat termín" v dialogu „Vlastní událost" mají touch target ≥44×44 px na kompaktních šířkách; zavírací tlačítko navíc získalo přístupný název (dřív žádný nemělo).
+
+Spec: `.github/specs/design_review_67.md`. Nové testy T-172 až T-175 (E2E) + doménové testy pro `previewGroupConflict`/per-dítě travel buffer/mode (`conflicts.test.ts`) + migrace v5→v6 (`state.test.ts`). Vizuální baseline `toolbar`/`empty-info`/`catalog-filtered`/`info-dark` regenerovány (desktop, desktop-narrow, mobil, mobile-small, tablet-portrait — nové ovládací prvky v Toolbaru/CatalogPanel). `vitest` (domain, 110 testů) zelené; `tsc --noEmit` (domain+web) čisté; plná E2E `--workers=1` zelená na všech 6 profilech.
+
 ### Konsolidace v6 UX auditu — 5 opravených nálezů (CHANGE-66)
 
 Trigger: tři nové UX analýzy (`analysis_65_a/b/c.md`) testovaly živý build po CHANGE-60..65. Scope: **app `@krouzky/web`** + testy. Před psaním FR byl každý nález ověřen proti aktuálnímu kódu — 8 z ~14 tvrzení bylo buď už hotovo, nebo věcně nepřesné (viz `design_review_65.md` §0.1); FR-14 (přesun „Vlastní událost") byl na základě vlastní zpětné kontroly zrušen, protože tlačítko je díky flex layoutu vždy viditelné bez scrollu.

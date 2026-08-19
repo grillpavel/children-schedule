@@ -2,11 +2,12 @@ import type {
   Address,
   Child,
   Conflict,
+  Enrollment,
   NamedSchedule,
   SkippedCheck,
   Weekday,
 } from '../model/types.js';
-import { DEFAULT_TRAVEL_BUFFER_MIN, haversineKm, travelMinutes } from '../travel/index.js';
+import { DEFAULT_TRAVEL_BUFFER_MIN, haversineKm, travelMinutes, type TravelMode } from '../travel/index.js';
 import {
   buildCatalogIndex,
   childById,
@@ -194,9 +195,12 @@ function sameAddress(a: Address, b: Address): boolean {
 
 // H9 — logistická kolize (těsný přesun mezi různými lokalitami), FR-8 design_review_58.md.
 // 🟢 stejné místo nebo dost času · 🟠 různá místa, mezera kratší než rezerva/odhad přesunu.
+// Per-dítě `travelBufferMinutes`/`travelMode` (BL-038, design_review_67.md) mají přednost
+// před globálním výchozím `defaultBufferMinutes`/`'car'`.
 function detectTightTransfers(
   placed: PlacedSession[],
-  transferBufferMinutes: number,
+  defaultBufferMinutes: number,
+  childSettings: Map<string, { bufferMinutes?: number; mode?: TravelMode }>,
 ): { conflicts: Conflict[]; skipped: SkippedCheck[] } {
   const conflicts: Conflict[] = [];
   const skipped: SkippedCheck[] = [];
@@ -231,11 +235,14 @@ function detectTightTransfers(
       }
       if (sameAddress(earlier.address, later.address)) continue;
 
+      const settings = childSettings.get(p.childId);
+      const transferBufferMinutes = settings?.bufferMinutes ?? defaultBufferMinutes;
+      const mode = settings?.mode ?? 'car';
       const hasCoords =
         earlier.address.lat !== undefined && earlier.address.lon !== undefined &&
         later.address.lat !== undefined && later.address.lon !== undefined;
       const required = hasCoords
-        ? (travelMinutes(earlier.address, later.address, 'car') ?? transferBufferMinutes)
+        ? (travelMinutes(earlier.address, later.address, mode) ?? transferBufferMinutes)
         : transferBufferMinutes;
       if (gap >= required) continue;
 
@@ -261,10 +268,15 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
   const index = buildCatalogIndex(input.catalog);
   const placed = resolvePlacedSessions(input.schedule, index);
 
+  const childSettings = new Map<string, { bufferMinutes?: number; mode?: TravelMode }>(
+    input.children.map((c) => [c.id, { bufferMinutes: c.travelBufferMinutes, mode: c.travelMode }]),
+  );
+
   const school = detectSchoolNotFinished(input, placed);
   const transfer = detectTightTransfers(
     placed,
     input.options?.transferBufferMinutes ?? DEFAULT_TRAVEL_BUFFER_MIN,
+    childSettings,
   );
 
   return {
@@ -278,4 +290,55 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
     ],
     skippedChecks: [...school.skipped, ...transfer.skipped],
   };
+}
+
+export interface ConflictPreview {
+  /** `null` = žádný konflikt by nevznikl. */
+  severity: 'hard' | 'soft' | null;
+  message: string | undefined;
+}
+
+/**
+ * Nasimuluje přidání jedné `SessionGroup` do rozvrhu dítěte a vrátí nejzávažnější
+ * (časový/logistický) konflikt, který by tím vznikl — BEZ zápisu do skutečného rozvrhu
+ * (BL-039, design_review_67.md). Používá stejné H1–H9 kontroly jako `detectConflicts` nad
+ * hypotetickým klonem rozvrhu, ať zůstane jediný zdroj pravdy pro kolize. `capacity_unknown`
+ * je z náhledu záměrně vynecháno — je to signál o chybějících datech katalogu (není
+ * uvedená kapacita), ne o skutečné kolizi v rozvrhu, jinak by se označila skoro každá
+ * aktivita bez ohledu na reálný rozvrh.
+ */
+export function previewGroupConflict(
+  input: ConflictInput,
+  childId: string,
+  activityId: string,
+  sessionGroupId: string,
+): ConflictPreview {
+  const index = buildCatalogIndex(input.catalog);
+  const group = index.group.get(sessionGroupId);
+  if (!group || group.activityId !== activityId) {
+    return { severity: null, message: undefined };
+  }
+
+  const previewId = '__preview__';
+  const fakeEnrollment: Enrollment = {
+    id: previewId,
+    childId,
+    activityId,
+    sessionGroupId,
+    status: 'selected',
+    pinned: false,
+  };
+  const previewSchedule: NamedSchedule = {
+    ...input.schedule,
+    enrollments: [...input.schedule.enrollments, fakeEnrollment],
+  };
+  const report = detectConflicts({ ...input, schedule: previewSchedule });
+  const related = report.conflicts.filter(
+    (c) => c.enrollmentIds.includes(previewId) && c.kind !== 'capacity_unknown',
+  );
+  if (related.length === 0) return { severity: null, message: undefined };
+
+  const hard = related.find((c) => c.severity === 'hard');
+  const chosen = hard ?? related[0]!;
+  return { severity: chosen.severity, message: chosen.message };
 }

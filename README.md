@@ -9,6 +9,8 @@ kontaktů a odkazů v každé události. Rozvrh lze také **naimportovat zpět**
 Rozvrh žije **jen v paměti prohlížeče** — žádný backend, žádná databáze, nic se
 neukládá na server. To zásadně zjednodušuje hosting (viz [Nasazení](#nasazení--webhosting)).
 
+**Jak aplikaci používat:** [Návod k použití](docs/navod-pouziti.md) (s obrázky).
+
 ## Funkce
 
 - **Reálný katalog** kroužků (Nové Strašecí a okolí — DDM Rakovník, SCNS, TJ Sokol),

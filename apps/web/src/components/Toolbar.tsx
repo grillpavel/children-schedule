@@ -275,14 +275,14 @@ export function Toolbar({
           }}
           placeholder="Název kalendáře"
           aria-label="Název kalendáře"
-          className="min-w-0 w-28 rounded-md border-0 bg-transparent px-1 py-0.5 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
+          className="min-w-0 w-28 rounded-md border-0 bg-transparent px-1 py-1 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
         />
         {state.children.length > 1 && (
           <select
             value={activeChildId}
             onChange={(e) => setActiveChild(e.target.value)}
             aria-label="Přepnout kalendář"
-            className="min-w-0 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 rounded-md border-0 bg-transparent py-1 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
           >
             {state.children.map((c) => (
               <option key={c.id} value={c.id}>
@@ -307,11 +307,11 @@ export function Toolbar({
               onChange={(e) => setNewCalName(e.target.value)}
               placeholder="Název nového kalendáře"
               aria-label="Název nového kalendáře"
-              className="w-32 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-32 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             <button
               type="submit"
-              className="shrink-0 rounded-md border border-blue-600 bg-blue-600 px-2 py-0.5 text-xs font-medium text-white shadow-2xs hover:bg-blue-700 transition"
+              className="shrink-0 rounded-md border border-blue-600 bg-blue-600 px-2 py-1 text-xs font-medium text-white shadow-2xs hover:bg-blue-700 transition"
             >
               Přidat
             </button>
@@ -322,7 +322,7 @@ export function Toolbar({
                 setNewCalName('');
               }}
               aria-label="Zrušit přidání kalendáře"
-              className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-100"
+              className="shrink-0 rounded-md px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100"
             >
               ✕
             </button>
@@ -331,7 +331,7 @@ export function Toolbar({
           <button
             type="button"
             onClick={() => setAddingCalendar(true)}
-            className="shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
+            className="shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
             title="Přidat další kalendář (samostatný rozvrh a export)"
           >
             <span className="inline-flex items-center gap-1">
@@ -354,7 +354,7 @@ export function Toolbar({
             }}
             aria-label={`Odebrat kalendář ${child.name}`}
             title="Odebrat tento kalendář (nevratné, jde vrátit přes Zpět)"
-            className="shrink-0 rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs font-medium text-red-600 shadow-2xs hover:bg-red-50 transition"
+            className="shrink-0 rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 shadow-2xs hover:bg-red-50 transition"
           >
             Odebrat
           </button>
@@ -433,8 +433,9 @@ export function Toolbar({
         )}
       </div>
 
-      {/* Status indikátor uložení */}
-      <div className="flex items-center gap-1.5 text-xs">
+      {/* Status indikátor uložení. `h-11` na mobilu srovnává výšku s undo/redo a „Další ▾“
+          (design_review_71.md dodatek — bez toho měly 3 různé výšky 22/34/44px ve stejném řádku). */}
+      <div className="flex h-11 items-center gap-1.5 text-xs desk:h-auto">
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition ${
             isDirty
@@ -454,7 +455,7 @@ export function Toolbar({
           jen na desktopu — na mobilu by to od status indikátoru odtrhlo velkou prázdnou
           mezeru (nahlášeno jako "rozházená" lišta), místo aby akce navazovaly hned za sebou. */}
       <div className="flex flex-wrap items-center gap-1.5 desk:ml-auto desk:justify-end">
-        <div className="flex items-center rounded-lg border border-slate-200/80 bg-white p-0.5 shadow-2xs">
+        <div className="flex h-11 items-center rounded-lg border border-slate-200/80 bg-white p-0.5 shadow-2xs desk:h-auto">
           <button
             type="button"
             onClick={undo}

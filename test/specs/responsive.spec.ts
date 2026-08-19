@@ -177,6 +177,24 @@ test('T-167: mobilní horní lišta skrývá věk/přesun, ale správa kalendá�
   await expect(childrenSection.getByLabel('Věk dítěte')).toBeVisible();
 });
 
+test('T-184: druhý řádek mobilní lišty (Uloženo/Zpět-Vpřed/Další ▾) má shodnou výšku a zarovnání (design_review_71.md)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'platí jen pro mobilní/kompaktní lištu, kde se řádek zalamuje');
+
+  const banner = page.getByRole('banner');
+  // "Uloženo" pilulka, skupina Zpět/Vpřed a "Další ▾" musí mít stejný svislý obal
+  // (dřív 22/34/44px — reálná vada nahlášená uživatelem, ověřená getBoundingClientRect()).
+  const statusPill = banner.getByText(/^Uloženo$|^Neuloženo$/, { exact: true });
+  const statusBox = (await statusPill.locator('..').boundingBox())!;
+  const undoRedoBox = (await banner.getByTitle(/Zpět \(/).locator('..').boundingBox())!;
+  const moreBox = (await banner.getByRole('button', { name: /Další ▾/ }).boundingBox())!;
+
+  const heights = [statusBox.height, undoRedoBox.height, moreBox.height];
+  const tops = [statusBox.y, undoRedoBox.y, moreBox.y];
+  for (const h of heights) expect(Math.abs(h - heights[0]), 'výšky obalů se musí shodovat').toBeLessThanOrEqual(1);
+  for (const t of tops) expect(Math.abs(t - tops[0]), 'horní okraje obalů se musí shodovat').toBeLessThanOrEqual(1);
+});
+
 test('T-211: bottom sheet v peek ukáže název i primární akci', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'bottom sheet je jen na mobilu/tabletu');

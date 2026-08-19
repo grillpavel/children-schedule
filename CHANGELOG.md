@@ -6,6 +6,29 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Oprava: nesourodé výšky prvků v horní liště na mobilu (CHANGE-79)
+
+Trigger: uživatel důrazně nahlásil, že položky v horní liště na mobilu mají různou výšku a nejsou
+centrované; vyžádal si přesné pixelové ověření, ne jen vizuální dojem. `getBoundingClientRect()` na
+390px potvrdil reálnou vadu: ve druhém řádku lišty (od CHANGE-76) měly „Uloženo" pilulka 22px, obal
+Zpět/Vpřed 34px a „Další ▾" 44px — tři různé výšky ve stejném řádku. V prvním řádku (kalendář) byl menší
+rozdíl 24 vs 28px (avatar vs pole/tlačítka).
+
+- `Toolbar.tsx`: obal stavového indikátoru a obal Zpět/Vpřed dostaly `h-11` (44px, jako „Další ▾"),
+  na desktopu `desk:h-auto` zachovává původní přirozenou výšku (beze změny vzhledu na desktopu — tam už
+  bylo vše zarovnané kvůli více sousedním prvkům se srovnatelnou výškou).
+- Pole/tlačítka v kalendářovém clusteru (`Název kalendáře`, přepínač, „Přidat kalendář“, „Odebrat“,
+  inline formulář přidání) sjednocena z `py-0.5` na `py-1` → 28px, shodně s 28px avatarem.
+- Nový test **T-184** (responsive.spec.ts) přímo měří `boundingBox()` všech tří skupin druhého řádku a
+  ověřuje shodnou výšku i horní okraj (±1px) — jde nad rámec vizuálního snímku, chytí i budoucí
+  regrese v přesných pixelech.
+- Zbytek appky (katalogové karty, spodní navigace, čipy zájmů, dialog vlastní události, detail kroužku)
+  prošel stejnou pixelovou kontrolou — bez dalších nálezů (variabilní výška katalogových karet je
+  záměrná, daná obsahem/odznaky, ne vada).
+
+Ověřeno: `tsc --noEmit` (web) čisté; vizuální baseline (T-400) beze změny (rozdíl pod prahem); plná E2E
+`--workers=1` na všech 6 profilech.
+
 ### Oprava: mobilní menu „Další ▾" přetékalo mimo viewport (CHANGE-78)
 
 Trigger: uživatel nahlásil, že po CHANGE-76 se na mobilu po kliknutí na „Další ▾" zobrazí velká část

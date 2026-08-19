@@ -6,6 +6,34 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Soukromí a data v menu „Další ▾" + oprava rozházené mobilní lišty (CHANGE-76)
+
+Trigger: uživatel požádal o vysvětlení automatického geokódování adresy na Nominatim, přidání položky
+„Soukromí“ do menu „Další ▾" a vyřešení cookies/soukromí/impressum na SOTA úrovni; a otestování mobil/
+tablet UX, kde nahlásil rozházené/neseřazené položky v horní liště. Scope: **app `@krouzky/web`** (bez
+schema/verze změny).
+
+- Nový `PrivacyDialog.tsx` (nová ikona `IconShield`), dostupný z menu „Další ▾" (položka „Soukromí a
+  data", sdílené `exportItems` — funguje na desktopu i mobilu) — shrnuje: žádné cookies/sledování, data
+  jen v `localStorage` tohoto prohlížeče, jedinou výjimku (geokódování adresy na Nominatim/OpenStreetMap
+  s odkazem na jejich zásady), že export (.ics/.png/.json) se generuje lokálně a jen stahuje, upozornění
+  že jde o demo (katalog kroužků je ukázková datová sada z volně dostupných serverů, informace nemusí
+  být aktuální), a kontakt (odkaz na GitHub repozitář — osobní/nekomerční projekt, žádné formální
+  impressum).
+- `CustomEntryDialog.tsx` a `DetailsPanel.tsx` (adresa kroužku): jednořádková poznámka u pole adresy
+  vysvětlující, že se adresa při uložení automaticky odesílá na Nominatim (dřív bez jakéhokoliv
+  upozornění v UI).
+- **Oprava reálné mobilní vady**: pravá akční skupina Toolbaru (Zpět/Vpřed/Otevřít/Uložit/Další ▾) měla
+  `ml-auto`/`justify-end` bez `desk:` prefixu — na šířkách <900px, kde je většina prostředních prvků
+  skrytá, to od stavového indikátoru „Uloženo" odtrhlo velkou prázdnou mezeru. Opraveno na `desk:ml-auto
+  desk:justify-end` — na mobilu teď akce navazují plynule, na desktopu beze změny.
+- Testy: nový **T-181** (persistence) ověřuje dialog „Soukromí a data" a jeho obsah, nový **T-182**
+  (schedule) ověřuje poznámku u adresy. Vizuální baseline `toolbar-*` přegenerovány pro profily
+  ovlivněné opravou mezery.
+
+Spec: `.github/specs/design_review_71.md`. Verifikováno: `tsc --noEmit` (web) čisté; plná E2E
+`--workers=1` na všech 6 profilech.
+
 ### Rozvrhni: přejmenování + správa kalendářů v horní liště (CHANGE-75)
 
 Trigger: uživatel zadal 5 bodů — (1) přejmenovat aplikaci na „Rozvrhni“, (2) umožnit napsat vlastní

@@ -447,3 +447,12 @@ test('T-180: kalendář lze přejmenovat, přidat další s vlastním názvem a 
     'zápis odebraného kalendáře nesmí zůstat osiřelý v uloženém stavu',
   ).toBe(false);
 });
+
+test('T-182: pole adresy vlastní události upozorňuje na odeslání na Nominatim (design_review_71.md)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  await openCatalog(page, width);
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await expect(dialog.getByText(/OpenStreetMap \(Nominatim\)/)).toBeVisible();
+});

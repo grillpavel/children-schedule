@@ -577,6 +577,9 @@ function ActivityEditor({
           placeholder="Ulice a číslo"
           className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
         />
+        <span className="mt-1 block text-[11px] font-normal text-slate-400">
+          Adresa se pro odkaz na mapu odešle na OpenStreetMap (Nominatim).
+        </span>
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs text-slate-600 font-medium">

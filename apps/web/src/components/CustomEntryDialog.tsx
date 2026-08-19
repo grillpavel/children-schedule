@@ -307,6 +307,9 @@ export function CustomEntryDialog({
               placeholder="Ulice a číslo, Město"
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
             />
+            <span className="mt-1 block text-[11px] text-slate-400">
+              Adresa se pro odkaz na mapu odešle na OpenStreetMap (Nominatim).
+            </span>
           </label>
 
           <label className="block">

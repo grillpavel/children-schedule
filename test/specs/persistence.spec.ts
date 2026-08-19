@@ -160,6 +160,21 @@ test('T-158: na mobilu jsou Otevřít/Uložit v menu „Další ▾", název kal
   await expect(menu.getByText('Kalendář (.ics)')).toBeVisible();
 });
 
+test('T-181: menu „Další ▾" nabízí „Soukromí a data" s vysvětlením cookies i geokódování (design_review_71.md)', async ({ page }) => {
+  await page.getByRole('button', { name: /Další ▾/ }).click();
+  await page.getByRole('button', { name: 'Soukromí a data' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Soukromí a data' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(/nepoužívá žádné cookies/)).toBeVisible();
+  await expect(dialog.getByText(/Nominatim/)).toBeVisible();
+  await expect(dialog.getByText(/localStorage/)).toBeVisible();
+  await expect(dialog.getByText(/volně dostupných serverech/)).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Zavřít' }).click();
+  await expect(dialog).toBeHidden();
+});
+
 test('T-159: autosave — zápis přežije reload stránky', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await enrollFirst(page, width);

@@ -18,6 +18,7 @@ import {
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
 import { ColorSwatches } from './ColorSwatches';
+import { PrivacyDialog } from './PrivacyDialog';
 import {
   IconUndo,
   IconRedo,
@@ -28,6 +29,7 @@ import {
   IconChevronDown,
   IconUser,
   IconCheck,
+  IconShield,
 } from './Icons';
 
 export function Toolbar({
@@ -66,6 +68,7 @@ export function Toolbar({
   const [addingCalendar, setAddingCalendar] = useState(false);
   const [newCalName, setNewCalName] = useState('');
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const selectedColorCss = selectedActivityId
@@ -215,6 +218,19 @@ export function Toolbar({
         <div className="my-1 border-t border-slate-100" />
         <MenuItem onClick={() => exportIcs('expanded')}>
           <span className="text-xs text-slate-500">Mám problém s importem (rozbalené .ics)</span>
+        </MenuItem>
+        <div className="my-1 border-t border-slate-100" />
+        <MenuItem
+          onClick={() => {
+            setPrivacyOpen(true);
+            setMenuOpen(false);
+            setMobileMenuOpen(false);
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <IconShield className="h-4 w-4 text-slate-500" />
+            <span>Soukromí a data</span>
+          </div>
         </MenuItem>
       </div>
     </div>
@@ -413,8 +429,10 @@ export function Toolbar({
         </span>
       </div>
 
-      {/* Pravá část akcí: Undo/Redo, Otevřít, Uložit, Další exporty */}
-      <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+      {/* Pravá část akcí: Undo/Redo, Otevřít, Uložit, Další exporty. `ml-auto`/`justify-end`
+          jen na desktopu — na mobilu by to od status indikátoru odtrhlo velkou prázdnou
+          mezeru (nahlášeno jako "rozházená" lišta), místo aby akce navazovaly hned za sebou. */}
+      <div className="flex flex-wrap items-center gap-1.5 desk:ml-auto desk:justify-end">
         <div className="flex items-center rounded-lg border border-slate-200/80 bg-white p-0.5 shadow-2xs">
           <button
             type="button"
@@ -532,6 +550,7 @@ export function Toolbar({
           )}
         </div>
       </div>
+      {privacyOpen && <PrivacyDialog onClose={() => setPrivacyOpen(false)} />}
     </header>
   );
 }

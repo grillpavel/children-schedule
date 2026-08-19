@@ -63,6 +63,8 @@ interface ResolvedEvent {
   descriptionLines: string[];
   /** CSS3 klíčové slovo pro vlastnost `COLOR`. */
   colorCss: string;
+  /** Potlačení výskytů o prázdninách/svátcích je vypnuté (design_review_68.md FR-7). */
+  allowOnHolidays: boolean;
 }
 
 const PROVIDER_SHORT: Record<ProviderKind, string> = {
@@ -202,6 +204,7 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
           category: CATEGORY_CS[activity.category],
         }),
         colorCss: eventCss(activity.id, override?.colorCss),
+        allowOnHolidays: override?.allowOnHolidays === true,
       });
     }
   }
@@ -231,6 +234,8 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
           price: entry.price,
         }),
         colorCss: eventCss(undefined, undefined),
+        // CustomEntry nemá ActivityOverride — nikdy potlačeno o prázdninách/svátcích (design_review_68.md §3).
+        allowOnHolidays: false,
       });
     }
   }
@@ -370,6 +375,7 @@ export function generateIcs(options: IcsExportOptions): string {
       : options.alarmMinutesBefore ?? DEFAULT_ALARM_MINUTES;
   const mode = options.mode ?? 'recurring';
   const events = resolveEvents(options);
+  const noExceptions = new Set<string>();
 
   const lines: string[] = [
     'BEGIN:VCALENDAR',
@@ -384,10 +390,11 @@ export function generateIcs(options: IcsExportOptions): string {
   ];
 
   for (const event of events) {
+    const effectiveExceptionDates = event.allowOnHolidays ? noExceptions : exceptionDates;
     const veventLines =
       mode === 'expanded'
-        ? buildExpandedEvents(event, options, exceptionDates, childSlug, alarm)
-        : buildRecurringEvent(event, options, exceptionDates, childSlug, alarm);
+        ? buildExpandedEvents(event, options, effectiveExceptionDates, childSlug, alarm)
+        : buildRecurringEvent(event, options, effectiveExceptionDates, childSlug, alarm);
     if (veventLines) lines.push(...veventLines);
   }
 

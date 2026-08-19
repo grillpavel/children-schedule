@@ -448,7 +448,13 @@ export function ScheduleGrid({
                     const iso = isoDateOf(date);
                     const holiday = holidayDates.has(iso);
                     const isToday = isSameDay(date, today);
-                    const dayBlocks = view.blocks.filter((b) => b.weekday === weekday);
+                    // Potlačí katalogové zápisy o prázdninách/svátcích bez override (design_review_68.md
+                    // FR-5); CustomEntry (activityId undefined) se nikdy nepotlačuje (§3 Non-goals).
+                    const dayBlocks = view.blocks.filter(
+                      (b) =>
+                        b.weekday === weekday &&
+                        !(holiday && b.activityId !== undefined && !b.allowOnHolidays),
+                    );
                     const positioned = layoutDay<Block>(dayBlocks);
                     const dayGhosts = ghosts.filter(
                       (g) => g.weekday === weekday && !enrolledGroupIds.has(g.groupId),

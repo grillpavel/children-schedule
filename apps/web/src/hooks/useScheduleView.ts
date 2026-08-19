@@ -35,6 +35,9 @@ export interface Block extends PlacedSession {
   hasSoftConflict: boolean;
   /** Konkrétní odůvodnění libovolného konfliktu (FR-11, design_review_65.md), pokud existuje. */
   conflictMessage: string | undefined;
+  /** Povoleno i o prázdninách/svátcích (design_review_68.md FR-4) — vždy `false` pro `CustomEntry`
+   * (ta nemá `ActivityOverride`, viz design_review_68.md §3 Non-goals). */
+  allowOnHolidays: boolean;
 }
 
 export interface ScheduleView {
@@ -100,6 +103,7 @@ export function useScheduleView(): ScheduleView {
         hasHardConflict: hardByOwner.has(p.ownerId),
         hasSoftConflict: softByOwner.has(p.ownerId),
         conflictMessage: conflictMessageByOwner.get(p.ownerId),
+        allowOnHolidays: p.activityId !== undefined && override?.allowOnHolidays === true,
       };
     });
 

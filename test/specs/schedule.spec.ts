@@ -258,3 +258,53 @@ test('T-166: Agenda na mobilu ukazuje konfliktní odznak, ne jen mřížka', asy
   // Agenda je výchozí mobilní pohled (T-215) — odznak musí být vidět bez přepnutí do Mřížky.
   await expect(page.getByTestId('agenda-hard-conflict-badge').first()).toBeVisible();
 });
+
+// --- Školní prázdniny okresu Rakovník + override (CHANGE-73, design_review_68.md) ---
+
+test('T-176: kroužek se v den školních prázdnin nevykreslí v mřížce, po povolení override se vrátí', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+
+  await openCatalog(page, width);
+  await page.getByRole('searchbox').fill('mini přípravka');
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await cards(page).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+
+  // Zmrazené hodiny (Z-07) = 2026-10-06; 3× „Další" (týdenní posun) doveze na týden
+  // 26. 10. – 1. 11., který obsahuje podzimní prázdniny okresu Rakovník (29.–30. 10. 2026,
+  // design_review_68.md FR-1). Fotbal — mini přípravka má termín v úterý i ve čtvrtek.
+  const next = page.getByRole('button', { name: 'Další', exact: true });
+  await next.click();
+  await next.click();
+  await next.click();
+
+  const tuesday = page.getByRole('gridcell', { name: 'Úterý 27.10.' });
+  const thursday = page.getByRole('gridcell', { name: 'Čtvrtek 29.10.' });
+  await expect(tuesday.getByRole('button', { name: /Fotbal/ })).toBeVisible();
+  await expect(thursday.getByRole('button', { name: /Fotbal/ })).toHaveCount(0);
+
+  // Mobilní peek sheet se po přidání zavírá (CHANGE-55) — je třeba kartu znovu otevřít;
+  // na širších profilech zůstává výběr aktivity zachovaný (klik na už vybranou kartu by ji
+  // naopak odznačil, viz `handleCardClick` v CatalogPanel.tsx).
+  if (isCompact(width)) {
+    await openCatalog(page, width);
+    await cards(page).first().click();
+  }
+  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
+  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  await detail.getByRole('checkbox', { name: 'Povolit i o prázdninách a státních svátcích' }).check();
+
+  if (isCompact(width)) {
+    // Peek sheet zůstává otevřený, dokud je aktivita vybraná (`hasSelection`) — zavřít ho,
+    // ať nepřekrývá spodní navigaci/záložku Mřížka.
+    await page.getByRole('button', { name: 'Zavřít detail' }).click();
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  await expect(thursday.getByRole('button', { name: /Fotbal/ })).toBeVisible();
+});

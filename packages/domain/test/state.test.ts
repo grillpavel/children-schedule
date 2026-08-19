@@ -63,7 +63,7 @@ describe('scheduleSummary', () => {
 
 describe('state IO', () => {
   const state: PlannerState = {
-    schemaVersion: 6,
+    schemaVersion: 7,
     children: [
       { id: 'c', name: 'TEST Dítě', age: 9, interests: [], availability: [], schoolEndByWeekday: {} },
     ],
@@ -130,7 +130,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v1);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(6);
+      expect(parsed.value.schemaVersion).toBe(7);
       expect(parsed.value.schedules[0]!.customEntries[0]!.sessions[0]!.everyWeeks).toBe(2);
     }
   });
@@ -142,7 +142,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v2);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(6);
+      expect(parsed.value.schemaVersion).toBe(7);
       expect(parsed.value.overrides).toEqual([]);
     }
   });
@@ -156,7 +156,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v3);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(6);
+      expect(parsed.value.schemaVersion).toBe(7);
       expect(parsed.value.children[0]!.interests).toEqual([]);
       expect(parsed.value.children[0]!.availability).toEqual([]);
     }
@@ -192,7 +192,7 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v4);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(6);
+      expect(parsed.value.schemaVersion).toBe(7);
       expect(parsed.value.schedules[0]!.customEntries[0]!.kind).toBe('other');
     }
   });
@@ -202,9 +202,19 @@ describe('state IO', () => {
     const parsed = parsePlannerState(v5);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.value.schemaVersion).toBe(6);
+      expect(parsed.value.schemaVersion).toBe(7);
       expect(parsed.value.children[0]!.travelBufferMinutes).toBeUndefined();
       expect(parsed.value.children[0]!.travelMode).toBeUndefined();
+    }
+  });
+
+  it('migruje v6 (bez ActivityOverride.allowOnHolidays) → v7 (undefined, výchozí potlačení)', () => {
+    const v6 = { ...state, schemaVersion: 6 };
+    const parsed = parsePlannerState(v6);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.schemaVersion).toBe(7);
+      expect(parsed.value.overrides).toEqual([]);
     }
   });
 

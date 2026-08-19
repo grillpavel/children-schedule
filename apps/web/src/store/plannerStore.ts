@@ -7,6 +7,7 @@ import {
   applyDiff as applyDiffToSchedule,
   activitySignature,
   schoolYearHolidays,
+  districtSchoolHolidays,
   type ActivityCategory,
   type ActivityOverride,
   type AvailabilityWindow,
@@ -148,8 +149,12 @@ export const usePlannerStore = create<PlannerStore>()(
     return {
       state: initialState,
       catalog: NOVE_STRASECI_CATALOG,
-      // Výchozí výjimky = státní svátky školního roku → EXDATE v exportu (C6-A9).
-      exceptions: schoolYearHolidays(initialState.schoolYear),
+      // Výchozí výjimky = státní svátky školního roku (C6-A9) + školní prázdniny okresu Rakovník
+      // (design_review_68.md FR-3) → EXDATE v exportu i potlačení v mřížce.
+      exceptions: [
+        ...schoolYearHolidays(initialState.schoolYear),
+        ...districtSchoolHolidays(initialState.schoolYear, initialState.districtCode),
+      ],
 
       activeChildId: 'child-1',
       selectedActivityId: null,
@@ -354,6 +359,7 @@ export const usePlannerStore = create<PlannerStore>()(
             'note',
             'editedAt',
             'baseSignature',
+            'allowOnHolidays',
           ]) {
             if (src[k] !== undefined) canonical[k] = src[k];
           }

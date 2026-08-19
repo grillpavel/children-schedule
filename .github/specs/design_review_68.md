@@ -1,7 +1,7 @@
 # Design Review 68 — Školní prázdniny okresu Rakovník + potlačení výskytu v mřížce
 
-**Status:** DRAFT
-**Change ID:** CHANGE-73 (scope engine `@krouzky/domain` + app `@krouzky/web`, schemaVersion 6 → 7)
+**Status:** IMPLEMENTED
+**Change ID:** CHANGE-73 (scope engine `@krouzky/domain` 0.5.0 → 0.6.0 + app `@krouzky/web`, schemaVersion 6 → 7)
 **Date:** 2026-08-19
 **Repo:** monorepo `Children_schedule`
 **Trigger:** uživatelský spec `spec-skolni-a-statni-svatky-prazdniny.md` požadoval, aby se aktivity ve
@@ -115,3 +115,16 @@ jen doplňuje reálná data pro jeden konkrétní okres.
 - **Žádné síťové volání pro státní svátky** — `czechNationalHolidays()` zůstává deterministický.
 - **Override je jen na úrovni celé aktivity**, ne na úrovni jednotlivého termínu/výskytu — konzistentní
   s tím, jak `ActivityOverride` funguje dnes pro všechna ostatní pole.
+
+## 4. Zjištění při implementaci
+
+**Kritický nález (skutečná chyba v `plannerStore.ts`, ne v testu):** `setActivityOverride()` po
+zápisu patche přeskládá override do kanonického pořadí klíčů kvůli bajtově shodnému round-tripu
+(`BL-021`, CHANGE-35) — přes natvrdo vypsaný seznam klíčů `['name','address','contactPhone','price',
+'colorCss','note','editedAt','baseSignature']`. Nové pole `allowOnHolidays` v tomto seznamu chybělo,
+takže se při každém zápisu tiše zahodilo (override zůstal jen s metadaty `editedAt`/`baseSignature`,
+checkbox se v UI nikdy nezaškrtl). Odhaleno E2E testem AC-3/AC-4 (T-176), ne code review — diagnostický
+test dumpující `localStorage` potvrdil chybějící klíč. Opraveno přidáním `'allowOnHolidays'` na konec
+seznamu. **Poučení: kdykoliv se do `ActivityOverride`/`Child`/jiné entity s vlastním kanonickým
+key-order rebuild přidává nové pole, zkontrolovat, zda existuje podobný natvrdo vypsaný seznam klíčů
+(round-trip determinismus) a nové pole tam přidat — schema samo o sobě nestačí.**

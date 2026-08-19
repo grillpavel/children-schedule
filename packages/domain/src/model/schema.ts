@@ -242,6 +242,9 @@ export const activityOverrideSchema = z.object({
   editedAt: isoDate.optional(),
   /** Podpis katalogových hodnot v době úpravy — pro detekci změny zdroje (C8-E3). */
   baseSignature: z.string().optional(),
+  /** Povolí generování/vykreslení výskytu i o školních prázdninách a státních svátcích
+   * (design_review_68.md FR-2); výchozí `undefined`/`false` = potlačit. */
+  allowOnHolidays: z.boolean().optional(),
 });
 
 // ---------- Omezení ----------
@@ -345,7 +348,7 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(6),
+  schemaVersion: z.literal(7),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),

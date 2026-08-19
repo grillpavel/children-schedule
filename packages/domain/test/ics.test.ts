@@ -231,3 +231,23 @@ describe('generateIcs — CHANGE-4 (přepisy aktivit)', () => {
     expect(new Set(colorValues(single)).size).toBe(1);
   });
 });
+
+describe('generateIcs — allowOnHolidays (design_review_68.md FR-7, AC-5)', () => {
+  it('bez override se DTSTART posune za výjimku (viz existující chování)', () => {
+    expect(generateOpts()).toContain('DTSTART;TZID=Europe/Prague:20260914T150000');
+  });
+
+  it('s allowOnHolidays: true se výjimka ignoruje — DTSTART zůstává na prvním výskytu', () => {
+    const overrides = [{ activityId: 'TEST_keramika', allowOnHolidays: true }];
+    const ics = generateOpts({ overrides });
+    expect(ics).toContain('DTSTART;TZID=Europe/Prague:20260907T150000');
+    const ev = eventByUid(ics, 's_keramika');
+    expect(ev.toString()).not.toContain('EXDATE');
+  });
+
+  it('s allowOnHolidays: true v expanded režimu obsahuje výskyt padající na výjimku', () => {
+    const overrides = [{ activityId: 'TEST_keramika', allowOnHolidays: true }];
+    const ics = generateOpts({ overrides, mode: 'expanded' });
+    expect(ics).toContain('20260907T150000');
+  });
+});

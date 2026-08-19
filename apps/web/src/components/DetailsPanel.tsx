@@ -426,6 +426,26 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
           />
         </div>
 
+        {/* Prázdniny a svátky (design_review_68.md FR-6) */}
+        <div className="pt-1">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={override?.allowOnHolidays ?? false}
+              onChange={(e) =>
+                setActivityOverride(activity.id, { allowOnHolidays: e.target.checked })
+              }
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>Povolit i o prázdninách a státních svátcích</span>
+          </label>
+          {override?.allowOnHolidays && (
+            <p className="mt-1 text-[11px] text-slate-500">
+              Aktivita se bude zobrazovat i během školních prázdnin a státních svátků.
+            </p>
+          )}
+        </div>
+
         <ActivityEditor
           key={activity.id}
           activity={activity}

@@ -6,6 +6,37 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Školní prázdniny okresu Rakovník + potlačení výskytu v mřížce (CHANGE-73)
+
+Trigger: uživatelský spec požadoval, aby se aktivity ve výchozím stavu negenerovaly o školních
+prázdninách/státních svátcích, s explicitním override „i o prázdninách“. Spec byl přepsán do
+`design_review_68.md` (viz `§0` pro věcné opravy proti vstupnímu dokumentu — `allowOnHolidays` patří na
+`ActivityOverride`, ne na `Activity`; vícedenní prázdniny se rozepisují po jednotlivých dnech; Agenda a
+`CustomEntry` zůstávají mimo scope, viz nové `BL-047`/`BL-048`). Scope: **engine `@krouzky/domain` 0.5.0
+→ 0.6.0** + **app `@krouzky/web`**, `schemaVersion` 6 → 7.
+
+- Nová doménová funkce `districtSchoolHolidays(schoolYear, districtCode)` — 21 záznamů (`scope:
+  'district'`) pro okres Rakovník, školní rok 2026/2027 (podzimní/vánoční/jarní prázdniny). `BL-020`
+  zůstává otevřený (obecný výběr okresu/MŠMT rozpis).
+- `ActivityOverride.allowOnHolidays?: boolean` — nové pole, override na úrovni celé aktivity.
+- `districtCode: 'rakovnik'` nastaven v reálných datech (`novestraseci.ts`); `plannerStore.ts` slučuje
+  `districtSchoolHolidays()` s `schoolYearHolidays()` do počátečních `exceptions`.
+- `ScheduleGrid` v týdenním/denním pohledu nevykreslí blok katalogové aktivity v den prázdnin/svátku bez
+  zapnutého override (vizuální ztlumení pozadí dne zůstává). `CustomEntry` se nikdy nepotlačuje.
+- `DetailsPanel` získal přepínač „Povolit i o prázdninách a státních svátcích“.
+- ICS export (`generateIcs`) respektuje override per-událost — `EXDATE`/posun `DTSTART` se u aktivit s
+  `allowOnHolidays: true` neaplikuje.
+
+**Kritický nález při implementaci:** `setActivityOverride()` v `plannerStore.ts` měl natvrdo vypsaný
+seznam klíčů pro kanonické pořadí (bajtově shodný round-trip, `BL-021`) — nové pole `allowOnHolidays` v
+něm chybělo, takže se při každém zápisu tiše zahodilo. Odhaleno E2E testem, ne code review; opraveno
+doplněním klíče do seznamu (viz `design_review_68.md` §4).
+
+Spec: `.github/specs/design_review_68.md`. Nové testy: `holidays.test.ts` (`districtSchoolHolidays`),
+`state.test.ts` (migrace v6→v7), `ics.test.ts` (`allowOnHolidays` per-event), E2E `T-176`
+(`schedule.spec.ts`). `vitest` (domain, 118 testů) zelené; `tsc --noEmit` (domain+web) čisté; plná E2E
+`--workers=1` zelená na všech 6 profilech (609 passed / 88 skipped / 0 failed).
+
 ### Realizace backlogu z v6/v7 UX kol (CHANGE-68 až CHANGE-72)
 
 Trigger: uživatel po validaci `design_review_65.md`/`design_review_66.md` požádal o realizaci vybraných otevřených položek backlogu. Scope: **engine `@krouzky/domain` 0.4.0 → 0.5.0** (CHANGE-68, CHANGE-69) + **app `@krouzky/web`** + testy.

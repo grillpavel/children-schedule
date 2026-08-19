@@ -37,8 +37,8 @@ export function parseExceptionsFile(input: unknown): Result<ExceptionsFile> {
  * v3 → v4: personalizační pole `Child` (`interests`/`availability`) — defaulty doplní schema.
  * v4 → v5: `CustomEntry.kind` (typ vlastní události, CHANGE-63) — default `'other'` doplní schema.
  * v5 → v6: `Child.travelBufferMinutes`/`travelMode` (BL-038, design_review_67.md) — oba
- * volitelé (`undefined`), žádná transformace dat potřeba.
- */
+ * volitelé (`undefined`), žádná transformace dat potřeba. * v6 → v7: `ActivityOverride.allowOnHolidays` (design_review_68.md, CHANGE-73) — volitelné
+ * (`undefined`), žádná transformace dat potřeba. */
 function migrateToCurrent(input: unknown): unknown {
   if (typeof input !== 'object' || input === null) return input;
 
@@ -86,6 +86,11 @@ function migrateToCurrent(input: unknown): unknown {
   // v5 → v6: Child.travelBufferMinutes/travelMode (BL-038) — oba volitelné, jen bump verze.
   if (clone.schemaVersion === 5) {
     clone = { ...clone, schemaVersion: 6 };
+  }
+
+  // v6 → v7: ActivityOverride.allowOnHolidays (design_review_68.md) — volitelné, jen bump verze.
+  if (clone.schemaVersion === 6) {
+    clone = { ...clone, schemaVersion: 7 };
   }
 
   return clone;

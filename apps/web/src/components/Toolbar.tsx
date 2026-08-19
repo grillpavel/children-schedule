@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   colorForActivity,
   parseIcs,
@@ -70,6 +70,27 @@ export function Toolbar({
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const mobileMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const [mobileMenuPos, setMobileMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  // Tlačítko „Další ▾“ už od design_review_70.md není vtžené k pravému okraji hlavičky
+  // (ml-auto platí až desk:) — menu proto NESMí být `absolute` vůči svému malému
+  // wrapperu (přetekalo mimo viewport, design_review_71.md dodatek), ale `fixed`
+  // s pozicí dopočítanou z reálné pozice tlačítka, ohraníčenou uvnitř viewportu.
+  useEffect(() => {
+    if (!mobileMenuOpen || !mobileMenuBtnRef.current) {
+      setMobileMenuPos(null);
+      return;
+    }
+    const rect = mobileMenuBtnRef.current.getBoundingClientRect();
+    const menuWidth = 288;
+    const margin = 8;
+    const right = Math.min(
+      Math.max(margin, window.innerWidth - rect.right),
+      Math.max(margin, window.innerWidth - menuWidth - margin),
+    );
+    setMobileMenuPos({ top: rect.bottom + 4, right });
+  }, [mobileMenuOpen]);
 
   const selectedColorCss = selectedActivityId
     ? state.overrides.find((o) => o.activityId === selectedActivityId)?.colorCss ??
@@ -511,14 +532,18 @@ export function Toolbar({
         {/* Mobilní menu tlačítko */}
         <div className="relative desk:hidden">
           <button
+            ref={mobileMenuBtnRef}
             type="button"
             onClick={() => setMobileMenuOpen((v) => !v)}
             className="flex h-11 items-center gap-1 rounded-lg border border-slate-200/90 bg-white px-3 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50"
           >
             Další ▾
           </button>
-          {mobileMenuOpen && (
-            <div className="absolute right-0 z-50 mt-1 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl">
+          {mobileMenuOpen && mobileMenuPos && (
+            <div
+              style={{ top: mobileMenuPos.top, right: mobileMenuPos.right }}
+              className="fixed z-50 max-h-[calc(100vh-5rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl"
+            >
               <div className="py-1">
                 <MenuItem
                   onClick={() => {

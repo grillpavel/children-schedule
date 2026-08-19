@@ -154,7 +154,9 @@ test('T-158: na mobilu jsou Otevřít/Uložit v menu „Další ▾", název kal
   await expect(page.getByRole('button', { name: 'Uložit', exact: true })).toBeHidden();
 
   await page.getByRole('button', { name: /Další ▾/ }).click();
-  const menu = page.locator('div.absolute').filter({ hasText: 'Kalendář (.ics)' });
+  // Mobilní menu je od design_review_71.md `fixed` (dopočtená pozice, aby nepřetékalo
+  // mimo viewport), ne `absolute` jako desktopové — proto jiný lokátor než T-150.
+  const menu = page.locator('div.fixed').filter({ hasText: 'Kalendář (.ics)' });
   await expect(menu.getByRole('button', { name: 'Uložit', exact: true })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Otevřít', exact: true })).toBeVisible();
   await expect(menu.getByText('Kalendář (.ics)')).toBeVisible();

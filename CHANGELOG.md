@@ -6,6 +6,24 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Oprava: mobilní menu „Další ▾" přetékalo mimo viewport (CHANGE-78)
+
+Trigger: uživatel nahlásil, že po CHANGE-76 se na mobilu po kliknutí na „Další ▾" zobrazí velká část
+nabídky mimo okno (text uřezaný vlevo). Ověřeno reálným screenshotem a přesným měřením souřadnic.
+
+- Kořen: mobilní dropdown byl `absolute right-0` vůči svému MALÉMU wrapperu (jen tlačítko). Před
+  CHANGE-76 byl tento wrapper vždy vtažený `ml-auto` až k pravému okraji lišty, takže `right-0` vycházelo.
+  Po CHANGE-76 (`desk:ml-auto` — tlačítko teď na mobilu sedí uprostřed řádku, ne u okraje) zůstalo menu
+  (288px) ukotvené k pravému okraji tlačítka a přetékalo vlevo mimo obrazovku.
+- Oprava (`Toolbar.tsx`): dropdown je teď `fixed` s pozicí dopočtenou z reálné pozice tlačítka
+  (`getBoundingClientRect()` v `useEffect` na otevření), `right` ohraničené uvnitř viewportu (8px okraj
+  na obou stranách) — menu se teď vejde na obrazovku bez ohledu na to, kde tlačítko ve wrap flow skončí.
+- Test **T-158** (persistence.spec.ts) upraven na nový `div.fixed` lokátor (dřív `div.absolute`, které se
+  změnou třídy přestalo sedět).
+
+Verifikováno reálnými screenshoty (360/390/834px) — menu plně uvnitř viewportu na všech; `tsc --noEmit`
+(web) čisté; plná E2E `--workers=1` na všech 6 profilech.
+
 ### Kompletní mobil/tablet audit: duplicitní nadpis v katalogu (CHANGE-77)
 
 Trigger: uživatel požádal o kompletní otestování mobil/tablet UX (ne jen horní lištu). Reálný headless

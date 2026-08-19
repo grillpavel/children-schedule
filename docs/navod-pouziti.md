@@ -4,6 +4,8 @@ Jednoduchý průvodce pro rodiče: jak si za pár minut poskládat týdenní roz
 kroužků pro dítě, vidět případné kolize a rozvrh si vyexportovat do kalendáře
 v telefonu.
 
+**Vyzkoušejte aplikaci zdarma:** [children-schedule-web.vercel.app](https://children-schedule-web.vercel.app)
+
 > **Vše zůstává jen ve vašem prohlížeči.** Nic se neodesílá na žádný server —
 > rozvrh se automaticky ukládá do paměti prohlížeče a kdykoliv si ho můžete
 > stáhnout jako soubor nebo otevřít na jiném počítači.

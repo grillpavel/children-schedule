@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import {
   colorForActivity,
+  suggestVariantSwitches,
   type Activity,
   type ActivityCategory,
   type Address,
@@ -133,6 +134,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const setSessionOverride = usePlannerStore((s) => s.setSessionOverride);
   const clearSessionOverride = usePlannerStore((s) => s.clearSessionOverride);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
+  const changeVariant = usePlannerStore((s) => s.changeVariant);
+  const view = useScheduleView();
   const [variantChoice, setVariantChoice] = useState('');
   const [descOpen, setDescOpen] = useState(false);
 
@@ -148,6 +151,24 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
     (e) => e.childId === activeChildId && e.activityId === activity.id,
   );
   const enrolledGroupIds = new Set(enrolled.map((e) => e.sessionGroupId));
+
+  // FR-W3-2 (design_review_73.md): kolidující zápis nabídne konkrétní bezkolizní
+  // termín téhož kroužku, ne jen hlášení kolize (BL-027 doménová suggestVariantSwitches
+  // zůstala "pro případné budoucí místo" po odebrání generického panelu v CHANGE-44).
+  const enrolledIds = new Set(enrolled.map((e) => e.id));
+  const activityHardConflicts = view.conflicts.filter(
+    (c) => c.severity === 'hard' && c.kind === 'time_overlap' && c.enrollmentIds.some((id) => enrolledIds.has(id)),
+  );
+  const variantSuggestions = activityHardConflicts.flatMap((c) =>
+    suggestVariantSwitches(catalog, schedule, activeChildId, c),
+  );
+  const seenSuggestionKeys = new Set<string>();
+  const dedupedSuggestions = variantSuggestions.filter((s) => {
+    const key = `${s.enrollmentId}::${s.toGroupId}`;
+    if (seenSuggestionKeys.has(key)) return false;
+    seenSuggestionKeys.add(key);
+    return true;
+  });
 
   // Efektivní hodnoty: uživatelský přepis, jinak katalog (CHANGE-4).
   const override = state.overrides.find((o) => o.activityId === activity.id);
@@ -322,6 +343,35 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             </button>
           )}
         </div>
+
+        {/* FR-W3-2 (design_review_73.md): bezkolizní alternativa místo pouhého hlášení kolize. */}
+        {activityHardConflicts.length > 0 && (
+          <div className="space-y-1.5 rounded-xl border border-red-200 bg-red-50/60 p-2.5">
+            <div className="text-xs font-bold uppercase tracking-wider text-red-700">
+              Kolize s jiným kroužkem
+            </div>
+            <p className="text-[11px] text-red-700">{activityHardConflicts[0]?.message}</p>
+            {dedupedSuggestions.length === 0 ? (
+              <p className="text-xs text-red-600">
+                Žádný jiný termín tohoto kroužku kolizi neřeší. Zvolte jiný kroužek nebo jeden odeberte.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {dedupedSuggestions.map((sug) => (
+                  <button
+                    key={`${sug.enrollmentId}-${sug.toGroupId}`}
+                    type="button"
+                    onClick={() => changeVariant(sug.enrollmentId, sug.toGroupId)}
+                    className="block w-full rounded-lg border border-red-200 bg-white p-2 text-left text-xs font-medium text-slate-700 hover:bg-red-50 transition"
+                  >
+                    Přepnout na {sug.toLabel}
+                    {sug.remainingOverlaps === 0 ? ' (bez kolize)' : ` (zbyde ${sug.remainingOverlaps} kolizí)`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <SessionTimeEditor
           key={`times-${activity.id}`}

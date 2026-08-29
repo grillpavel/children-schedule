@@ -108,6 +108,23 @@ test('T-143: konflikty se v pravém sloupci nezobrazují (kolize zůstává v m�
   await expect(page.getByRole('main').getByText('Kolize A').first()).toBeVisible();
 });
 
+test('T-228: kolidující kroužek nabídne konkrétní bezkolizní alternativu (design_review_73.md FR-W3-2)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await addCustom(page, width, 'Blokátor', '16:00', '17:00');
+  await openCatalog(page, width);
+  await page.getByRole('searchbox').fill('Atletická školička');
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await cards(page).first().click();
+  await expandSheetIfCompact(page, width);
+  const detail = detailScope(page, width);
+  await detail.getByRole('button', { name: 'Pondělí 16:00', exact: true }).click();
+  await expect(detail.getByText('Kolize s jiným kroužkem')).toBeVisible();
+  const suggestion = detail.getByRole('button', { name: /Přepnout na Čtvrtek.*bez kolize/ }).first();
+  await expect(suggestion).toBeVisible();
+  await suggestion.click();
+  await expect(detail.getByText('Kolize s jiným kroužkem')).toHaveCount(0);
+});
+
 test('T-144: detail se otevře v režimu čtení, editační pole skrytá', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await selectFirstCard(page, width);

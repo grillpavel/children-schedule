@@ -6,6 +6,24 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3, FR-W3-2: bezkolizní alternativa místo hlášení (CHANGE-86)
+
+Trigger: pokračování BL-052 po CHANGE-85 (FR-W3-7).
+
+- `SelectedActivity` (DetailsPanel.tsx) nově zapojuje existující doménovou `suggestVariantSwitches`
+  (beze změny od CHANGE-44, dosud nepoužitá — BL-027). Když má vybraný kroužek tvrdou časovou
+  kolizi, zobrazí sekci „Kolize s jiným kroužkem" s konkrétním popisem a tlačítky „Přepnout na
+  {termín} (bez kolize / zbyde N kolizí)" — klik rovnou provede `changeVariant`.
+- Reálná data mají u většiny aktivit jen 1 skupinu (termín) — návrh se zobrazí jen u menšiny
+  aktivit s 2+ variantami (např. `Atletická školička`), zbytek dostane vysvětlující text.
+- `T-143` (kolize dvou vlastních událostí nezobrazuje globální panel/„Vyřešit") zůstává beze
+  změny zelený — nová sekce je scoped jen na `SelectedActivity`, ne na obecný panel (CHANGE-44
+  zůstává v platnosti).
+- Nový test T-228 (`panel.spec.ts`) ověřuje kolizi reálné aktivity `scns-atletika-1` a přepnutí.
+
+Spec: `.github/specs/design_review_79.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed.
+
 ### Vlna 3, FR-W3-7: decluttering toolbaru (CHANGE-85)
 
 Trigger: pokračování BL-052 po BL-051 (CHANGE-84).

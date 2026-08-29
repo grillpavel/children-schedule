@@ -6,6 +6,28 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3, FR-W3-3: překryv rozvrhů více dětí (CHANGE-87)
+
+Trigger: pokračování BL-052 po CHANGE-86 (FR-W3-2).
+
+- **Zjištění (audit byl nepřesný):** design_review_73.md tvrdil, že motor kolizí napříč dětmi
+  „už funguje (H9)". Čtení `detect.ts` ukázalo opak — H1 i H9 mají `if (p.childId !== q.childId)
+  continue;`, obě jsou striktně per-dítě. Mezidětská kolize v doméně dosud neexistuje (BL-041
+  zůstává otevřený jako produktové rozhodnutí o formálním `ConflictKind: 'family'`).
+- Nový přepínač „👪 Zobrazit i sourozence" v `ScheduleGrid.tsx` (jen když `children.length > 1`
+  a NE na mobilu). Po zapnutí vykreslí termíny OSTATNÍCH dětí jako neinteraktivní přerušovaně
+  orámované bloky a označí časově překrývající se blok aktivního dítěte odznakem 👪.
+  `useScheduleView.ts` využívá, že `resolvePlacedSessions(schedule, index, childId?)` má
+  `childId` volitelný — bez něj vrátí termíny všech dětí ve stejném aktivním rozvrhu, žádná
+  změna domény nebyla potřeba.
+- „Kolize" je vědomě jen APLIKAČNÍ heuristika časového překryvu (`familyOverlapMessage`), NE
+  formální `Conflict` z domény — BL-041 zůstává otevřený pro případnou budoucí formální kontrolu.
+- Nový test T-229 (`schedule.spec.ts`) ověřuje zapnutí/vypnutí přepínače na desktop/desktop-narrow/
+  tablet-landscape (mobil/tablet-portrait skip — mají jen Agendu).
+
+Spec: `.github/specs/design_review_80.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed.
+
 ### Vlna 3, FR-W3-2: bezkolizní alternativa místo hlášení (CHANGE-86)
 
 Trigger: pokračování BL-052 po CHANGE-85 (FR-W3-7).

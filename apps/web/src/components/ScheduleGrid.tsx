@@ -95,6 +95,7 @@ export function ScheduleGrid({
   const selectActivity = usePlannerStore((s) => s.selectActivity);
   const selectCustomEntry = usePlannerStore((s) => s.selectCustomEntry);
   const activeChildId = usePlannerStore((s) => s.activeChildId);
+  const children = usePlannerStore((s) => s.state.children);
   const enrollments = usePlannerStore((s) => activeSchedule(s.state).enrollments);
   const exceptions = usePlannerStore((s) => s.exceptions);
   const districtCode = usePlannerStore((s) => s.state.districtCode);
@@ -103,6 +104,10 @@ export function ScheduleGrid({
 
   const [mode, setMode] = useState<ViewMode>('week');
   const [mobileAgendaMode, setMobileAgendaMode] = useState<'agenda' | 'calendar'>('agenda');
+  // FR-W3-3 (design_review_73.md): překryv rozvrhů více dětí v jedné mřížce, ať rodič vidí
+  // najednou, jestli obě děti stihne odvézt. Vypnuto výchozí, ať mřížka jednoho dítěte
+  // nezůstala vizuálně přeplněná, když ji nikdo nepotřebuje.
+  const [showFamily, setShowFamily] = useState(false);
   // Zdroj 900px zlomu je sdílený hook (FR-W1-1, design_review_73.md).
   const isMobile = useIsMobile();
   // Mobil na šířku s málo výškou potřebuje nižší hustotu časové osy, jinak by
@@ -277,6 +282,26 @@ export function ScheduleGrid({
           <span>{dateRangeLabel(mode, anchorDate)}</span>
         </div>
       </div>
+
+      {/* FR-W3-3 (design_review_73.md): jen když je víc než 1 dítě a nejsme v mobilní Agendě
+          (ta má vlastní, po jednom dítěti řazený seznam bez prostoru pro překryv). */}
+      {!isMobile && children.length > 1 && (
+        <div className="no-print mb-2">
+          <button
+            type="button"
+            aria-pressed={showFamily}
+            onClick={() => setShowFamily((v) => !v)}
+            className={clsx(
+              'rounded-full border px-2.5 py-0.5 text-xs font-medium transition',
+              showFamily
+                ? 'border-blue-600 bg-blue-600 text-white shadow-2xs'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
+            )}
+          >
+            👪 Zobrazit i sourozence
+          </button>
+        </div>
+      )}
 
       <div className="print-only mb-2 text-lg font-semibold">
         Rozvrh — {view.childName} · {view.scheduleName}
@@ -512,6 +537,9 @@ export function ScheduleGrid({
                     const dayGhosts = ghosts.filter(
                       (g) => g.weekday === weekday && !enrolledGroupIds.has(g.groupId),
                     );
+                    const dayFamilyBlocks = showFamily
+                      ? view.familyBlocks.filter((b) => b.weekday === weekday)
+                      : [];
                     return (
                       <div
                         key={iso}
@@ -645,9 +673,42 @@ export function ScheduleGrid({
                                   ✎
                                 </span>
                               )}
+                              {showFamily && item.familyOverlapMessage && (
+                                <span
+                                  data-testid="family-overlap-badge"
+                                  className="absolute left-1 top-1 text-[10px]"
+                                  title={item.familyOverlapMessage}
+                                  aria-hidden
+                                >
+                                  👪
+                                </span>
+                              )}
                             </button>
                           );
                         })}
+
+                        {/* FR-W3-3 (design_review_73.md): překryvová vrstva termínů ostatních dětí —
+                            neinteraktivní, ať rodič vidí obě děti najednou bez rizika záměny kliku. */}
+                        {dayFamilyBlocks.map((fb) => (
+                          <div
+                            key={fb.sessionId}
+                            data-testid="family-block"
+                            className="pointer-events-none absolute overflow-hidden rounded-lg border-2 border-dashed p-1 text-left text-[10px] leading-tight opacity-70"
+                            title={`${fb.childName}: ${fb.label}`}
+                            style={{
+                              top: topPx(fb.startMinutes, hourPx) + 26,
+                              height: heightPx(fb.startMinutes, fb.endMinutes, hourPx),
+                              left: '2%',
+                              width: '96%',
+                              borderColor: fb.fill,
+                              backgroundColor: `${fb.fill}22`,
+                            }}
+                          >
+                            <div className="font-bold truncate" style={{ color: fb.fill }}>
+                              {fb.childName}: {fb.label}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     );
                   })}

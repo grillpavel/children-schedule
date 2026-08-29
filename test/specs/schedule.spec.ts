@@ -504,3 +504,29 @@ test('T-186: odebrání kalendáře/rozvrhu zobrazí toast s akcí Zpět (audit 
     await expect(page.getByRole('button', { name: 'Zpět', exact: true })).toBeVisible();
   }
 });
+
+test('T-229: přepínač „Zobrazit i sourozence" ukáže termín druhého dítěte v mřížce (design_review_73.md FR-W3-3)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(isCompact(width), 'mřížka s přepínačem je jen nad 900px — na mobilu je Agenda');
+  const banner = page.getByRole('banner');
+
+  await addCustom(page, width, 'Anežka aktivita', '16:00', '17:00');
+
+  await banner.getByRole('button', { name: 'Přidat kalendář' }).click();
+  await banner.getByRole('textbox', { name: 'Název nového kalendáře' }).fill('Bedřich');
+  await banner.getByRole('button', { name: 'Přidat', exact: true }).click();
+  await addCustom(page, width, 'Bedřich aktivita', '16:00', '17:00');
+
+  await banner.getByRole('combobox', { name: 'Přepnout kalendář' }).selectOption({ label: 'Moje dítě' });
+
+  await expect(page.getByTestId('family-block')).toHaveCount(0);
+  await expect(page.getByTestId('family-overlap-badge')).toHaveCount(0);
+
+  await page.getByRole('button', { name: '👪 Zobrazit i sourozence' }).click();
+  await expect(page.getByTestId('family-block').filter({ hasText: 'Bedřich' })).toBeVisible();
+  await expect(page.getByTestId('family-overlap-badge')).toBeVisible();
+
+  await page.getByRole('button', { name: '👪 Zobrazit i sourozence' }).click();
+  await expect(page.getByTestId('family-block')).toHaveCount(0);
+  await expect(page.getByTestId('family-overlap-badge')).toHaveCount(0);
+});

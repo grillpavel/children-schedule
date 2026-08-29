@@ -38,12 +38,24 @@ export interface Block extends PlacedSession {
   /** Povoleno i o prázdninách/svátcích (design_review_68.md FR-4) — vždy `false` pro `CustomEntry`
    * (ta nemá `ActivityOverride`, viz design_review_68.md §3 Non-goals). */
   allowOnHolidays: boolean;
+  /** Časově se překrývá s termínem JINÉHO dítěte (FR-W3-3, design_review_73.md) — lehká
+   * heuristika na úrovni aplikace, ne formální `Conflict` z domény (H9 porovnává jen v rámci
+   * jednoho dítěte; formální mezidětský `ConflictKind` zůstává otevřený jako BL-041). */
+  familyOverlapMessage: string | undefined;
+}
+
+/** Termín JINÉHO dítěte pro překryvovou vrstvu mřížky (FR-W3-3). */
+export interface FamilyBlock extends PlacedSession {
+  childName: string;
+  fill: string;
 }
 
 export interface ScheduleView {
   scheduleName: string;
   childName: string;
   blocks: Block[];
+  /** Termíny ostatních dětí ve STEJNÉM aktivním rozvrhu (FR-W3-3) — prázdné, když je jen 1 dítě. */
+  familyBlocks: FamilyBlock[];
   conflicts: Conflict[];
   skippedChecks: { check: string; reason: string }[];
   summary: ScheduleSummary;
@@ -58,7 +70,9 @@ export function useScheduleView(): ScheduleView {
     const schedule = activeSchedule(state);
     const child = state.children.find((c) => c.id === activeChildId);
     const index = buildCatalogIndex(catalog);
-    const placed = resolvePlacedSessions(schedule, index, activeChildId);
+    // Beze childId filtru: vrátí termíny VŠECH dětí (FR-W3-3) — filtrujeme dole podle potřeby.
+    const allPlaced = resolvePlacedSessions(schedule, index);
+    const placed = allPlaced.filter((p) => p.childId === activeChildId);
 
     const report = detectConflicts({
       schedule,
@@ -80,21 +94,36 @@ export function useScheduleView(): ScheduleView {
 
     const overrides = new Map(state.overrides.map((o) => [o.activityId, o]));
     const customEntryById = new Map(schedule.customEntries.map((e) => [e.id, e]));
+    const childNameById = new Map(state.children.map((c) => [c.id, c.name]));
 
-    const blocks: Block[] = placed.map((p) => {
+    const colorOf = (p: PlacedSession) => {
       const override = p.activityId ? overrides.get(p.activityId) : undefined;
       const overrideColor =
         override?.colorCss !== undefined ? colorByCss(override.colorCss) : undefined;
-      let color = overrideColor;
-      if (!color) {
-        if (p.activityId) {
-          color = colorForActivity(p.activityId);
-        } else {
-          const entry = customEntryById.get(p.ownerId);
-          const css = entry?.colorOverride ?? (entry ? KIND_DEFAULT_CSS[entry.kind] : undefined);
-          color = (css ? colorByCss(css) : undefined) ?? CUSTOM_COLOR;
+      if (overrideColor) return overrideColor;
+      if (p.activityId) return colorForActivity(p.activityId);
+      const entry = customEntryById.get(p.ownerId);
+      const css = entry?.colorOverride ?? (entry ? KIND_DEFAULT_CSS[entry.kind] : undefined);
+      return (css ? colorByCss(css) : undefined) ?? CUSTOM_COLOR;
+    };
+
+    const otherPlaced = allPlaced.filter((p) => p.childId !== activeChildId);
+    const familyOverlapByOwner = new Map<string, string>();
+    for (const p of placed) {
+      for (const other of otherPlaced) {
+        if (other.weekday !== p.weekday) continue;
+        const overlap = Math.min(p.endMinutes, other.endMinutes) - Math.max(p.startMinutes, other.startMinutes);
+        if (overlap <= 0) continue;
+        if (!familyOverlapByOwner.has(p.ownerId)) {
+          const otherName = childNameById.get(other.childId) ?? 'jiné dítě';
+          familyOverlapByOwner.set(p.ownerId, `${otherName}: ${other.label} se v tuto dobu také koná.`);
         }
       }
+    }
+
+    const blocks: Block[] = placed.map((p) => {
+      const override = p.activityId ? overrides.get(p.activityId) : undefined;
+      const color = colorOf(p);
       return {
         ...p,
         label: override?.name ?? p.label,
@@ -104,13 +133,21 @@ export function useScheduleView(): ScheduleView {
         hasSoftConflict: softByOwner.has(p.ownerId),
         conflictMessage: conflictMessageByOwner.get(p.ownerId),
         allowOnHolidays: p.activityId !== undefined && override?.allowOnHolidays === true,
+        familyOverlapMessage: familyOverlapByOwner.get(p.ownerId),
       };
     });
+
+    const familyBlocks: FamilyBlock[] = otherPlaced.map((p) => ({
+      ...p,
+      childName: childNameById.get(p.childId) ?? '',
+      fill: colorOf(p).fill,
+    }));
 
     return {
       scheduleName: schedule.name,
       childName: child?.name ?? '',
       blocks,
+      familyBlocks,
       conflicts: report.conflicts,
       skippedChecks: report.skippedChecks.map((s) => ({
         check: s.check,

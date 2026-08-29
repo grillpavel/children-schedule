@@ -6,6 +6,42 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### BL-041: formální doménová rodinná kolize (CHANGE-92)
+
+Trigger: dokončení celé Vlny 2/3 (design_review_73.md), poslední kus po CHANGE-91.
+
+- Nová H10 (`detectFamilyConflicts`, `packages/domain/src/conflicts/detect.ts`): dvě RŮZNÉ děti,
+  překrývající se termín, RŮZNÁ místa → `Conflict` `kind: 'family'` (nová hodnota `ConflictKind`
+  — beze změny `schemaVersion`, `Conflict` je odvozený výstupní typ). Stejné místo/dítě/bez
+  překryvu → bez kolize; neznámá adresa → `skippedChecks`, stejná disciplína jako H9.
+- `useScheduleView.ts`: nahrazuje starou aplikační heuristiku (CHANGE-87) filtrací skutečného
+  `report.conflicts` na `kind === 'family'` — odznak 👪 zůstává vizuálně beze změny, ale nyní
+  vyžaduje RŮZNOU adresu (dřív jen čistý časový překryv).
+- T-229 aktualizován (`addCustom` helper nově bere volitelnou adresu) — 5 nových doménových
+  testů H10 v `conflicts.test.ts` (130 domain testů celkem, 0 failed).
+
+Spec: `.github/specs/design_review_85.md`. Ověřeno: `tsc --noEmit` (oba balíčky) čisté, domain
+vitest 130/130, plná E2E sada 0 failed.
+
+### BL-051 + BL-053: min. šířka sloupce mřížky + tabletové breakpointy 768/1180px (CHANGE-91)
+
+Trigger: uživatel požádal o dokončení celé Vlny 2/3 (design_review_73.md).
+
+- `ScheduleGrid.tsx`: zobecněna záchranná síť z mobilního FR-W2-3 na VŠECHNY šířky — nová
+  `dayMinPx = isMobile ? 72 : 105`, `overflow-x-auto` na scroll kontejneru vždy (dřív jen na
+  mobilu), `minWidth: dates.length * dayMinPx` na kontejneru dnů vždy (dřív `undefined` mimo
+  mobil). Bezpečné pro současné šířky (přirozené vyplnění dnes už dosahuje ≥105px).
+- S touto sítí v místě znovu posunuty breakpointy přesně podle FR-W2-4 auditu: `MOBILE_BREAKPOINT
+  _QUERY`/`desk:`/`isCompact` 900→**768px**, `WIDE_BREAKPOINT_QUERY`/`isThreeColumn` 1440→
+  **1180px**. Naměřeno TENTOKRÁT (Playwright `boundingBox()`): `desktop-narrow` (1280px, nově
+  tři sloupce) — T-200 (sloupec dne ≥105px) PROŠEL (dřív 83px); `tablet-portrait` (834px, nově
+  medium) — T-132/T-162/T-229 master-detail testy prošly beze změny.
+- Vizuální baseline (`desktop-narrow`/`tablet-portrait`) přegenerovány — layout těchto dvou
+  profilů se opravdu změnil (byly mobil/dvousloupec, teď medium/tři sloupce).
+
+Spec: `.github/specs/design_review_84.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed.
+
 ### Vlna 3, FR-W3-1: drag & drop pro vlastní události — BL-052 DOKONČENO (CHANGE-90)
 
 Trigger: dokončení BL-052 (poslední položka Vlny 3) po CHANGE-89 (FR-W3-4).

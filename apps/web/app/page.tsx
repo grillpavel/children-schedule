@@ -201,7 +201,7 @@ export default function Page() {
   const [savedSignature, setSavedSignature] = useState(stateSignature);
   const [showChangeToast, setShowChangeToast] = useState(false);
   const [autosaveOk, setAutosaveOk] = useState(true);
-  // Jediný zdroj 900px/1440px zlomu (FR-W1-1, design_review_73.md).
+  // Jediný zdroj 768px/1180px zlomu (FR-W1-1, design_review_73.md; BL-051 design_review_84.md).
   const isMobile = useIsMobile();
   const isWide = useIsWide();
   // Mobil na šířku s málo výškou dostane boční rail místo spodní navigace
@@ -451,7 +451,7 @@ export default function Page() {
       {/* Mobilní navigace: spodní lišta na výšku, boční rail na šířku s málo
           výškou (FR-W2-1, design_review_73.md) — mřížka tam potřebuje co nejvíc
           svislého prostoru, spodní lišta by ho zabrala nejvíc. `desk:hidden`
-          platí jen MIMO landscape-compact — širší telefony na šířku (900px+)
+          platí jen MIMO landscape-compact — širší telefony na šířku (768px+)
           by jinak neměly žádnou navigaci, i když landscape-compact (nízká výška)
           požaduje rail bez ohledu na šířku. */}
       <nav

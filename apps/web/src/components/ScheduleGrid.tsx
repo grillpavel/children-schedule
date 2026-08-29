@@ -132,12 +132,17 @@ export function ScheduleGrid({
     startMinutes: number;
     duration: number;
   } | null>(null);
-  // Zdroj 900px zlomu je sdílený hook (FR-W1-1, design_review_73.md).
+  // Zdroj 768px zlomu je sdílený hook (FR-W1-1, design_review_73.md; BL-051 design_review_84.md).
   const isMobile = useIsMobile();
   // Mobil na šířku s málo výškou potřebuje nižší hustotu časové osy, jinak by
   // blok nebyl čitelný ani po odrolování (FR-W2-2, design_review_73.md).
   const isLandscapeCompact = useIsLandscapeCompact();
   const hourPx = isLandscapeCompact ? 26 : HOUR_PX;
+  // BL-053 (design_review_84.md): stejná záchranná síť jako mobilní FR-W2-3, jen s vyšším
+  // prahem — sloupec dne nikdy neklesne pod 105px (T-200), přebytek vodorovně scrolluje
+  // místo aby se sloupce stísnaly do nečitelna. Bez rizika pro současné šířky (dnešní
+  // přirozené vyplnění je nad prahem), ale bezpečně umožňuje BL-051 (tabletové zlomy).
+  const dayMinPx = isMobile ? 72 : 105;
   const [focusedCol, setFocusedCol] = useState(0);
   const cellRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
@@ -593,14 +598,11 @@ export function ScheduleGrid({
                   </ul>
                 )}
               </div>
-              <div ref={scrollRef} className={clsx('flex flex-1 overflow-y-auto', isMobile && 'overflow-x-auto')}>
-                {/* Časová osa 00:00–24:00. `sticky` na mobilu, ať zůstává viditelná
-                    při vodorovném scrollu pevně širokých sloupců dnů (FR-W2-3). */}
+              <div ref={scrollRef} className="flex flex-1 overflow-y-auto overflow-x-auto">
+                {/* Časová osa 00:00–24:00. `sticky`, ať zůstává viditelná při vodorovném
+                    scrollu pevně širokých sloupců dnů — mobil FR-W2-3, desktop/medium BL-053. */}
                 <div
-                  className={clsx(
-                    'relative w-10 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-500 font-medium',
-                    isMobile && 'sticky left-0 z-10 bg-white',
-                  )}
+                  className="relative w-10 shrink-0 sticky left-0 z-10 border-r border-slate-100 bg-white text-[11px] tabular-nums text-slate-500 font-medium"
                   style={{ height: gridHeightPx(hourPx) + 26 }}
                 >
                   {HOUR_MARKS.map((m) => (
@@ -621,7 +623,7 @@ export function ScheduleGrid({
                   className={clsx(isMobile ? 'shrink-0' : 'flex-1')}
                   style={{
                     height: gridHeightPx(hourPx) + 26,
-                    minWidth: isMobile ? dates.length * 72 : undefined,
+                    minWidth: dates.length * dayMinPx,
                   }}
                   role="grid"
                   aria-label="Rozvrh"
@@ -642,7 +644,7 @@ export function ScheduleGrid({
                     role="row"
                     className="grid h-full"
                     style={{
-                      gridTemplateColumns: `repeat(${dates.length}, minmax(${isMobile ? '72px' : '0'}, 1fr))`,
+                      gridTemplateColumns: `repeat(${dates.length}, minmax(${dayMinPx}px, 1fr))`,
                     }}
                   >
                   {dates.map((date, idx) => {

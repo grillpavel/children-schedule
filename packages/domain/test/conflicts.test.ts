@@ -273,6 +273,94 @@ describe('detectConflicts — H9 per-dítě travelBufferMinutes/travelMode (BL-0
   });
 });
 
+describe('detectConflicts — H10 family (BL-041, design_review_65/66/85.md)', () => {
+  const TEST_CHILD_2 = { ...TEST_CHILD, id: 'TEST_child_2', name: 'TEST Matýsek' };
+
+  const childACustom: CustomEntry = {
+    id: 'ce_fam_a',
+    childId: 'TEST_child',
+    name: 'TEST Kroužek dítěte A',
+    kind: 'other',
+    location: { street: 'TEST Ulice A', city: 'TEST_Město' },
+    sessions: [
+      { id: 'ce_fam_a_s', weekday: 1, startMinutes: 960, endMinutes: 1020, validFrom: TEST_SCHOOL_YEAR.start, validTo: TEST_SCHOOL_YEAR.end },
+    ],
+  };
+  const childBCustom: CustomEntry = {
+    id: 'ce_fam_b',
+    childId: 'TEST_child_2',
+    name: 'TEST Kroužek dítěte B',
+    kind: 'other',
+    location: { street: 'TEST Ulice B', city: 'TEST_Jiné' },
+    sessions: [
+      { id: 'ce_fam_b_s', weekday: 1, startMinutes: 990, endMinutes: 1050, validFrom: TEST_SCHOOL_YEAR.start, validTo: TEST_SCHOOL_YEAR.end },
+    ],
+  };
+
+  it('dvě děti, překryv, různá místa → family (hard)', () => {
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [childACustom, childBCustom] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD, TEST_CHILD_2],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    const family = report.conflicts.filter((c) => c.kind === 'family');
+    expect(family).toHaveLength(1);
+    expect(family[0]!.severity).toBe('hard');
+    expect(family[0]!.message).toContain('TEST Julinka');
+    expect(family[0]!.message).toContain('TEST Matýsek');
+  });
+
+  it('stejné dítě, překryv → time_overlap, ne family', () => {
+    const sameChildB: CustomEntry = { ...childBCustom, childId: 'TEST_child' };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [childACustom, sameChildB] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(report.conflicts.some((c) => c.kind === 'family')).toBe(false);
+    expect(report.conflicts.some((c) => c.kind === 'time_overlap')).toBe(true);
+  });
+
+  it('stejné místo → bez family kolize', () => {
+    const sameLoc: CustomEntry = { ...childBCustom, location: childACustom.location };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [childACustom, sameLoc] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD, TEST_CHILD_2],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(report.conflicts.some((c) => c.kind === 'family')).toBe(false);
+  });
+
+  it('bez časového překryvu → bez family kolize', () => {
+    const later: CustomEntry = {
+      ...childBCustom,
+      sessions: [{ ...childBCustom.sessions[0]!, startMinutes: 1200, endMinutes: 1260 }],
+    };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [childACustom, later] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD, TEST_CHILD_2],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(report.conflicts.some((c) => c.kind === 'family')).toBe(false);
+  });
+
+  it('chybějící adresa → přeskočeno (skippedChecks), ne aproximováno', () => {
+    const noLoc: CustomEntry = { ...childBCustom, location: undefined };
+    const report = detectConflicts({
+      schedule: makeSchedule({ customEntries: [childACustom, noLoc] }),
+      catalog: TEST_CATALOG,
+      children: [TEST_CHILD, TEST_CHILD_2],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(report.conflicts.some((c) => c.kind === 'family')).toBe(false);
+    expect(report.skippedChecks.some((s) => s.check === 'H10_family_overlap')).toBe(true);
+  });
+});
+
 describe('previewGroupConflict (BL-039, design_review_67.md)', () => {
   const baseInput = {
     catalog: TEST_CATALOG,

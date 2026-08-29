@@ -198,10 +198,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const collapseStateInitializedRef = useRef(false);
 
-  // Mobil (<900px) prochází kategorie po jedné úrovni (kořen → podkategorie →
+  // Mobil (<768px) prochází kategorie po jedné úrovni (kořen → podkategorie →
   // aktivity) místo „Rozbalit vše" (FR-6, design_review_58.md); tablet/desktop
-  // si drží dosavadní akordeon beze změny. Zdroj 900px zlomu je sdílený hook
-  // (FR-W1-1, design_review_73.md).
+  // si drží dosavadní akordeon beze změny. Zdroj 768px zlomu je sdílený hook
+  // (FR-W1-1, design_review_73.md; BL-051 design_review_84.md).
   const isMobileWidth = useIsMobile();
   const [mobileDrillRoot, setMobileDrillRoot] = useState<string | null>(null);
   const [mobileDrillSub, setMobileDrillSub] = useState<string | null>(null);
@@ -612,7 +612,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   };
 
   /**
-   * Mobil (<900px) prochází kategorie po jedné úrovni místo „Rozbalit vše"
+   * Mobil (<768px) prochází kategorie po jedné úrovni místo „Rozbalit vše"
    * (FR-6, design_review_58.md): kořen → klik → podkategorie/aktivity → klik.
    */
   const renderMobileCategoryBrowser = () => {

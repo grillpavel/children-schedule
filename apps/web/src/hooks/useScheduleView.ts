@@ -38,9 +38,9 @@ export interface Block extends PlacedSession {
   /** Povoleno i o prázdninách/svátcích (design_review_68.md FR-4) — vždy `false` pro `CustomEntry`
    * (ta nemá `ActivityOverride`, viz design_review_68.md §3 Non-goals). */
   allowOnHolidays: boolean;
-  /** Časově se překrývá s termínem JINÉHO dítěte (FR-W3-3, design_review_73.md) — lehká
-   * heuristika na úrovni aplikace, ne formální `Conflict` z domény (H9 porovnává jen v rámci
-   * jednoho dítěte; formální mezidětský `ConflictKind` zůstává otevřený jako BL-041). */
+  /** Oddůvodnění formálního doménového `ConflictKind: 'family'` (BL-041, design_review_85.md)
+   * — dvě RŮZNÉ děti mají překrývající se termín na RŮZNýCH místech. Zobrazuje se odděleně
+   * od obecného ⚠ odznaku (žluto/červené pruhy), ať se nesplete s H1–H3/H5. */
   familyOverlapMessage: string | undefined;
 }
 
@@ -84,7 +84,15 @@ export function useScheduleView(): ScheduleView {
     const hardByOwner = new Set<string>();
     const softByOwner = new Set<string>();
     const conflictMessageByOwner = new Map<string, string>();
+    const familyMessageByOwner = new Map<string, string>();
     for (const conflict of report.conflicts) {
+      if (conflict.kind === 'family') {
+        // Odznak řeší zvlášť (👪) — nepřidává se do obecného ⚠, ať se nesplete s H1–H3/H5.
+        for (const id of conflict.enrollmentIds) {
+          if (!familyMessageByOwner.has(id)) familyMessageByOwner.set(id, conflict.message);
+        }
+        continue;
+      }
       const target = conflict.severity === 'hard' ? hardByOwner : softByOwner;
       for (const id of conflict.enrollmentIds) {
         target.add(id);
@@ -108,18 +116,6 @@ export function useScheduleView(): ScheduleView {
     };
 
     const otherPlaced = allPlaced.filter((p) => p.childId !== activeChildId);
-    const familyOverlapByOwner = new Map<string, string>();
-    for (const p of placed) {
-      for (const other of otherPlaced) {
-        if (other.weekday !== p.weekday) continue;
-        const overlap = Math.min(p.endMinutes, other.endMinutes) - Math.max(p.startMinutes, other.startMinutes);
-        if (overlap <= 0) continue;
-        if (!familyOverlapByOwner.has(p.ownerId)) {
-          const otherName = childNameById.get(other.childId) ?? 'jiné dítě';
-          familyOverlapByOwner.set(p.ownerId, `${otherName}: ${other.label} se v tuto dobu také koná.`);
-        }
-      }
-    }
 
     const blocks: Block[] = placed.map((p) => {
       const override = p.activityId ? overrides.get(p.activityId) : undefined;
@@ -133,7 +129,7 @@ export function useScheduleView(): ScheduleView {
         hasSoftConflict: softByOwner.has(p.ownerId),
         conflictMessage: conflictMessageByOwner.get(p.ownerId),
         allowOnHolidays: p.activityId !== undefined && override?.allowOnHolidays === true,
-        familyOverlapMessage: familyOverlapByOwner.get(p.ownerId),
+        familyOverlapMessage: familyMessageByOwner.get(p.ownerId),
       };
     });
 

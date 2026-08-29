@@ -78,7 +78,8 @@ export type ConflictKind =
   | 'school_not_finished'
   | 'capacity_unknown'
   | 'budget_exceeded'
-  | 'constraint_violated';
+  | 'constraint_violated'
+  | 'family';
 
 export interface Conflict {
   kind: ConflictKind;

@@ -25,6 +25,7 @@ async function addCustom(
   name: string,
   start: string,
   end: string,
+  address?: string,
 ) {
   await openCatalog(page, width);
   await page.getByRole('button', { name: /Vlastní událost/ }).click();
@@ -32,6 +33,7 @@ async function addCustom(
   await dialog.getByPlaceholder('Např. Logopedie').fill(name);
   await dialog.locator('input[type="time"]').nth(0).fill(start);
   await dialog.locator('input[type="time"]').nth(1).fill(end);
+  if (address) await dialog.getByLabel('Místo / Adresa').fill(address);
   await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
 }
 
@@ -507,15 +509,17 @@ test('T-186: odebrání kalendáře/rozvrhu zobrazí toast s akcí Zpět (audit 
 
 test('T-229: přepínač „Zobrazit i sourozence" ukáže termín druhého dítěte v mřížce (design_review_73.md FR-W3-3)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(isCompact(width), 'mřížka s přepínačem je jen nad 900px — na mobilu je Agenda');
+  test.skip(isCompact(width), 'mřížka s přepínačem je jen nad 768px — na mobilu je Agenda');
   const banner = page.getByRole('banner');
 
-  await addCustom(page, width, 'Anežka aktivita', '16:00', '17:00');
+  // Různé adresy — od BL-041/CHANGE-91 je „family" formální doménový konflikt (H10), který
+  // vyžaduje ROZDÍLNÉ místo (stejně jako H9); bez adresy by šlo jen o skippedChecks.
+  await addCustom(page, width, 'Anežka aktivita', '16:00', '17:00', 'Nádražní 1, Nové Strašecí');
 
   await banner.getByRole('button', { name: 'Přidat kalendář' }).click();
   await banner.getByRole('textbox', { name: 'Název nového kalendáře' }).fill('Bedřich');
   await banner.getByRole('button', { name: 'Přidat', exact: true }).click();
-  await addCustom(page, width, 'Bedřich aktivita', '16:00', '17:00');
+  await addCustom(page, width, 'Bedřich aktivita', '16:00', '17:00', 'Sportovní 5, Rakovník');
 
   await banner.getByRole('combobox', { name: 'Přepnout kalendář' }).selectOption({ label: 'Moje dítě' });
 

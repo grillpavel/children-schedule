@@ -7,18 +7,17 @@ import { useLayoutEffect, useEffect, useState } from 'react';
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 /** Jediný zdroj mobilního zlomu (FR-W1-1, design_review_73.md) — musí přesně
- * odpovídat `desk: '900px'` v tailwind.config.ts. FR-W2-4/BL-051 zvažovalo posun
- * na 768px (design_review_77.md), ale změřeno: na tablet-portrait (834px) s
- * otevřeným detailem (katalog+mřížka+info-drawer současně) klesne sloupec dne
- * na ~24px — nepoužitelně úzké. Hranice proto zůstává na 900px. Dřív bylo
- * totož `matchMedia` volaní duplikováno nezávisle v page.tsx, CatalogPanel.tsx
- * i ScheduleGrid.tsx. */
-export const MOBILE_BREAKPOINT_QUERY = '(max-width: 899.98px)';
+ * odpovídat `desk: '768px'` v tailwind.config.ts. FR-W2-4/BL-051 (design_review_77.md)
+ * změřilo na 900px regresi při 834px s otevřeným detailem (~24px sloupec) — opraveno
+ * BL-053 (min. šířka sloupce + horizontální scroll v `ScheduleGrid.tsx`, design_review_84.md),
+ * hranice se proto bezpečně vrátila na 768px. Dřív bylo totéž `matchMedia` volání
+ * duplikováno nezávisle v page.tsx, CatalogPanel.tsx i ScheduleGrid.tsx. */
+export const MOBILE_BREAKPOINT_QUERY = '(max-width: 767.98px)';
 
-/** Třísloupcový layout platí od 1440px (C9-L1). FR-W2-4/BL-051 zvažovalo posun
- * na 1180px (design_review_77.md), ale změřeno: při 1180–1439px klesá sloupec
- * dne pod 105px (T-200 selhávalo s 83px na 1280px) — hranice proto zůstává. */
-export const WIDE_BREAKPOINT_QUERY = '(min-width: 1440px)';
+/** Třísloupcový layout platí od 1180px (původně 1440px, C9-L1). FR-W2-4/BL-051
+ * změřilo na 1440px regresi (83px sloupec při 1280px) — opraveno BL-053, hranice
+ * se proto bezpečně vrátila na 1180px (design_review_84.md). */
+export const WIDE_BREAKPOINT_QUERY = '(min-width: 1180px)';
 
 /** Mobil na šířku s málo výškou (FR-W2-1, design_review_73.md) — spodní navigace
  * by tam zabrala příliš mnoho z už tak omezené výšky, dostane boční rail. */
@@ -40,12 +39,12 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
-/** `true` pod 900px šířky. */
+/** `true` pod 768px šířky. */
 export function useIsMobile(): boolean {
   return useMediaQuery(MOBILE_BREAKPOINT_QUERY);
 }
 
-/** `true` od 1440px šířky (třísloupcový layout). */
+/** `true` od 1180px šířky (třísloupcový layout). */
 export function useIsWide(): boolean {
   return useMediaQuery(WIDE_BREAKPOINT_QUERY);
 }

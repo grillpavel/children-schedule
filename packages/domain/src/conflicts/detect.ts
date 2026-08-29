@@ -259,8 +259,62 @@ function detectTightTransfers(
   return { conflicts, skipped };
 }
 
+// H10 — rodinná kolize (BL-041, design_review_65/66/85.md): dvě RŮZNÉ děti mají překrývající
+// se termín ve stejný den na RŮZNÝCH místech — rodič nemůže fyzicky doprovodit/vyzvednout obě
+// najednou. Stejné místo kolizi nezakládá (jeden rodič zvládne oboje na místě); neznámá adresa
+// u jedné ze session se přeskočí (skippedChecks), stejná disciplína jako H9.
+function detectFamilyConflicts(
+  placed: PlacedSession[],
+  children: readonly Child[],
+): { conflicts: Conflict[]; skipped: SkippedCheck[] } {
+  const conflicts: Conflict[] = [];
+  const skipped: SkippedCheck[] = [];
+  const seenPairs = new Set<string>();
+  const skippedPairs = new Set<string>();
+  const names = childById(children);
+
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const p = placed[i]!;
+      const q = placed[j]!;
+      if (p.childId === q.childId) continue; // stejné dítě řeší H1 (time_overlap)
+      if (p.weekday !== q.weekday) continue;
+
+      const overlap = timeOverlapMinutes(p, q);
+      if (overlap <= 0) continue;
+
+      const pairKey = [p.ownerId, q.ownerId].sort().join('|');
+      if (seenPairs.has(pairKey)) continue;
+
+      if (!p.address || !q.address) {
+        if (!skippedPairs.has(pairKey)) {
+          skippedPairs.add(pairKey);
+          skipped.push({
+            check: 'H10_family_overlap',
+            reason: `Neznámá adresa u ${p.label} nebo ${q.label} — rodinná kolize neověřena.`,
+            enrollmentIds: [p.ownerId, q.ownerId],
+          });
+        }
+        continue;
+      }
+      if (sameAddress(p.address, q.address)) continue;
+
+      seenPairs.add(pairKey);
+      const childP = names.get(p.childId)?.name ?? 'dítě';
+      const childQ = names.get(q.childId)?.name ?? 'dítě';
+      conflicts.push({
+        kind: 'family',
+        severity: 'hard',
+        enrollmentIds: [p.ownerId, q.ownerId],
+        message: `${childP} (${p.label}) a ${childQ} (${q.label}) se v ${WEEKDAY_NAMES[p.weekday]} kryjí na různých místech — jeden rodič nemůže doprovodit obě.`,
+      });
+    }
+  }
+  return { conflicts, skipped };
+}
+
 /**
- * Detekuje konflikty v rozvrhu podle tvrdých omezení H1–H3, H5, H9.
+ * Detekuje konflikty v rozvrhu podle tvrdých omezení H1–H3, H5, H9, H10.
  * Kontroly bez vstupních dat se přeskočí a zapíší do `skippedChecks`,
  * nikdy se neaproximují.
  */
@@ -278,6 +332,7 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
     input.options?.transferBufferMinutes ?? DEFAULT_TRAVEL_BUFFER_MIN,
     childSettings,
   );
+  const family = detectFamilyConflicts(placed, input.children);
 
   return {
     conflicts: [
@@ -287,8 +342,9 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
       ...detectValidity(input, placed),
       ...detectCapacityUnknown(input, index),
       ...transfer.conflicts,
+      ...family.conflicts,
     ],
-    skippedChecks: [...school.skipped, ...transfer.skipped],
+    skippedChecks: [...school.skipped, ...transfer.skipped, ...family.skipped],
   };
 }
 

@@ -108,6 +108,6 @@ náročnosti) — uživatel vybere, která vlna/FR se má implementovat jako prv
 
 **Aktualizace:** Vlna 1 (FR-W1-1 až FR-W1-6) implementována jako CHANGE-81 — viz `design_review_74.md`.
 Vlna 2 implementována částečně (FR-W2-1/2/3) jako CHANGE-82 — viz `design_review_75.md`; FR-W2-4/5
-čekají na rozhodnutí o tabletových breakpointech (BL-051). Vlna 3 implementována částečně
-(FR-W3-5/8, zuženě) jako CHANGE-83 — viz `design_review_76.md`; zbylých 6 FR (BL-052) čeká na
-rozhodnutí, kterým pokračovat.
+byly vyzkoušeny a vráceny po naměřené regresi (BL-051, viz `design_review_77.md`/CHANGE-84 — sloupec
+dne klesal pod 105px). Vlna 3 implementována částečně (FR-W3-5/8, zuženě) jako CHANGE-83 — viz
+`design_review_76.md`; zbylých 6 FR (BL-052) čeká na rozhodnutí, kterým pokračovat.

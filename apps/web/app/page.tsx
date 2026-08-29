@@ -421,11 +421,15 @@ export default function Page() {
 
       {/* Mobilní navigace: spodní lišta na výšku, boční rail na šířku s málo
           výškou (FR-W2-1, design_review_73.md) — mřížka tam potřebuje co nejvíc
-          svislého prostoru, spodní lišta by ho zabrala nejvíc. */}
+          svislého prostoru, spodní lišta by ho zabrala nejvíc. `desk:hidden`
+          platí jen MIMO landscape-compact — širší telefony na šířku (900px+)
+          by jinak neměly žádnou navigaci, i když landscape-compact (nízká výška)
+          požaduje rail bez ohledu na šířku. */}
       <nav
         aria-label="Hlavní navigace"
         className={clsx(
-          'no-print bg-white/95 backdrop-blur desk:hidden shadow-lg',
+          'no-print bg-white/95 backdrop-blur shadow-lg',
+          !isLandscapeCompact && 'desk:hidden',
           isLandscapeCompact
             ? 'fixed inset-y-0 left-0 z-30 flex w-14 flex-col justify-center gap-1 border-r border-slate-200/90 pl-[env(safe-area-inset-left,0px)]'
             : 'flex border-t border-slate-200/90 pb-[env(safe-area-inset-bottom,0px)]',

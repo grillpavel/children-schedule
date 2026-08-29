@@ -22,7 +22,7 @@ async function enrollFirst(page: import('@playwright/test').Page) {
 
 test('T-200: sloupec dne má při ≥1440px alespoň 105px', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(width < 1440, 'jen široký desktop');
+  test.skip(!isThreeColumn(width), 'jen široký desktop (≥1440px)');
   // Mřížka se sloupci se vykreslí až s obsahem (prázdný stav ukazuje výzvu).
   await enrollFirst(page);
   const box = await page.getByRole('gridcell').first().boundingBox();
@@ -32,7 +32,7 @@ test('T-200: sloupec dne má při ≥1440px alespoň 105px', async ({ page }, te
 
 test('T-201: při 1280px nejsou tři stálé sloupce', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(isThreeColumn(width) || isCompact(width), 'jen úzký desktop');
+  test.skip(isThreeColumn(width) || isCompact(width), 'jen střední šířky');
   await expect(infoPanel(page)).toBeHidden();
 });
 

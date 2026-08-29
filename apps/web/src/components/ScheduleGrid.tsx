@@ -545,7 +545,7 @@ export function ScheduleGrid({
                         {HOUR_MARKS.map((m) => (
                           <div
                             key={m}
-                            className="absolute left-0 right-0 border-t border-slate-100"
+                            className="pointer-events-none absolute left-0 right-0 border-t border-slate-100"
                             style={{ top: topPx(m, hourPx) + 26 }}
                           />
                         ))}

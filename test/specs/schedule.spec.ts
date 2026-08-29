@@ -69,6 +69,9 @@ test('T-132: přidání kliknutím do slotu (bez tažení)', async ({ page }, te
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
   await cards(page).first().click();
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+  // Toast z prvního přidání musí zmizet, ať nepřekrývá ducha druhého kroužku
+  // (jeho vnitřní bublina má pointer-events-auto kvůli tlačítku „Zpět").
+  await expect(page.getByRole('button', { name: 'Zpět', exact: true })).toBeHidden({ timeout: 6000 });
   // Druhý kroužek (pondělí) přidáme kliknutím do jeho slotu (ducha) v mřížce.
   await page.getByRole('searchbox').fill('Programování');
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();

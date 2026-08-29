@@ -35,7 +35,8 @@ button:not(.no-min-target) {
 /* iOS Safari při fokusu přiblíží stránku, pokud má pole font-size < 16px —
    `!important` je zde záměrná výjimka, aby přebíla libovolnou Tailwind
    `text-xs`/`text-sm` třídu na jednotlivých policích (FR-W1-5, design_review_73.md).
-   Jen na mobilu (<900px) — desktopová typografie se nemění. */
+   Jen na mobilu (<900px, původně zvažováno 768px, viz BL-051) — desktopová
+   typografie se nemění. */
 @media (max-width: 899.98px) {
   input,
   select,

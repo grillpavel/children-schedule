@@ -6,6 +6,25 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### BL-051 pokus a zjištění — dvě genuinní opravy (CHANGE-84)
+
+Trigger: uživatel požádal o vyřešení BL-051 (tabletové breakpointy) i BL-052 zároveň.
+Breakpointy 900px/1440px → 768px/1180px byly VYZKOUŠENY a ZMĚŘENY, pak VRÁCENY —
+obojvá směr posunu prokázatelně rozbíjí čitelnost sloupců mřížky (83px při
+1280px tři sloupce, ~24px při 834px medium s otevřeným detailem — obě pod
+105px minimum). Viz `design_review_77.md` pro plné měření. BL-051 zůstává open,
+nové BL-053 sleduje pořeb redesignu šířek panelů.
+
+- `HOUR_MARKS` dekorativní čáry v mořížce dostaly `pointer-events-none` — mohly
+  zachytit klik místo ducha/bloku pod nimi na úzkých sloupcích.
+- Boční rail v landscape-compact (FR-W2-1) už není schovaný na širších
+  telefonech — `desk:hidden` na `<nav>` platí jen MIMO `isLandscapeCompact`.
+- T-132 čeká na zmizení toastu z předchozí akce před klikem na dalšího ducha
+  (odhaleno při pokusu, platné i po revertu breakpointů).
+
+Spec: `.github/specs/design_review_77.md`. Ověřeno: `tsc --noEmit` (web) čisté,
+plná E2E sada beze změny chování oproti stavu před CHANGE-84 (kromě 2 oprav výše).
+
 ### Vlna 3 velkého UI/UX redesignu, první část (CHANGE-83)
 
 Trigger: pokračování `design_review_73.md` po Vlně 1 (CHANGE-81) a Vlně 2 (CHANGE-82).

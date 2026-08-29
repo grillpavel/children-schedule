@@ -6,6 +6,28 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3, FR-W3-6: audit mezer dark módu — bezpečnostní záplata (CHANGE-88)
+
+Trigger: pokračování BL-052 po CHANGE-87 (FR-W3-3).
+
+- **Nalezena reálná regrese:** CHANGE-86 přidal `bg-red-50/60` (sekce „Kolize s jiným kroužkem")
+  bez dark-mode mapování — ověřeno empiricky (dočasné vrácení opravy + T-230): axe nahlásil
+  kontrast 1.32:1 místo požadovaných 4.5:1 (`text-red-700` na nepřemapovaném pozadí).
+- Audit `apps/web/src/components/*.tsx` na opacitní Tailwind třídy (`bg|text|border-*-NN/NN`) bez
+  dark mapování našel 5 dalších mezer; 3 z nich (`border-emerald-200/80`, `border-slate-200/60`,
+  `border-slate-300/80`) jsou reálné kosmetické mezery — opraveny v `globals.css`. Zbylé dvě
+  (`bg-red-600/90` odznak, `bg-slate-900/50` modální clona) vědomě ponechány — sytý akcent/dimming
+  efekt shodný v obou režimech, ne barva odvozená od světlého povrchu.
+- Nový test T-230 (`a11y.spec.ts`): reprodukuje T-228 scénář v dark módu, ověřeno že bez opravy
+  reálně SELŽE (dočasný `git stash` na `globals.css`), s opravou PROJDE na všech 6 profilech.
+- **Plná tokenizace zůstává otevřená jako nová BL-054** (obdoba BL-046) — enumerace konkrétních
+  utility tříd v jednom `@media` bloku je principiálně křehká (nová třída bez ruční mapy potichu
+  zůstane světlá), ale nahrazení celého systému by vyžadovalo projít ~9 komponentových souborů a
+  přegenerovat všechny vizuální baseline — mimo rozsah tohoto changu.
+
+Spec: `.github/specs/design_review_81.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed.
+
 ### Vlna 3, FR-W3-3: překryv rozvrhů více dětí (CHANGE-87)
 
 Trigger: pokračování BL-052 po CHANGE-86 (FR-W3-2).

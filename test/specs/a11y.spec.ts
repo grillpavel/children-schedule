@@ -307,3 +307,33 @@ test('T-310: dark mode přepne motiv a axe projde', async ({ page }, testInfo) =
   const results = await axe(page).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test('T-230: kolizní sekce (FR-W3-2) v dark módu projde axe (design_review_81.md)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  const detail = isCompact(width)
+    ? page.locator('.fixed.inset-x-0.bottom-12')
+    : !isThreeColumn(width)
+      ? page.getByTestId('info-drawer')
+      : page.getByRole('main');
+
+  await openCatalog(page, width);
+  // Konfliktní scénář z T-228: dvě kolidující aktivity na Po 16:00–17:00.
+  await page.getByRole('button', { name: /Vlastní událost/ }).click();
+  const dialog = page.locator('.fixed.inset-0.z-50');
+  await dialog.getByPlaceholder('Např. Logopedie').fill('Blokátor');
+  await dialog.locator('input[type="time"]').nth(0).fill('16:00');
+  await dialog.locator('input[type="time"]').nth(1).fill('17:00');
+  await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
+
+  await page.getByRole('searchbox').fill('Atletická školička');
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await cards(page).first().click();
+  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  await detail.getByRole('button', { name: 'Pondělí 16:00', exact: true }).click();
+  await expect(detail.getByText('Kolize s jiným kroužkem')).toBeVisible();
+
+  await page.mouse.move(0, 0);
+  const results = await axe(page).analyze();
+  expect(results.violations).toEqual([]);
+});

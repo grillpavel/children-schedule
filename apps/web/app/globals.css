@@ -271,9 +271,20 @@ body {
   .border-amber-200 { border-color: #78350f; }
   .bg-red-50 { background-color: #450a0a; }
   .hover\:bg-red-50:hover { background-color: #450a0a !important; }
+  .bg-red-50\/60 { background-color: rgba(69, 10, 10, 0.6); }
   .border-red-200 { border-color: #7f1d1d; }
   .text-red-700 { color: #fca5a5; }
   .text-red-600 { color: #fca5a5; }
+
+  /* FR-W3-6 (design_review_73/81.md): drobné mezery nalezené auditem enumerace —
+     `bg-red-50/60` byla skutečná regrese (CHANGE-86, text-red-700 na nepřemapovaném
+     světlém pozadí), zbylé dvě jsou kosmetické (border jen ztrácí barevný nádech, ne
+     kontrast textu). `bg-red-600/90` (badge) a `bg-slate-900/50` (modální překryv)
+     jsou vědomě VYNECHÁNY — jde o sytý akcent/dimming efekt shodný v obou režimech,
+     ne o barvu odvozenou od světlého povrchu. */
+  .border-emerald-200\/80 { border-color: #065f46; }
+  .border-slate-200\/60 { border-color: #334155; }
+  .border-slate-300\/80 { border-color: #475569; }
 
   /* Redesign (moje-uprava): průhledná pozadí a tónovaný text — dark blok mapuje
      jen plné třídy, doplňujeme opacitní varianty a tóny (T-310). */

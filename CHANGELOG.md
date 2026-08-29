@@ -6,6 +6,25 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3, FR-W3-7: decluttering toolbaru (CHANGE-85)
+
+Trigger: pokračování BL-052 po BL-051 (CHANGE-84).
+
+- Toolbar.tsx odstranil Věk/Přesun/Barva — nese už jen identitu (správa kalendářů), historii
+  (undo/redo) a export (Otevřít/Uložit/Další ▾/stav uložení). Barva kroužku byla DUPLICITNÍ —
+  `DetailsPanel.tsx`'s `SelectedActivity` už měl vlastní „Barva kroužku" sekci, stačilo odstranit
+  kopii z Toolbaru.
+- Nový `ChildSettings` v `DetailsPanel.tsx` (uvnitř `PinnedSummary`) nese Věk + Přesun se stejnými
+  `aria-label`y jako `MobileChildrenPanel` — gated `useIsMobile()` (ne CSS `hidden`), ať se na
+  mobilu (záložka „Děti" mountuje oboje vedle sebe) neduplikuje stejný název ovládacího prvku.
+- Vedlejší efekt: na středních šířkách (900–1440) jsou Věk/Přesun vidět až po otevření „Souhrn" —
+  dřív byly v Toolbaru vidět vždy; vědomý kompromis pro decluttering.
+- Vizuální baseline (toolbar/empty-info/catalog-filtered/info-dark na desktop/desktop-narrow/
+  tablet-landscape) přegenerovány.
+
+Spec: `.github/specs/design_review_78.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed (po přegenerování baseline).
+
 ### BL-051 pokus a zjištění — dvě genuinní opravy (CHANGE-84)
 
 Trigger: uživatel požádal o vyřešení BL-051 (tabletové breakpointy) i BL-052 zároveň.

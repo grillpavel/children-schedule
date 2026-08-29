@@ -17,6 +17,7 @@ import {
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
+import { useIsMobile } from '@/hooks/useBreakpoint';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
 import { geocodeAddress } from '@/lib/geocode';
 import { ColorSwatches } from './ColorSwatches';
@@ -924,6 +925,70 @@ function CustomEntryDetail() {
 }
 
 /** Připnutá hlavička pravého sloupce */
+/** Věk a čas na přesun (FR-W3-7, design_review_73.md) — dřív jen v desktopovém
+ * Toolbaru, na mobilu jen v záložce „Děti" (MobileChildrenPanel). Toolbar dnes
+ * nese 9 nesouvisejících věcí; věk/přesun patří k dítěti, ne k historii/exportu.
+ * `useIsMobile` (ne CSS `hidden`), ať se na mobilu (záložka „Děti" mountuje
+ * DetailsPanel VEDLE MobileChildrenPanel) needuplikuje stejný `aria-label`. */
+function ChildSettings() {
+  const isMobile = useIsMobile();
+  const activeChildId = usePlannerStore((s) => s.activeChildId);
+  const child = usePlannerStore((s) => s.state.children.find((c) => c.id === s.activeChildId));
+  const setChildAge = usePlannerStore((s) => s.setChildAge);
+  const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
+  const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
+
+  if (isMobile || !child) return null;
+
+  return (
+    <section className="space-y-2 border-b border-slate-200/80 p-3">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{child.name}</h3>
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+        <span>Věk:</span>
+        <input
+          type="number"
+          min={3}
+          max={19}
+          value={child.age}
+          onChange={(e) => setChildAge(activeChildId, Number(e.target.value))}
+          aria-label="Věk dítěte"
+          className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <span className="text-slate-400 font-normal">let</span>
+      </label>
+      <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700">
+        <span>Čas na přesun:</span>
+        <select
+          value={child.travelBufferMinutes ?? ''}
+          onChange={(e) =>
+            setChildTravelBuffer(activeChildId, e.target.value === '' ? undefined : Number(e.target.value))
+          }
+          aria-label="Minimální čas na přesun"
+          className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">výchozí (10 min)</option>
+          {[0, 5, 10, 15, 20, 30].map((m) => (
+            <option key={m} value={m}>
+              {m} min
+            </option>
+          ))}
+        </select>
+        <select
+          value={child.travelMode ?? ''}
+          onChange={(e) => setChildTravelMode(activeChildId, (e.target.value || undefined) as typeof child.travelMode)}
+          aria-label="Způsob přesunu"
+          className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">výchozí (auto)</option>
+          <option value="walk">pěšky</option>
+          <option value="car">auto</option>
+          <option value="transit">MHD</option>
+        </select>
+      </div>
+    </section>
+  );
+}
+
 function PinnedSummary() {
   const view = useScheduleView();
   const catalog = usePlannerStore((s) => s.catalog);
@@ -943,7 +1008,9 @@ function PinnedSummary() {
 
   if (view.summary.activityCount === 0) {
     return (
-      <section className="space-y-2 p-3">
+      <>
+        <ChildSettings />
+        <section className="space-y-2 p-3">
         <h3 className="text-sm font-bold text-slate-900">Zatím žádné kroužky</h3>
         <p className="text-xs text-slate-500 leading-relaxed">
           Vyberte kroužek z katalogu a hned uvidíte obsazenost týdne, náklady i kolize.
@@ -955,7 +1022,8 @@ function PinnedSummary() {
         >
           Vybrat z katalogu
         </button>
-      </section>
+        </section>
+      </>
     );
   }
 
@@ -982,7 +1050,9 @@ function PinnedSummary() {
   const pricelessCount = view.summary.activityCount - pricedCount;
 
   return (
-    <section className="space-y-3.5 p-3">
+    <>
+      <ChildSettings />
+      <section className="space-y-3.5 p-3">
       <div>
         <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">Obsazenost týdne</h3>
         <ul className="space-y-1 text-xs text-slate-700">
@@ -1055,7 +1125,8 @@ function PinnedSummary() {
           </div>
         )}
       </div>
-    </section>
+      </section>
+    </>
   );
 }
 

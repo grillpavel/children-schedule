@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  colorForActivity,
   parseIcs,
   parsePlannerState,
   serializePlannerState,
@@ -17,7 +16,6 @@ import {
   printSchedule,
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
-import { ColorSwatches } from './ColorSwatches';
 import { PrivacyDialog } from './PrivacyDialog';
 import {
   IconUndo,
@@ -53,9 +51,6 @@ export function Toolbar({
   const addChild = usePlannerStore((s) => s.addChild);
   const renameChild = usePlannerStore((s) => s.renameChild);
   const removeChild = usePlannerStore((s) => s.removeChild);
-  const setChildAge = usePlannerStore((s) => s.setChildAge);
-  const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
-  const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
   const loadState = usePlannerStore((s) => s.loadState);
   const addCustomEntries = usePlannerStore((s) => s.addCustomEntries);
   const undo = usePlannerStore((s) => s.undo);
@@ -63,8 +58,6 @@ export function Toolbar({
   const canUndo = usePlannerStore((s) => s.history.length > 0);
   const editCount = usePlannerStore((s) => s.history.length);
   const canRedo = usePlannerStore((s) => s.future.length > 0);
-  const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
-  const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
   const announce = usePlannerStore((s) => s.announce);
 
   const child = state.children.find((c) => c.id === activeChildId);
@@ -96,11 +89,6 @@ export function Toolbar({
     );
     setMobileMenuPos({ top: rect.bottom + 4, right });
   }, [mobileMenuOpen]);
-
-  const selectedColorCss = selectedActivityId
-    ? state.overrides.find((o) => o.activityId === selectedActivityId)?.colorCss ??
-      colorForActivity(selectedActivityId).css
-    : undefined;
 
   if (!child) return null;
 
@@ -387,78 +375,6 @@ export function Toolbar({
           >
             Odebrat
           </button>
-        )}
-      </div>
-
-      {/* Věk dítěte (jen desktop — na mobilu se edituje v záložce „Děti") */}
-      <label className="hidden items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-2 py-1 text-xs text-slate-600 desk:flex">
-        <span className="font-medium text-slate-700">Věk:</span>
-        <input
-          type="number"
-          min={3}
-          max={19}
-          value={child.age}
-          onChange={(e) => setChildAge(child.id, Number(e.target.value))}
-          className="w-12 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-center font-semibold text-slate-800 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        />
-        <span className="text-slate-400">let</span>
-      </label>
-
-      {/* Přesun mezi kroužky (BL-038, design_review_67.md) — jen desktop, na mobilu
-          v záložce „Děti". Prázdná volba = globální výchozí hodnoty motoru. */}
-      <label className="hidden items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-2 py-1 text-xs text-slate-600 desk:flex">
-        <span className="font-medium text-slate-700">Přesun:</span>
-        <select
-          value={child.travelBufferMinutes ?? ''}
-          onChange={(e) =>
-            setChildTravelBuffer(child.id, e.target.value === '' ? undefined : Number(e.target.value))
-          }
-          aria-label="Minimální čas na přesun"
-          className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="">výchozí (10 min)</option>
-          {[0, 5, 10, 15, 20, 30].map((m) => (
-            <option key={m} value={m}>
-              {m} min
-            </option>
-          ))}
-        </select>
-        <select
-          value={child.travelMode ?? ''}
-          onChange={(e) =>
-            setChildTravelMode(child.id, (e.target.value || undefined) as typeof child.travelMode)
-          }
-          aria-label="Způsob přesunu"
-          className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="">výchozí (auto)</option>
-          <option value="walk">pěšky</option>
-          <option value="car">auto</option>
-          <option value="transit">MHD</option>
-        </select>
-      </label>
-
-      {/* Color picker kroužku (Desktop) */}
-      <div
-        className="hidden desk:flex items-center gap-1.5 rounded-lg border border-slate-200/80 px-2 py-1 text-xs"
-        title={
-          selectedActivityId
-            ? 'Barva vybraného kroužku'
-            : 'Vyberte kroužek pro změnu barvy'
-        }
-      >
-        {selectedActivityId ? (
-          <div className="flex items-center gap-2">
-            <span className="text-slate-600 font-medium">Barva:</span>
-            <ColorSwatches
-              value={selectedColorCss}
-              onPick={(css) =>
-                setActivityOverride(selectedActivityId, { colorCss: css })
-              }
-            />
-          </div>
-        ) : (
-          <span className="text-slate-400">Barva: vyberte kroužek</span>
         )}
       </div>
 

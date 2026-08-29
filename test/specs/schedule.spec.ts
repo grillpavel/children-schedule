@@ -225,6 +225,11 @@ test('T-175: zkrácení času na přesun na 0 min odstraní logistické upozorn�
 
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Děti', exact: true }).click();
+  } else {
+    // Věk/Přesun žijí od FR-W3-7 (design_review_73.md) v Souhrnu (ChildSettings) —
+    // na středních šířkách nutno nejdřív otevřít, na širokém desktopu je vidět rovnou.
+    const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+    if (await souhrn.isVisible().catch(() => false)) await souhrn.click();
   }
   await page.getByRole('combobox', { name: 'Minimální čas na přesun' }).selectOption('0');
 
@@ -462,13 +467,16 @@ test('T-182: pole adresy vlastní události upozorňuje na odeslání na Nominat
 
 test('T-185: věk mimo rozsah 3–19 se do kalendáře nezapíše (audit after_review_71 §5)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  let ageInput;
+  // Věk je od FR-W3-7 (design_review_73.md) vždy v panelu Dítěte — na mobilu
+  // v záložce „Děti" (MobileChildrenPanel), na desktopu v Souhrnu (ChildSettings,
+  // na středních šířkách nutno nejdřív otevřít přes „Souhrn").
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Děti', exact: true }).click();
-    ageInput = page.getByLabel('Věk dítěte');
   } else {
-    ageInput = page.getByRole('banner').getByRole('spinbutton');
+    const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+    if (await souhrn.isVisible().catch(() => false)) await souhrn.click();
   }
+  const ageInput = page.getByLabel('Věk dítěte');
   const before = await ageInput.inputValue();
   await ageInput.fill('999');
   await ageInput.blur();

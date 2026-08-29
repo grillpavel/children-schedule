@@ -6,6 +6,37 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Funkční audit chyb: 8 tichých selhání opraveno (CHANGE-80)
+
+Trigger: uživatel sdílel audit `.github/audit/after_review_71/` — funkční audit chybových stavů (8
+nálezů, všech 8 potvrzeno subagentem proti zdroji) a rozsáhlý UI/UX/responzivní redesign audit
+(zpracován samostatně jako DRAFT `design_review_73.md`, čeká na prioritizaci). Scope: **app
+`@krouzky/web`** (bez schema/verze změny).
+
+- Export všech kalendářů (`exportAllChildrenIcs`) teď stahuje soubory sekvenčně s odstupem ~400 ms
+  (prohlížeče blokovaly druhý a další soubor bez pauzy) a po dokončení zobrazí toast „Staženo N
+  kalendářů" — nová store akce `announce(label)` (lehký `set()`, nejde do historie undo/redo).
+- `saveAutosave()` vrací `boolean`; status pilulka má nově TŘETÍ stav „Ukládání selhalo" (červená),
+  když `localStorage.setItem` selže (soukromý režim, plné úložiště) — dřív se to tiše ignorovalo a
+  UI dál tvrdilo „Uloženo".
+- Export obrázku (.png) a import poškozeného `.ics` teď mají `try/catch` s uživatelskou hláškou
+  (dřív jen tichá konzolová chyba / unhandled rejection).
+- `setChildAge` validuje rozsah 3–19 a `NaN` (dřív se cokoliv zapsalo bez kontroly, i přes vložení
+  přes schránku mimo HTML `min`/`max`).
+- Nový `apps/web/app/error.tsx` (Next.js error boundary) — neošetřená chyba renderu teď nabídne
+  „Obnovit" místo bílé obrazovky bez cesty zpět.
+- `removeChild`/`removeSchedule` teď nastavují `lastActionLabel` stejně jako ostatní destruktivní
+  akce — odebrání kalendáře i varianty rozvrhu zobrazí toast s akcí „Zpět" (dřív jen `window.confirm`
+  bez zpětné vazby, že šlo vrátit).
+- `VariantTabs.tsx` získal viditelný popisek „Varianty rozvrhu:" s vysvětlením rozdílu vůči
+  „kalendáři" (dítěti) — dřív jen skrytý `title`.
+- Nové testy T-185 (věk mimo rozsah), T-186 (toast po odebrání kalendáře/rozvrhu).
+- Vedlejší nález při ověřování: nový popisek „Varianty rozvrhu:" měl nedostatečný kontrast
+  (`text-slate-400`, 4.34:1) — opraveno na `text-slate-600` (T-300/301/310 zůstaly zelené).
+
+Spec: `.github/specs/design_review_72.md`. Verifikováno: `tsc --noEmit` (web) čisté; plná E2E
+`--workers=1` na všech 6 profilech = 663 passed / 129 skipped / 0 failed.
+
 ### Oprava: nesourodé výšky prvků v horní liště na mobilu (CHANGE-79)
 
 Trigger: uživatel důrazně nahlásil, že položky v horní liště na mobilu mají různou výšku a nejsou

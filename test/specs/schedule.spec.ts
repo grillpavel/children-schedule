@@ -456,3 +456,40 @@ test('T-182: pole adresy vlastní události upozorňuje na odeslání na Nominat
   const dialog = page.locator('.fixed.inset-0.z-50');
   await expect(dialog.getByText(/OpenStreetMap \(Nominatim\)/)).toBeVisible();
 });
+
+test('T-185: věk mimo rozsah 3–19 se do kalendáře nezapíše (audit after_review_71 §5)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  let ageInput;
+  if (isCompact(width)) {
+    await page.getByRole('button', { name: 'Děti', exact: true }).click();
+    ageInput = page.getByLabel('Věk dítěte');
+  } else {
+    ageInput = page.getByRole('banner').getByRole('spinbutton');
+  }
+  const before = await ageInput.inputValue();
+  await ageInput.fill('999');
+  await ageInput.blur();
+  // Neplatná hodnota (mimo 3–19) je no-op — řízený vstup se vrátí na předchozí věk.
+  await expect(ageInput).toHaveValue(before);
+});
+
+test('T-186: odebrání kalendáře/rozvrhu zobrazí toast s akcí Zpět (audit after_review_71 §7)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  const banner = page.getByRole('banner');
+
+  // Kalendář — na všech šířkách.
+  await banner.getByRole('button', { name: 'Přidat kalendář' }).click();
+  await banner.getByRole('button', { name: 'Přidat', exact: true }).click();
+  page.once('dialog', (d) => d.accept());
+  await banner.getByRole('button', { name: /^Odebrat kalendář / }).click();
+  await expect(page.getByRole('button', { name: 'Zpět', exact: true })).toBeVisible();
+
+  if (!isCompact(width)) {
+    // Varianta rozvrhu — jen desktop (VariantTabs skryté na mobilu).
+    await page.getByRole('button', { name: 'Nový', exact: true }).click();
+    page.once('dialog', (d) => d.accept());
+    // Nová varianta se přidá jako poslední karta — jen ta má tlačítko smazání.
+    await page.getByRole('button', { name: 'Smazat rozvrh' }).last().click();
+    await expect(page.getByRole('button', { name: 'Zpět', exact: true })).toBeVisible();
+  }
+});

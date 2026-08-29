@@ -198,6 +198,7 @@ export default function Page() {
   const [mobileTab, setMobileTab] = useState<MobileTab>('home');
   const [savedSignature, setSavedSignature] = useState(stateSignature);
   const [showChangeToast, setShowChangeToast] = useState(false);
+  const [autosaveOk, setAutosaveOk] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isWide, setIsWide] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
@@ -258,7 +259,7 @@ export default function Page() {
       hydrate(restored);
       setSavedSignature(serializePlannerState(restored));
     }
-    const unsubscribe = usePlannerStore.subscribe((s) => saveAutosave(s.state));
+    const unsubscribe = usePlannerStore.subscribe((s) => setAutosaveOk(saveAutosave(s.state)));
     return unsubscribe;
   }, [hydrate]);
 
@@ -300,7 +301,7 @@ export default function Page() {
 
   return (
     <div className="flex h-dvh flex-col bg-slate-100/50">
-      <Toolbar gridRef={gridRef} isDirty={isDirty} onMarkSaved={markSaved} />
+      <Toolbar gridRef={gridRef} isDirty={isDirty} autosaveOk={autosaveOk} onMarkSaved={markSaved} />
       {/* Varianty rozvrhu jsou pokročilá funkce — na mobilu skryté (C11 UX). */}
       <div className="hidden desk:block">
         <VariantTabs />

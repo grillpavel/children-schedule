@@ -68,6 +68,9 @@ interface PlannerStore {
   focusDay(weekday: Weekday): void;
   /** Vyžádá vymazání vyhledávacího pole katalogu (CHANGE-56). */
   clearCatalogSearch(): void;
+  /** Zobrazí toast s textem bez zápisu do historie (undo/redo) — pro akce mimo store
+   * (např. sekvenční export v Toolbaru, audit after_review_71 §1). */
+  announce(label: string): void;
 
   // ---- přímé uživatelské akce (potvrzené kliknutím) ----
   enrollGroup(activityId: string, sessionGroupId: string): void;
@@ -222,6 +225,12 @@ export const usePlannerStore = create<PlannerStore>()(
       clearCatalogSearch: () =>
         set((s) => {
           s.clearCatalogSearchNonce += 1;
+        }),
+
+      announce: (label) =>
+        set((s) => {
+          s.lastActionLabel = label;
+          s.lastActionNonce += 1;
         }),
 
       enrollGroup: (activityId, sessionGroupId) => {
@@ -485,14 +494,26 @@ export const usePlannerStore = create<PlannerStore>()(
           if (schedule) schedule.name = name;
         }),
 
-      removeSchedule: (scheduleId) =>
-        commit((draft) => {
-          if (draft.schedules.length <= 1) return; // poslední nelze smazat
-          draft.schedules = draft.schedules.filter((s) => s.id !== scheduleId);
-          if (draft.activeScheduleId === scheduleId) {
-            draft.activeScheduleId = draft.schedules[0]!.id;
-          }
-        }),
+      removeSchedule: (scheduleId) => {
+        let label: string | null = null;
+        commit(
+          (draft) => {
+            if (draft.schedules.length <= 1) return; // poslední nelze smazat
+            const removed = draft.schedules.find((s) => s.id === scheduleId);
+            draft.schedules = draft.schedules.filter((s) => s.id !== scheduleId);
+            if (draft.activeScheduleId === scheduleId) {
+              draft.activeScheduleId = draft.schedules[0]!.id;
+            }
+            if (removed) label = `Rozvrh „${removed.name}“ smazán`;
+          },
+          (store) => {
+            if (label) {
+              store.lastActionLabel = label;
+              store.lastActionNonce += 1;
+            }
+          },
+        );
+      },
 
       proposeDiff: (diff) =>
         set((s) => {
@@ -562,6 +583,7 @@ export const usePlannerStore = create<PlannerStore>()(
 
       setChildAge: (childId, age) =>
         commit((draft) => {
+          if (!Number.isFinite(age) || age < 3 || age > 19) return;
           const child = draft.children.find((c) => c.id === childId);
           if (child) child.age = age;
         }),
@@ -633,17 +655,24 @@ export const usePlannerStore = create<PlannerStore>()(
 
       removeChild: (childId) => {
         if (get().state.children.length <= 1) return;
+        let label: string | null = null;
         commit(
           (draft) => {
+            const removed = draft.children.find((c) => c.id === childId);
             draft.children = draft.children.filter((c) => c.id !== childId);
             for (const schedule of draft.schedules) {
               schedule.enrollments = schedule.enrollments.filter((e) => e.childId !== childId);
               schedule.customEntries = schedule.customEntries.filter((e) => e.childId !== childId);
             }
+            if (removed) label = `Kalendář „${removed.name}“ odebrán`;
           },
           (store) => {
             if (store.activeChildId === childId) {
               store.activeChildId = store.state.children[0]?.id ?? store.activeChildId;
+            }
+            if (label) {
+              store.lastActionLabel = label;
+              store.lastActionNonce += 1;
             }
           },
         );

@@ -35,10 +35,14 @@ import {
 export function Toolbar({
   gridRef,
   isDirty,
+  autosaveOk,
   onMarkSaved,
 }: {
   gridRef: React.RefObject<HTMLDivElement>;
   isDirty: boolean;
+  /** `false`, když poslední zápis do localStorage selhal (soukromý režim, plné
+   * úložiště…) — zobrazí varování místo tichého "Uloženo" (audit after_review_71 §2). */
+  autosaveOk: boolean;
   onMarkSaved: (savedSignature?: string) => void;
 }) {
   const state = usePlannerStore((s) => s.state);
@@ -61,6 +65,7 @@ export function Toolbar({
   const canRedo = usePlannerStore((s) => s.future.length > 0);
   const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
+  const announce = usePlannerStore((s) => s.announce);
 
   const child = state.children.find((c) => c.id === activeChildId);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -117,27 +122,38 @@ export function Toolbar({
   };
 
   // C6-C2: každé dítě do vlastního souboru jedním kliknutím (samostatný kalendář).
+  // Sekvenčně s odstupem (audit after_review_71 §1) — prohlížeče bez pauzy mezi
+  // programovými stahováními blokují druhý a další soubor beze zprávy.
   const exportAllChildrenIcs = () => {
     const schedule = activeSchedule(state);
-    for (const c of state.children) {
-      downloadIcs({
-        child: c,
-        schedule,
-        catalog,
-        schoolYear: state.schoolYear,
-        exceptions,
-        districtCode: state.districtCode,
-        colorMode,
-        overrides: state.overrides,
-        sequence: editCount,
-      });
-    }
+    const children = state.children;
+    children.forEach((c, i) => {
+      setTimeout(() => {
+        downloadIcs({
+          child: c,
+          schedule,
+          catalog,
+          schoolYear: state.schoolYear,
+          exceptions,
+          districtCode: state.districtCode,
+          colorMode,
+          overrides: state.overrides,
+          sequence: editCount,
+        });
+        if (i === children.length - 1) announce(`Staženo ${children.length} kalendářů`);
+      }, i * 400);
+    });
     setMenuOpen(false);
     setMobileMenuOpen(false);
   };
 
   const exportPng = async () => {
-    if (gridRef.current) await downloadPng(gridRef.current, child);
+    if (!gridRef.current) return;
+    try {
+      await downloadPng(gridRef.current, child);
+    } catch {
+      alert('Obrázek se nepodařilo vytvořit, zkuste tisk rozvrhu.');
+    }
     setMenuOpen(false);
     setMobileMenuOpen(false);
   };
@@ -147,7 +163,13 @@ export function Toolbar({
     const isIcs =
       /\.ics$/i.test(file.name) || text.trimStart().startsWith('BEGIN:VCALENDAR');
     if (isIcs) {
-      const events = parseIcs(text);
+      let events: ReturnType<typeof parseIcs>;
+      try {
+        events = parseIcs(text);
+      } catch {
+        alert('Soubor .ics se nepodařilo přečíst.');
+        return;
+      }
       if (events.length === 0) {
         alert('V souboru .ics nejsou žádné události.');
         return;
@@ -438,16 +460,25 @@ export function Toolbar({
       <div className="flex h-11 items-center gap-1.5 text-xs desk:h-auto">
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition ${
-            isDirty
-              ? 'bg-amber-50 text-amber-800 border border-amber-200'
-              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            !autosaveOk
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : isDirty
+                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
           }`}
+          title={
+            autosaveOk
+              ? undefined
+              : 'Ukládání do prohlížeče selhalo (soukromý režim nebo plné úložiště) — stáhněte si zálohu tlačítkem Uložit.'
+          }
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${isDirty ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-          {isDirty ? 'Neuloženo' : 'Uloženo'}
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${!autosaveOk ? 'bg-red-500' : isDirty ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}
+          />
+          {!autosaveOk ? 'Ukládání selhalo' : isDirty ? 'Neuloženo' : 'Uloženo'}
         </span>
         <span className="ml-1 hidden text-slate-400 desk:inline text-[11px]">
-          Ukládá se do prohlížeče
+          {autosaveOk ? 'Ukládá se do prohlížeče' : 'Stáhněte si zálohu (.json)'}
         </span>
       </div>
 

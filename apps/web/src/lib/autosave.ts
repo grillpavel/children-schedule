@@ -20,10 +20,14 @@ export function loadAutosave(): PlannerState | null {
   }
 }
 
-export function saveAutosave(state: PlannerState): void {
+/** Vrací `true` při úspěšném zápisu, `false` když `localStorage` selhal (plné
+ * úložiště, soukromý režim Safari, vypnuté úložiště webu…) — volající pak ví,
+ * že se má UI zobrazit jako riziko ztráty dat, ne tiše předstírat úspěch. */
+export function saveAutosave(state: PlannerState): boolean {
   try {
     window.localStorage.setItem(KEY, serializePlannerState(state));
+    return true;
   } catch {
-    // localStorage nedostupné / plné → autosave je best-effort, ignoruj.
+    return false;
   }
 }

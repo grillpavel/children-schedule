@@ -29,6 +29,14 @@ export function VariantTabs() {
 
   return (
     <div className="no-print flex items-center gap-1.5 overflow-x-auto border-b border-slate-200/80 bg-slate-100/70 px-3 py-1.5">
+      {/* Krátká pojmová nápověda (audit after_review_71 §8): „Varianta" je alternativní
+          verze rozvrhu TÉHOŽ kalendáře (dítěte) — ne nový kalendář, ten se přidává v liště. */}
+      <span
+        className="shrink-0 text-[11px] text-slate-600"
+        title="Varianta = alternativní verze rozvrhu pro stejný kalendář (dítě). Druhý kalendář se přidává v horní liště tlačítkem „Přidat kalendář“."
+      >
+        Varianty rozvrhu:
+      </span>
       <div className="flex items-center gap-1">
         {schedules.map((s) => {
           const active = s.id === activeId;
@@ -91,7 +99,7 @@ export function VariantTabs() {
           type="button"
           onClick={addSchedule}
           className="flex h-6 items-center gap-1 rounded-md border border-slate-200/80 bg-white px-2 text-xs font-medium text-slate-600 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
-          title="Nový rozvrh"
+          title="Nová varianta rozvrhu pro stejný kalendář (ne nový kalendář — ten je v horní liště)"
         >
           <IconPlus className="h-3 w-3" />
           <span>Nový</span>

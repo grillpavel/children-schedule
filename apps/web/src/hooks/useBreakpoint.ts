@@ -14,6 +14,10 @@ export const MOBILE_BREAKPOINT_QUERY = '(max-width: 899.98px)';
 /** Třísloupcový layout platí až od 1440px (C9-L1); mezi 900–1440 je Info slide-over. */
 export const WIDE_BREAKPOINT_QUERY = '(min-width: 1440px)';
 
+/** Mobil na šířku s málo výškou (FR-W2-1, design_review_73.md) — spodní navigace
+ * by tam zabrala příliš mnoho z už tak omezené výšky, dostane boční rail. */
+export const LANDSCAPE_COMPACT_QUERY = '(orientation: landscape) and (max-height: 500px)';
+
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
 
@@ -39,3 +43,9 @@ export function useIsMobile(): boolean {
 export function useIsWide(): boolean {
   return useMediaQuery(WIDE_BREAKPOINT_QUERY);
 }
+
+/** `true` pro mobil na šířku s omezenou výškou (boční rail místo spodní navigace). */
+export function useIsLandscapeCompact(): boolean {
+  return useMediaQuery(LANDSCAPE_COMPACT_QUERY);
+}
+

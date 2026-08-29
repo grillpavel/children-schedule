@@ -338,7 +338,7 @@ test('T-219: mobilní sheet lze zavřít tlačítkem „Zavřít“ (≥44 px)',
 test('T-220: shell používá 100dvh a rezervuje safe-area pro spodní navigaci/sheet', async () => {
   const src = readFileSync(join('apps', 'web', 'app', 'page.tsx'), 'utf8');
   expect(src, 'koření shell musí použít h-dvh (100vh na iOS Safari nezohledňuje dynamickou lištu)').toMatch(
-    /className="flex h-dvh flex-col/,
+    /['"]flex h-dvh flex-col/,
   );
   expect(src.includes('h-screen'), 'h-screen nesmí zůstat na kořenovém shellu').toBe(false);
   const safeAreaCount = (src.match(/env\(safe-area-inset-bottom/g) ?? []).length;
@@ -417,5 +417,38 @@ test('T-224: font Inter je reálně načtený, ne jen deklarovaný (design_revie
     return Array.from(document.fonts).some((f) => /Inter/i.test(f.family) && f.status === 'loaded');
   });
   expect(loaded, 'žádný Inter FontFace nemá status "loaded"').toBe(true);
+});
+
+test('T-225: sloupce dnů mřížky na mobilu mají pevnou min. šířku a vodorovně scrollují (design_review_73.md FR-W2-3)', async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'pevná šířka sloupců řeší jen úzké mobilní zobrazení');
+
+  // Mřížka je vidět jen s obsahem (prázdný stav místo ní ukazuje výzvu).
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  await page.getByRole('tab', { name: 'Mřížka' }).click();
+
+  const row = page.getByRole('row');
+  await expect(row).toBeVisible();
+  const measurements = await row.evaluate((el) => {
+    const scrollParent = el.closest('.overflow-x-auto');
+    return {
+      rowScrollWidth: el.scrollWidth,
+      parentClientWidth: scrollParent ? scrollParent.clientWidth : null,
+    };
+  });
+  // 7 sloupců × min. 72px musí být k dispozici, i když se to nevejde na šířku (scroll).
+  expect(measurements.rowScrollWidth, `scrollWidth řádku ${measurements.rowScrollWidth}px`).toBeGreaterThanOrEqual(
+    7 * 72,
+  );
+  // Stránka jako celek nesmí přetéct — přetečení musí zůstat izolované uvnitř mřížky.
+  const docOverflow = await page.evaluate(() => document.scrollingElement!.scrollWidth - document.scrollingElement!.clientWidth);
+  expect(docOverflow, `přetečení dokumentu ${docOverflow}px`).toBeLessThanOrEqual(1);
 });
 

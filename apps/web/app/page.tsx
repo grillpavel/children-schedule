@@ -13,7 +13,7 @@ import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
 import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize, IconPlus } from '@/components/Icons';
-import { useIsMobile, useIsWide } from '@/hooks/useBreakpoint';
+import { useIsMobile, useIsWide, useIsLandscapeCompact } from '@/hooks/useBreakpoint';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
 // serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
@@ -203,6 +203,9 @@ export default function Page() {
   // Jediný zdroj 900px/1440px zlomu (FR-W1-1, design_review_73.md).
   const isMobile = useIsMobile();
   const isWide = useIsWide();
+  // Mobil na šířku s málo výškou dostane boční rail místo spodní navigace
+  // (FR-W2-1, design_review_73.md).
+  const isLandscapeCompact = useIsLandscapeCompact();
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -285,7 +288,14 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="flex h-dvh flex-col bg-slate-100/50">
+    <div
+      className={clsx(
+        'flex h-dvh flex-col bg-slate-100/50',
+        // Obsah se posune vpravo od bočního railu (FR-W2-1) — `fixed` prvky
+        // (rail/toast/sheet) toto odsazení nedědí, řeší se zvlášť.
+        isLandscapeCompact && 'pl-14',
+      )}
+    >
       <Toolbar gridRef={gridRef} isDirty={isDirty} autosaveOk={autosaveOk} onMarkSaved={markSaved} />
       {/* Varianty rozvrhu jsou pokročilá funkce — na mobilu skryté (C11 UX). */}
       <div className="hidden desk:block">
@@ -390,8 +400,18 @@ export default function Page() {
         )}
       </main>
 
-      {/* Mobilní spodní navigace */}
-      <nav className="no-print flex border-t border-slate-200/90 bg-white/95 backdrop-blur desk:hidden shadow-lg pb-[env(safe-area-inset-bottom,0px)]">
+      {/* Mobilní navigace: spodní lišta na výšku, boční rail na šířku s málo
+          výškou (FR-W2-1, design_review_73.md) — mřížka tam potřebuje co nejvíc
+          svislého prostoru, spodní lišta by ho zabrala nejvíc. */}
+      <nav
+        aria-label="Hlavní navigace"
+        className={clsx(
+          'no-print bg-white/95 backdrop-blur desk:hidden shadow-lg',
+          isLandscapeCompact
+            ? 'fixed inset-y-0 left-0 z-30 flex w-14 flex-col justify-center gap-1 border-r border-slate-200/90 pl-[env(safe-area-inset-left,0px)]'
+            : 'flex border-t border-slate-200/90 pb-[env(safe-area-inset-bottom,0px)]',
+        )}
+      >
         {(
           [
             ['home', 'Domů', IconHome],
@@ -407,7 +427,8 @@ export default function Page() {
               type="button"
               onClick={() => setMobileTab(tab)}
               className={clsx(
-                'flex flex-1 flex-col items-center justify-center h-12 gap-0.5 text-[11px] transition',
+                'flex flex-col items-center justify-center gap-0.5 text-[11px] transition',
+                isLandscapeCompact ? 'w-full flex-1' : 'h-12 flex-1',
                 active ? 'font-bold text-blue-600' : 'text-slate-500 hover:text-slate-800',
               )}
             >
@@ -433,9 +454,15 @@ export default function Page() {
       {/* Mobilní spodní sheet detailu (C8-F7): při výběru nad mřížkou. Odsazení
           zdola počítá s home indikátorem, aby sheet nezmizel pod nav (CHANGE-55).
           `bottom-12 mb-[env(...)]` (ne přepočtený `bottom`), ať zůstane stabilní
-          CSS selektor `.fixed.inset-x-0.bottom-12` používaný napříč testy. */}
+          CSS selektor `.fixed.inset-x-0.bottom-12` používaný napříč testy. V
+          landscape-compact (FR-W2-1) není spodní nav, sheet jde až k okraji. */}
       {isMobile && hasSelection && mobileTab !== 'details' && (
-        <div className="no-print fixed inset-x-0 bottom-12 mb-[env(safe-area-inset-bottom,0px)] z-40 desk:hidden">
+        <div
+          className={clsx(
+            'no-print fixed inset-x-0 mb-[env(safe-area-inset-bottom,0px)] z-40 desk:hidden',
+            isLandscapeCompact ? 'bottom-0' : 'bottom-12',
+          )}
+        >
           <div
             className={clsx(
               'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
@@ -470,9 +497,16 @@ export default function Page() {
       {/* Spodní navigace (nav, `desk:hidden`) rezervuje safe-area-inset-bottom navíc
           k vlastní výšce — toast proto na mobilu počítá stejný odstup, ne pevných
           64px, aby na zaříznutých iPhonech neschovala pod navigaci (FR-W1-4,
-          design_review_73.md). Na desktopu (`desk:`) žádná spodní nav není. */}
+          design_review_73.md). Na desktopu (`desk:`) žádná spodní nav není.
+          V landscape-compact (FR-W2-1) je nav bočním railem, ne spodní lištou —
+          toast pak počítá jen se safe-area, ne s výškou navigace navíc. */}
       {showChangeToast && (
-        <div className="no-print pointer-events-none fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-50 -translate-x-1/2 desk:bottom-16">
+        <div
+          className={clsx(
+            'no-print pointer-events-none fixed left-1/2 z-50 -translate-x-1/2 desk:bottom-16',
+            isLandscapeCompact ? 'bottom-[calc(0.5rem+env(safe-area-inset-bottom,0px))]' : 'bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]',
+          )}
+        >
           <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-xl motion-safe:animate-[toastIn_180ms_ease-out]">
             <span>{lastActionLabel ?? 'Změna uložena do varianty'}</span>
             <button

@@ -49,14 +49,21 @@ export function formatTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** Svislá pozice bloku v px. */
-export function topPx(startMinutes: number): number {
-  return ((startMinutes - DAY_START_MIN) / 60) * HOUR_PX;
+/** Svislá pozice bloku v px. `hourPx` je volitelný — mobilní landscape používá
+ * nižší hustotu, ať se celý den vejde bez extrémního rolování (FR-W2-2,
+ * design_review_73.md). Výchozí `HOUR_PX` zachovává chování všude jinde. */
+export function topPx(startMinutes: number, hourPx: number = HOUR_PX): number {
+  return ((startMinutes - DAY_START_MIN) / 60) * hourPx;
 }
 
 /** Výška bloku v px (minimálně čitelná). */
-export function heightPx(startMinutes: number, endMinutes: number): number {
-  return Math.max(16, ((endMinutes - startMinutes) / 60) * HOUR_PX);
+export function heightPx(startMinutes: number, endMinutes: number, hourPx: number = HOUR_PX): number {
+  return Math.max(16, ((endMinutes - startMinutes) / 60) * hourPx);
+}
+
+/** Celková výška plochy dne v px pro danou hustotu (FR-W2-2). */
+export function gridHeightPx(hourPx: number = HOUR_PX): number {
+  return ((DAY_END_MIN - DAY_START_MIN) / 60) * hourPx;
 }
 
 /** Počet sloupců dne pro daný pohled. */

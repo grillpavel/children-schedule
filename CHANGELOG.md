@@ -6,6 +6,30 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 2 velkého UI/UX redesignu (CHANGE-82, částečně)
+
+Trigger: pokračování `design_review_73.md` po Vlně 1 (CHANGE-81). Implementovány 3 z 5 FR;
+FR-W2-4/FR-W2-5 (tabletové breakpointy) vyžadují explicitní rozhodnutí uživatele — kolidují
+s existujícím rozhodnutím o hranici třísloupcového layoutu (viz spec §0.3, BL-051).
+
+- Nový hook `useIsLandscapeCompact()` — mobil na šířku s málo výškou
+  (`(orientation: landscape) and (max-height: 500px)`) dostane boční rail (56px) místo spodní
+  navigace; obsah se posune `pl-14`; toast/sheet přizpůsobí spodní odsazení (FR-W2-1).
+- `grid.ts`: `topPx`/`heightPx`/nová `gridHeightPx` přijímají volitelný `hourPx` parametr
+  (výchozí `HOUR_PX=44` beze změny chování); `ScheduleGrid.tsx` v landscape-compact použije
+  `hourPx=26`, ať se den vejde do málo výšky bez extrémního rolování (FR-W2-2).
+- Sloupce dnů mořížky na mobilu mají `minmax(72px, 1fr)` + `overflow-x-auto` na scroll
+  kontejneru (dřív `minmax(0, 1fr)` — při 7 sloupcích napříč ~360px tísňovalo sloupce na
+  ~23px); časová osa je `sticky left-0`, ať zůstane viditelná při vodorovném scrollu (FR-W2-3).
+- Nový soubor `test/specs/landscape.spec.ts` (T-226/T-227, vlastní viewport 844×390, běží
+  jen na projektu `mobile`) + T-225 v `responsive.spec.ts`.
+- Vedější oprava během ověřování: T-220 (statická regex kontrola zdrojového kódu) počítala
+  s doslovným `className="flex h-dvh flex-col` — po přechodu kořenového divu na `clsx(...)`
+  bylo nutné regex rozvolnit na `/['"]flex h-dvh flex-col/`.
+
+Spec: `.github/specs/design_review_75.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E
+(6 profilů + landscape override) 0 failed.
+
 ### Vlna 1 velkého UI/UX redesignu (CHANGE-81)
 
 Trigger: `design_review_73.md` (DRAFT) konsolidoval velký HTML UI/UX audit do 3 vln FR kandidátů —

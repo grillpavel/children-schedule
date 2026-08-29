@@ -9,16 +9,17 @@ import {
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView, type Block } from '@/hooks/useScheduleView';
-import { useIsMobile } from '@/hooks/useBreakpoint';
+import { useIsMobile, useIsLandscapeCompact } from '@/hooks/useBreakpoint';
 import { MonthView } from './MonthView';
 import {
-  GRID_HEIGHT_PX,
   HOUR_MARKS,
+  HOUR_PX,
   DAY_WINDOW_START_MIN,
   DAY_WINDOW_END_MIN,
   WEEKDAYS,
   dateRangeLabel,
   formatTime,
+  gridHeightPx,
   heightPx,
   isSameDay,
   isoDateOf,
@@ -104,6 +105,10 @@ export function ScheduleGrid({
   const [mobileAgendaMode, setMobileAgendaMode] = useState<'agenda' | 'calendar'>('agenda');
   // Zdroj 900px zlomu je sdílený hook (FR-W1-1, design_review_73.md).
   const isMobile = useIsMobile();
+  // Mobil na šířku s málo výškou potřebuje nižší hustotu časové osy, jinak by
+  // blok nebyl čitelný ani po odrolování (FR-W2-2, design_review_73.md).
+  const isLandscapeCompact = useIsLandscapeCompact();
+  const hourPx = isLandscapeCompact ? 26 : HOUR_PX;
   const [focusedCol, setFocusedCol] = useState(0);
   const cellRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
@@ -147,7 +152,7 @@ export function ScheduleGrid({
       nowMinutes >= DAY_WINDOW_START_MIN && nowMinutes <= DAY_WINDOW_END_MIN
         ? nowMinutes
         : (DAY_WINDOW_START_MIN + DAY_WINDOW_END_MIN) / 2;
-    const centered = topPx(focus) + 26 - el.clientHeight / 2;
+    const centered = topPx(focus, hourPx) + 26 - el.clientHeight / 2;
     el.scrollTop = Math.max(0, centered);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, hasBlocks]);
@@ -393,27 +398,36 @@ export function ScheduleGrid({
               ref={gridRef}
               className="print-grid flex flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs"
             >
-              <div ref={scrollRef} className="flex flex-1 overflow-y-auto">
-                {/* Časová osa 00:00–24:00 */}
+              <div ref={scrollRef} className={clsx('flex flex-1 overflow-y-auto', isMobile && 'overflow-x-auto')}>
+                {/* Časová osa 00:00–24:00. `sticky` na mobilu, ať zůstává viditelná
+                    při vodorovném scrollu pevně širokých sloupců dnů (FR-W2-3). */}
                 <div
-                  className="relative w-10 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-500 font-medium"
-                  style={{ height: GRID_HEIGHT_PX + 26 }}
+                  className={clsx(
+                    'relative w-10 shrink-0 border-r border-slate-100 text-[11px] tabular-nums text-slate-500 font-medium',
+                    isMobile && 'sticky left-0 z-10 bg-white',
+                  )}
+                  style={{ height: gridHeightPx(hourPx) + 26 }}
                 >
                   {HOUR_MARKS.map((m) => (
                     <div
                       key={m}
                       className="absolute left-0 right-0 -translate-y-1/2 pl-1.5 text-slate-400"
-                      style={{ top: topPx(m) + 26 }}
+                      style={{ top: topPx(m, hourPx) + 26 }}
                     >
                       {formatTime(m)}
                     </div>
                   ))}
                 </div>
 
-                {/* Dny */}
+                {/* Dny. Na mobilu mají sloupce pevnou minimální šířku a přebytek
+                    scrolluje vodorovně, místo aby se při 7 sloupcích stísnaly do
+                    nečitelných ~23px (FR-W2-3, design_review_73.md). */}
                 <div
-                  className="flex-1"
-                  style={{ height: GRID_HEIGHT_PX + 26 }}
+                  className={clsx(isMobile ? 'shrink-0' : 'flex-1')}
+                  style={{
+                    height: gridHeightPx(hourPx) + 26,
+                    minWidth: isMobile ? dates.length * 72 : undefined,
+                  }}
                   role="grid"
                   aria-label="Rozvrh"
                   onKeyDown={(e) => {
@@ -433,7 +447,7 @@ export function ScheduleGrid({
                     role="row"
                     className="grid h-full"
                     style={{
-                      gridTemplateColumns: `repeat(${dates.length}, minmax(0, 1fr))`,
+                      gridTemplateColumns: `repeat(${dates.length}, minmax(${isMobile ? '72px' : '0'}, 1fr))`,
                     }}
                   >
                   {dates.map((date, idx) => {
@@ -487,7 +501,7 @@ export function ScheduleGrid({
                           <div
                             key={m}
                             className="absolute left-0 right-0 border-t border-slate-100"
-                            style={{ top: topPx(m) + 26 }}
+                            style={{ top: topPx(m, hourPx) + 26 }}
                           />
                         ))}
 
@@ -496,7 +510,7 @@ export function ScheduleGrid({
                           <div
                             data-testid="now-line"
                             className="pointer-events-none absolute left-0 right-0 z-20 border-t-2 border-red-500"
-                            style={{ top: topPx(nowMinutes) + 26 }}
+                            style={{ top: topPx(nowMinutes, hourPx) + 26 }}
                           >
                             <span className="absolute -left-1 -top-1.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white shadow-xs" />
                           </div>
@@ -517,8 +531,8 @@ export function ScheduleGrid({
                                 dim ? 'opacity-20' : 'opacity-60',
                               )}
                               style={{
-                                top: topPx(g.startMinutes) + 26,
-                                height: heightPx(g.startMinutes, g.endMinutes),
+                                top: topPx(g.startMinutes, hourPx) + 26,
+                                height: heightPx(g.startMinutes, g.endMinutes, hourPx),
                                 left: '4%',
                                 width: '92%',
                                 borderColor: g.fill,
@@ -548,8 +562,8 @@ export function ScheduleGrid({
                                 isSelected && 'ring-2 ring-blue-600 ring-offset-1 z-10 shadow-md',
                               )}
                               style={{
-                                top: topPx(item.startMinutes) + 26,
-                                height: heightPx(item.startMinutes, item.endMinutes),
+                                top: topPx(item.startMinutes, hourPx) + 26,
+                                height: heightPx(item.startMinutes, item.endMinutes, hourPx),
                                 left: `${leftPct}%`,
                                 width: `${widthPct}%`,
                                 backgroundColor: item.fill,

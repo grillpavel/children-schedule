@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import {
   colorForActivity,
   relevantExceptionDates,
+  type CustomEntry,
   type Weekday,
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
@@ -97,6 +98,8 @@ export function ScheduleGrid({
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const children = usePlannerStore((s) => s.state.children);
   const enrollments = usePlannerStore((s) => activeSchedule(s.state).enrollments);
+  const customEntries = usePlannerStore((s) => activeSchedule(s.state).customEntries);
+  const updateCustomEntry = usePlannerStore((s) => s.updateCustomEntry);
   const exceptions = usePlannerStore((s) => s.exceptions);
   const districtCode = usePlannerStore((s) => s.state.districtCode);
   const focusWeekday = usePlannerStore((s) => s.focusWeekday);
@@ -108,6 +111,27 @@ export function ScheduleGrid({
   // najednou, jestli obě děti stihne odvézt. Vypnuto výchozí, ať mřížka jednoho dítěte
   // nezůstala vizuálně přeplněná, když ji nikdo nepotřebuje.
   const [showFamily, setShowFamily] = useState(false);
+  // FR-W3-1 (design_review_73.md): drag & drop pro vlastní události — katalogové kroužky
+  // zůstávají needitovatelné (termín určuje poskytovatel), viz `item.activityId === undefined`
+  // guard na místech použití. `dragRef` nese živý stav gesta (nepotřebuje re-render při
+  // každém pixelu), `dragPreview` jen viditelnou náhledovou pozici.
+  interface DragState {
+    pointerId: number;
+    entryId: string;
+    sessionId: string;
+    startClientX: number;
+    startClientY: number;
+    duration: number;
+    dragging: boolean;
+  }
+  const dragRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef(false);
+  const [dragPreview, setDragPreview] = useState<{
+    sessionId: string;
+    weekday: Weekday;
+    startMinutes: number;
+    duration: number;
+  } | null>(null);
   // Zdroj 900px zlomu je sdílený hook (FR-W1-1, design_review_73.md).
   const isMobile = useIsMobile();
   // Mobil na šířku s málo výškou potřebuje nižší hustotu časové osy, jinak by
@@ -186,6 +210,107 @@ export function ScheduleGrid({
     () => relevantExceptionDates(exceptions, districtCode),
     [exceptions, districtCode],
   );
+
+  // FR-W3-1 (design_review_73.md): přesune JEN dotčenou session vlastní události (ne celý
+  // zápis) — vícedenní vlastní událost má jednu session na den, drag jedné z nich nesmí
+  // pohnout ostatními dny.
+  const moveCustomEntrySession = (
+    entryId: string,
+    sessionId: string,
+    weekday: Weekday,
+    startMinutes: number,
+    duration: number,
+  ) => {
+    const entry = customEntries.find((e) => e.id === entryId);
+    if (!entry) return;
+    const updated: CustomEntry = {
+      ...entry,
+      sessions: entry.sessions.map((s) =>
+        s.id === sessionId ? { ...s, weekday, startMinutes, endMinutes: startMinutes + duration } : s,
+      ),
+    };
+    updateCustomEntry(updated);
+  };
+
+  const DAY_MAX_MINUTES = 24 * 60;
+
+  /** Klávesová obdoba drag & drop (POVINNÁ, FR-W3-1): ↑/↓ posune o 5 min, ←/→ o den.
+   * `stopPropagation` — bez ní by bublalo do `role="grid"` listeneru, který ←/→ používá
+   * pro navigaci mezi sloupci (T-304), ne pro posun události. */
+  const handleBlockKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    item: Block,
+  ) => {
+    if (item.activityId !== undefined) return; // katalogové kroužky needitovatelné
+    const duration = item.endMinutes - item.startMinutes;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.key === 'ArrowUp' ? -5 : 5;
+      const next = Math.max(0, Math.min(DAY_MAX_MINUTES - duration, item.startMinutes + delta));
+      moveCustomEntrySession(item.ownerId, item.sessionId, item.weekday, next, duration);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.key === 'ArrowLeft' ? -1 : 1;
+      const next = Math.max(1, Math.min(7, item.weekday + delta)) as Weekday;
+      moveCustomEntrySession(item.ownerId, item.sessionId, next, item.startMinutes, duration);
+    }
+  };
+
+  /** Pointer drag & drop (FR-W3-1): práh 6px odliší tažení od kliknutí (ten dál otevírá
+   * detail). Cílový den/čas se čte z `data-weekday` nejbližší buňky pod ukazatelem —
+   * odolnější vůči zaokrouhlování šířek sloupců než ruční výpočet z `clientX`. */
+  const handleBlockPointerDown = (
+    e: React.PointerEvent<HTMLButtonElement>,
+    item: Block,
+  ) => {
+    if (item.activityId !== undefined) return;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      entryId: item.ownerId,
+      sessionId: item.sessionId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      duration: item.endMinutes - item.startMinutes,
+      dragging: false,
+    };
+  };
+
+  const handleBlockPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const dx = e.clientX - d.startClientX;
+    const dy = e.clientY - d.startClientY;
+    if (!d.dragging && Math.hypot(dx, dy) < 6) return;
+    if (!d.dragging) {
+      d.dragging = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = under?.closest<HTMLElement>('[data-weekday]');
+    if (!cell) return;
+    const weekday = Number(cell.dataset.weekday) as Weekday;
+    const rect = cell.getBoundingClientRect();
+    const rawMinutes = ((e.clientY - rect.top - 26) / hourPx) * 60;
+    const snapped = Math.round(rawMinutes / 5) * 5;
+    const clamped = Math.max(0, Math.min(DAY_MAX_MINUTES - d.duration, snapped));
+    setDragPreview({ sessionId: d.sessionId, weekday, startMinutes: clamped, duration: d.duration });
+  };
+
+  const handleBlockPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    if (d.dragging) {
+      const preview = dragPreview;
+      setDragPreview(null);
+      suppressClickRef.current = true;
+      if (preview && preview.sessionId === d.sessionId) {
+        moveCustomEntrySession(d.entryId, d.sessionId, preview.weekday, preview.startMinutes, d.duration);
+      }
+    }
+  };
 
   // Skupiny této aktivity, které už jsou zapsané — jejich duchy neukazujeme (FR-3).
   const enrolledGroupIds = useMemo(() => {
@@ -550,6 +675,7 @@ export function ScheduleGrid({
                         tabIndex={idx === focusedCol ? 0 : -1}
                         aria-label={`${info.long} ${date.getDate()}.${date.getMonth() + 1}.`}
                         onFocus={() => setFocusedCol(idx)}
+                        data-weekday={weekday}
                         className={clsx(
                           'relative border-r border-slate-100 last:border-r-0',
                           holiday && 'bg-slate-50/60',
@@ -621,18 +747,35 @@ export function ScheduleGrid({
                           const isSelected =
                             (item.activityId && item.activityId === selectedActivityId) ||
                             (item.ownerId && item.ownerId === selectedCustomEntryId);
+                          const isDraggable = item.activityId === undefined;
+                          const isBeingDragged = dragPreview?.sessionId === item.sessionId;
                           return (
                             <button
                               key={item.sessionId}
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                if (suppressClickRef.current) {
+                                  suppressClickRef.current = false;
+                                  return;
+                                }
                                 item.activityId
                                   ? selectActivity(item.activityId)
-                                  : selectCustomEntry(item.ownerId)
+                                  : selectCustomEntry(item.ownerId);
+                              }}
+                              onKeyDown={(e) => handleBlockKeyDown(e, item)}
+                              onPointerDown={(e) => handleBlockPointerDown(e, item)}
+                              onPointerMove={handleBlockPointerMove}
+                              onPointerUp={handleBlockPointerUp}
+                              title={
+                                isDraggable
+                                  ? 'Vlastní událost — přetáhněte myší nebo šipkami změňte den/čas'
+                                  : undefined
                               }
                               className={clsx(
                                 'absolute overflow-hidden rounded-lg p-1.5 text-left text-[11px] leading-tight shadow-sm transition motion-safe:animate-[blockIn_180ms_ease-out]',
+                                isDraggable && 'cursor-grab touch-none active:cursor-grabbing',
                                 isSelected && 'ring-2 ring-blue-600 ring-offset-1 z-10 shadow-md',
+                                isBeingDragged && 'opacity-40',
                               )}
                               style={{
                                 top: topPx(item.startMinutes, hourPx) + 26,
@@ -686,6 +829,20 @@ export function ScheduleGrid({
                             </button>
                           );
                         })}
+
+                        {/* FR-W3-1 (design_review_73.md): náhled cílové pozice během tažení. */}
+                        {dragPreview && dragPreview.weekday === weekday && (
+                          <div
+                            data-testid="drag-preview"
+                            className="pointer-events-none absolute rounded-lg border-2 border-dashed border-blue-500 bg-blue-500/15"
+                            style={{
+                              top: topPx(dragPreview.startMinutes, hourPx) + 26,
+                              height: heightPx(dragPreview.startMinutes, dragPreview.startMinutes + dragPreview.duration, hourPx),
+                              left: '2%',
+                              width: '96%',
+                            }}
+                          />
+                        )}
 
                         {/* FR-W3-3 (design_review_73.md): překryvová vrstva termínů ostatních dětí —
                             neinteraktivní, ať rodič vidí obě děti najednou bez rizika záměny kliku. */}

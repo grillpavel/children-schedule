@@ -530,3 +530,47 @@ test('T-229: přepínač „Zobrazit i sourozence" ukáže termín druhého dít
   await expect(page.getByTestId('family-block')).toHaveCount(0);
   await expect(page.getByTestId('family-overlap-badge')).toHaveCount(0);
 });
+
+test('T-232: klávesová obdoba drag & drop posune vlastní událost šipkami (design_review_73.md FR-W3-1)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(isCompact(width), 'mřížka je jen nad 900px — na mobilu je Agenda');
+  await addCustom(page, width, 'Kroužek přesun', '16:00', '17:00');
+
+  const block = page.getByRole('grid').getByRole('button', { name: /Kroužek přesun/ });
+  await block.focus();
+  await expect(block).toContainText('16:00–17:00');
+
+  // ↓ posune o 5 min (snap), 3× = 15 min.
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect(block).toContainText('16:15–17:15');
+
+  // → posune o den — z pondělí (default) na úterý; mřížka nesmí zůstat na pondělí.
+  await expect(page.getByRole('gridcell', { name: /pondělí/i }).getByRole('button', { name: /Kroužek přesun/ })).toHaveCount(1);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('gridcell', { name: /pondělí/i }).getByRole('button', { name: /Kroužek přesun/ })).toHaveCount(0);
+  await expect(page.getByRole('gridcell', { name: /úterý/i }).getByRole('button', { name: /Kroužek přesun/ })).toBeVisible();
+});
+
+test('T-233: přetažení myší přesune vlastní událost na jiný čas (design_review_73.md FR-W3-1)', async ({ page }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(isCompact(width), 'mřížka je jen nad 900px — na mobilu je Agenda');
+  await addCustom(page, width, 'Přesun myší', '10:00', '11:00');
+
+  const block = page.getByRole('grid').getByRole('button', { name: /Přesun myší/ });
+  await expect(block).toContainText('10:00–11:00');
+  const before = (await block.boundingBox())!;
+
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+  await page.mouse.down();
+  // Několik kroků, ať překročí 6px práh a reálně vygeneruje pointermove.
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2 + 30, { steps: 5 });
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2 + 60, { steps: 5 });
+  await page.mouse.up();
+
+  // Posun dolů = pozdější čas; přesný snap ověřuje T-232, tady jen že se čas skutečně změnil.
+  await expect(block).not.toContainText('10:00–11:00');
+  // Klik beze zvednutí myši z místa (bez tažení) by otevřel detail — po tažení zůstal zavřený.
+  await expect(page.getByText('Varianty docházky')).toHaveCount(0);
+});

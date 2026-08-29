@@ -6,6 +6,27 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3, FR-W3-1: drag & drop pro vlastní události — BL-052 DOKONČENO (CHANGE-90)
+
+Trigger: dokončení BL-052 (poslední položka Vlny 3) po CHANGE-89 (FR-W3-4).
+
+- `ScheduleGrid.tsx`: vlastní události (`CustomEntry`, katalogové kroužky needitovatelné) lze
+  přesunout pointer events tažením (práh 6px odliší od kliknutí, které dál otevírá detail) i
+  klávesovou obdobou (↑/↓ o 5 min snap, ←/→ o den) — obojí volá existující `updateCustomEntry`,
+  žádná změna domény.
+- Cílový den při tažení myší se čte z `data-weekday` atributu nejbližší `[role="gridcell"]` pod
+  ukazatelem (`document.elementFromPoint`), ne ručním přepočtem ze šířky sloupců.
+- Klávesové ↑/↓/←/→ na konkrétním bloku volají `e.stopPropagation()`, ať se nebubla do
+  `role="grid"` listeneru, který ←/→ používá pro navigaci MEZI sloupci (T-304 zůstal beze
+  změny zelený).
+- Nové testy T-232 (klávesová obdoba) a T-233 (skutečné tažení myší, `page.mouse.down/move/up`)
+  v `schedule.spec.ts`.
+- **BL-052 (Vlna 3, design_review_73.md) je tímto DOKONČENO** — plná tokenizace dark módu
+  zůstává samostatně jako BL-054 (mimo Vlnu 3).
+
+Spec: `.github/specs/design_review_83.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed.
+
 ### Vlna 3, FR-W3-4: sdílený odkaz na rozvrh (CHANGE-89)
 
 Trigger: pokračování BL-052 po CHANGE-88 (FR-W3-6 částečně).

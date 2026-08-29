@@ -190,3 +190,31 @@ test('T-159: autosave — zápis přežije reload stránky', async ({ page }, te
   await expect(page.getByText('Přidáno')).toHaveCount(1);
 });
 
+test('T-231: „Sdílet odkaz na rozvrh" přenese rozvrh do nové relace prohlížeče (design_review_73.md FR-W3-4)', async ({ page, browser }, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  await openCatalog(page, width);
+  await page.getByRole('searchbox').fill('Výtvarné');
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await cards(page).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+  await openCatalog(page, width);
+
+  await page.getByRole('button', { name: /Další ▾/ }).click();
+  await page.getByRole('button', { name: 'Sdílet odkaz na rozvrh' }).click();
+  const shareUrl = await page.evaluate(() => navigator.clipboard.readText());
+  expect(shareUrl, 'odkaz nese fragment #share= (nikdy neopustí prohlížeč přes server)').toContain('#share=');
+
+  // Nová relace = jiný „prohlížeč"/osoba, žádný sdílený localStorage s prvním page.
+  const context2 = await browser.newContext();
+  const page2 = await context2.newPage();
+  page2.once('dialog', (d) => d.accept());
+  await page2.goto(shareUrl);
+  await openCatalog(page2, width);
+  await expect(page2.getByText('Přidáno')).toHaveCount(1);
+  // Fragment se po zpracování odstraní z URL, ať se znovu nenačte při refreshi/zpět.
+  await expect.poll(() => page2.evaluate(() => window.location.hash)).toBe('');
+  await context2.close();
+});
+

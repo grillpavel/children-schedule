@@ -16,6 +16,7 @@ import {
   printSchedule,
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
+import { encodeStateToShareUrl } from '@/lib/shareLink';
 import { PrivacyDialog } from './PrivacyDialog';
 import {
   IconUndo,
@@ -28,6 +29,7 @@ import {
   IconUser,
   IconCheck,
   IconShield,
+  IconCopy,
 } from './Icons';
 
 export function Toolbar({
@@ -146,6 +148,20 @@ export function Toolbar({
     setMobileMenuOpen(false);
   };
 
+  // FR-W3-4 (design_review_73.md): appka nemá backend, rozvrh proto žije celý
+  // v URL fragmentu (nikdy neopustí prohlížeč přes access log serveru).
+  const shareLink = async () => {
+    try {
+      const url = await encodeStateToShareUrl(state);
+      await navigator.clipboard.writeText(url);
+      announce('Odkaz na rozvrh zkopírován do schránky');
+    } catch {
+      alert('Odkaz se nepodařilo vytvořit.');
+    }
+    setMenuOpen(false);
+    setMobileMenuOpen(false);
+  };
+
   const importJson = async (file: File) => {
     const text = await file.text();
     const isIcs =
@@ -232,6 +248,12 @@ export function Toolbar({
           <div className="flex items-center gap-2">
             <IconFolderOpen className="h-4 w-4 text-slate-500" />
             <span>Obrázek rozvrhu (.png)</span>
+          </div>
+        </MenuItem>
+        <MenuItem onClick={() => void shareLink()}>
+          <div className="flex items-center gap-2">
+            <IconCopy className="h-4 w-4 text-slate-500" />
+            <span>Sdílet odkaz na rozvrh</span>
           </div>
         </MenuItem>
         <MenuItem

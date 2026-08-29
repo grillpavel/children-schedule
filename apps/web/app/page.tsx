@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { serializePlannerState } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { loadAutosave, saveAutosave } from '@/lib/autosave';
+import { decodeShareHash } from '@/lib/shareLink';
 import { Toolbar } from '@/components/Toolbar';
 import { VariantTabs } from '@/components/VariantTabs';
 import { HomeScreen } from '@/components/HomeScreen';
@@ -260,14 +261,42 @@ export default function Page() {
 
   // Autosave (BL-030): obnova po připojení + uložení při každé změně stavu.
   // Subscribe místo efektu nad `state`, aby výchozí mount-render nepřepsal obnovu.
+  // Sdílený odkaz (FR-W3-4, design_review_73.md) má přednost před autosave — otevření
+  // odkazu je explicitní uživatelská akce (poslal ho někdo jiný), fragment se po
+  // zpracování odstraní z URL, ať se stejný stav nenačetl znovu při refreshi/zpět.
   useEffect(() => {
-    const restored = loadAutosave();
-    if (restored) {
-      hydrate(restored);
-      setSavedSignature(serializePlannerState(restored));
-    }
+    let cancelled = false;
+    void (async () => {
+      const shareResult = await decodeShareHash(window.location.hash);
+      if (cancelled) return;
+      if (shareResult) {
+        const clearHash = () =>
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        if (!shareResult.ok) {
+          alert(`Sdílený odkaz nelze načíst: ${shareResult.error}`);
+          clearHash();
+        } else if (
+          window.confirm('Otevřít sdílený rozvrh? Nahradí aktuální neuložený stav v tomto prohlížeči.')
+        ) {
+          hydrate(shareResult.state);
+          setSavedSignature(serializePlannerState(shareResult.state));
+          clearHash();
+          return;
+        } else {
+          clearHash();
+        }
+      }
+      const restored = loadAutosave();
+      if (restored) {
+        hydrate(restored);
+        setSavedSignature(serializePlannerState(restored));
+      }
+    })();
     const unsubscribe = usePlannerStore.subscribe((s) => setAutosaveOk(saveAutosave(s.state)));
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [hydrate]);
 
   const markSaved = (signature?: string) => {

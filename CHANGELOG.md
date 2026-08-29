@@ -6,6 +6,27 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3, FR-W3-4: sdílený odkaz na rozvrh (CHANGE-89)
+
+Trigger: pokračování BL-052 po CHANGE-88 (FR-W3-6 částečně).
+
+- Nová položka menu „Sdílet odkaz na rozvrh" (`Toolbar.tsx`) zkopíruje do schránky URL s
+  fragmentem `#share=<gz|raw>.<base64url>` nesoucím celý `PlannerState` (stejný rozsah jako
+  Uložit/.json). Fragment se nikdy neposílá na server (na rozdíl od query stringu), appka nemá
+  backend — „nejmenší varianta" z auditu.
+- Nový `apps/web/src/lib/shareLink.ts`: `CompressionStream('gzip')`/`DecompressionStream('gzip')`
+  (nativní Web Streams API, bez nové závislosti) s fallbackem beze komprese pro starší
+  prohlížeče. Znovupoužívá existující `parsePlannerState` (validace + migrace `schemaVersion`)
+  — žádná změna domény.
+- `page.tsx`: otevření odkazu má PŘEDNOST před autosave — `confirm()` před nahrazením
+  aktuálního neuloženého stavu, fragment se po zpracování odstraní z URL
+  (`history.replaceState`), ať se stejný stav nenačte znovu při refreshi/zpět.
+- Nový test T-231 (`persistence.spec.ts`): zápis → sdílení → otevření v ÚPLNĚ NOVÉ relaci
+  prohlížeče (`browser.newContext()`, žádný sdílený localStorage) ukáže stejný zápis.
+
+Spec: `.github/specs/design_review_82.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E sada
+0 failed.
+
 ### Vlna 3, FR-W3-6: audit mezer dark módu — bezpečnostní záplata (CHANGE-88)
 
 Trigger: pokračování BL-052 po CHANGE-87 (FR-W3-3).

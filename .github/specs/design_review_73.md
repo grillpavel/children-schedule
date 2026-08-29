@@ -1,7 +1,7 @@
 # Design Review 73 — Velký UI/UX/responzivní redesign (after_review_71, HTML audit)
 
-**Status:** DRAFT — čeká na prioritizaci, NEIMPLEMENTOVÁNO
-**Change ID:** (nepřiděleno — přidělí se při implementaci první vlny)
+**Status:** Vlna 1 IMPLEMENTOVANá (CHANGE-81, viz `design_review_74.md`); Vlna 2/3 zůstávají DRAFT — čekají na prioritizaci
+**Change ID:** CHANGE-81 (jen Vlna 1; Vlna 2/3 nemají přidělené ID)
 **Date:** 2026-08-29
 **Repo:** monorepo `Children_schedule`, dotkne se `apps/web` napříč layoutem/breakpointy/a11y
 **Trigger:** Uživatel sdílel `.github/audit/after_review_71/Audit Planovac krouzku.dc.html` — rozsáhlý
@@ -105,3 +105,6 @@ náročnosti) — uživatel vybere, která vlna/FR se má implementovat jako prv
   validovat proti aktuálnímu kódu stejně důkladně jako těch 7 výše, ne implementovat naslepo.
 - Žádná vlna nebyla implementována v tomto spec — čeká na rozhodnutí uživatele, která vlna/FR má
   prioritu. Až se vybere, vznikne konkrétní `design_review_<n+1>.md` + `CHANGE-<id>` jen pro tu část.
+
+**Aktualizace:** Vlna 1 (FR-W1-1 až FR-W1-6) implementována jako CHANGE-81 — viz `design_review_74.md`.
+Vlna 2 a Vlna 3 zůstávají DRAFT, čekají na další rozhodnutí uživatele (BL-050).

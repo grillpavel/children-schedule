@@ -283,8 +283,15 @@ export function Toolbar({
     <header className="no-print relative z-50 flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white px-3 py-2 shadow-sm">
       {/* Správa kalendářů (design_review_70.md): název (přejmenovatelné pole),
           přepínač mezi kalendáři a přidání/odebrání jsou VŽDY v horní liště, na
-          všech šířkách — dřív žila správa jen na mobilní záložce „Děti". */}
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm">
+          všech šířkách — dřív žila správa jen na mobilní záložce „Děti". `flex-nowrap
+          overflow-x-auto` místo `flex-wrap` (FR-W1-3, design_review_73.md): dlouhé
+          jméno kalendáře nebo víc kalendářů dřív mohly zalomit TENTO shluk na 2
+          řádky, což s řádkem 2 dávalo nepředvídatelně 3 řádky hlavičky na mobilu —
+          teď přebytek jen vodorovně scrolluje, hlavička zůstává max. na 2 řádcích.
+          `w-full` na mobilu (`desk:w-auto`): shluk musí zabrat celý řádek 1 sám,
+          jinak by se na volné místo vedle něj vešel i stavový pilulek z řádku 2
+          (T-184 regrese) — na desktopu vedle sebe žijí i s dalšími skupinami. */}
+      <div className="flex w-full min-w-0 max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm desk:w-auto">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white text-xs shadow-sm">
           {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-3.5 w-3.5" />}
         </div>
@@ -297,14 +304,14 @@ export function Toolbar({
           }}
           placeholder="Název kalendáře"
           aria-label="Název kalendáře"
-          className="min-w-0 w-28 rounded-md border-0 bg-transparent px-1 py-1 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
+          className="min-w-0 w-28 shrink-0 truncate rounded-md border-0 bg-transparent px-1 py-1 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
         />
         {state.children.length > 1 && (
           <select
             value={activeChildId}
             onChange={(e) => setActiveChild(e.target.value)}
             aria-label="Přepnout kalendář"
-            className="min-w-0 rounded-md border-0 bg-transparent py-1 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 max-w-[110px] shrink-0 truncate rounded-md border-0 bg-transparent py-1 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
           >
             {state.children.map((c) => (
               <option key={c.id} value={c.id}>
@@ -315,7 +322,7 @@ export function Toolbar({
         )}
         {addingCalendar ? (
           <form
-            className="flex items-center gap-1"
+            className="flex shrink-0 items-center gap-1"
             onSubmit={(e) => {
               e.preventDefault();
               addChild(newCalName);
@@ -329,7 +336,7 @@ export function Toolbar({
               onChange={(e) => setNewCalName(e.target.value)}
               placeholder="Název nového kalendáře"
               aria-label="Název nového kalendáře"
-              className="w-32 min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-32 min-w-0 shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             <button
               type="submit"

@@ -11,6 +11,7 @@ import {
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
+import { useIsMobile } from '@/hooks/useBreakpoint';
 import {
   IconSearch,
   IconClose,
@@ -199,15 +200,9 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
 
   // Mobil (<900px) prochází kategorie po jedné úrovni (kořen → podkategorie →
   // aktivity) místo „Rozbalit vše" (FR-6, design_review_58.md); tablet/desktop
-  // si drží dosavadní akordeon beze změny.
-  const [isMobileWidth, setIsMobileWidth] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 899.98px)');
-    const sync = () => setIsMobileWidth(media.matches);
-    sync();
-    media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
-  }, []);
+  // si drží dosavadní akordeon beze změny. Zdroj 900px zlomu je sdílený hook
+  // (FR-W1-1, design_review_73.md).
+  const isMobileWidth = useIsMobile();
   const [mobileDrillRoot, setMobileDrillRoot] = useState<string | null>(null);
   const [mobileDrillSub, setMobileDrillSub] = useState<string | null>(null);
   // „Rozbalit vše"/„Sbalit vše" fungují na všech šířkách beze změny (testy na tom

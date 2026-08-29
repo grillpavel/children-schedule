@@ -9,6 +9,7 @@ import {
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView, type Block } from '@/hooks/useScheduleView';
+import { useIsMobile } from '@/hooks/useBreakpoint';
 import { MonthView } from './MonthView';
 import {
   GRID_HEIGHT_PX,
@@ -101,7 +102,8 @@ export function ScheduleGrid({
 
   const [mode, setMode] = useState<ViewMode>('week');
   const [mobileAgendaMode, setMobileAgendaMode] = useState<'agenda' | 'calendar'>('agenda');
-  const [isMobile, setIsMobile] = useState(false);
+  // Zdroj 900px zlomu je sdílený hook (FR-W1-1, design_review_73.md).
+  const isMobile = useIsMobile();
   const [focusedCol, setFocusedCol] = useState(0);
   const cellRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
@@ -120,14 +122,6 @@ export function ScheduleGrid({
     };
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 899.98px)');
-    const sync = () => setIsMobile(media.matches);
-    sync();
-    media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
   }, []);
 
   // Souhrn požádal o den (C8-B7): přepni na denní pohled zvoleného dne v týdnu.

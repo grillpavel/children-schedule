@@ -6,6 +6,40 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 1 velkého UI/UX redesignu (CHANGE-81)
+
+Trigger: `design_review_73.md` (DRAFT) konsolidoval velký HTML UI/UX audit do 3 vln FR kandidátů —
+implementována **Vlna 1** (nízké riziko, žádná změna datového modelu). Scope: **app `@krouzky/web`**.
+
+- Nový sdílený hook `src/hooks/useBreakpoint.ts` (`useIsMobile`/`useIsWide`) nahrazuje 3 nezávislá
+  `matchMedia('(max-width: 899.98px)')` volání v `page.tsx`/`CatalogPanel.tsx`/`ScheduleGrid.tsx` —
+  jediný zdroj 900px zlomu (FR-W1-1). Hook používá `useLayoutEffect` (isomorfní fallback na
+  `useEffect` na serveru), ne `useEffect` — na mobilu už nezabliká krátce desktopová větev při
+  prvním vykreslení (FR-W1-2).
+- Shluk správy kalendářů v `Toolbar.tsx`: `flex-wrap`→`flex-nowrap overflow-x-auto` + `w-full` na
+  mobilu — dlouhé jméno kalendáře nebo víc kalendářů dřív mohlo zalomit shluk na 2 řádky, což s
+  řádkem 2 dávalo nepředvídatelně 3 řádky hlavičky; teď přebytek jen vodorovně scrolluje a hlavička
+  zůstává max. na 2 řádcích (FR-W1-3).
+- Toast (`showChangeToast`) na mobilu počítá odstup od spodní navigace přes
+  `bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]` místo pevných `bottom-16` — na
+  zaříznutých iPhonech (home indicator) už nemizí pod spodní navigací (FR-W1-4).
+- `<input>`/`<select>`/`<textarea>` na mobilu mají vynucené `font-size: 16px !important` —
+  iOS Safari už nepřibližuje stránku při fokusu na pole (FR-W1-5, zúženo na mechanickou/měřitelnou
+  část; plná typografická škála 13/15/20/28px nebyla implementována, viz Non-goals ve spec).
+- Font Inter se reálně načítá přes `next/font/google` (`subsets: ['latin', 'latin-ext']` kvůli
+  české diakritice) — dřív byl `font-family: Inter` v `globals.css` jen deklarovaný, appka běžela na
+  systémovém fontu (FR-W1-6).
+- Nové testy T-221 (toast safe-area), T-222 (hlavička nezalomí do 3 řádků), T-223 (16px pole na
+  mobilu), T-224 (Inter reálně načtený).
+- Vedlejší nález/oprava při ověřování: `w-full` na shluku správy kalendářů byl nutný, protože bez
+  něj by na 390px šířce (`mobile` profil) shluk uvolnil místo pro sdílení řádku se stavovou
+  pilulkou, což rozbíjelo zarovnání řádku 2 (T-184 regrese, opraveno před commitem).
+
+Spec: `.github/specs/design_review_74.md`. Verifikováno: `tsc --noEmit` (web) čisté, doménové testy
+125 passed, plná E2E `--workers=1` na všech 6 profilech = 678 passed / 138 skipped / 0 failed
+(vizuální baseline `toolbar.png`/`empty-info.png`/`catalog-filtered.png`/`info-dark.png`/
+`sheet-glass-*.png` přegenerovány — Inter má jinou metriku než systémový font).
+
 ### Funkční audit chyb: 8 tichých selhání opraveno (CHANGE-80)
 
 Trigger: uživatel sdílel audit `.github/audit/after_review_71/` — funkční audit chybových stavů (8

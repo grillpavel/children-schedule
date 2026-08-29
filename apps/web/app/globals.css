@@ -32,6 +32,18 @@ button:not(.no-min-target) {
   min-width: 24px;
 }
 
+/* iOS Safari při fokusu přiblíží stránku, pokud má pole font-size < 16px —
+   `!important` je zde záměrná výjimka, aby přebíla libovolnou Tailwind
+   `text-xs`/`text-sm` třídu na jednotlivých policích (FR-W1-5, design_review_73.md).
+   Jen na mobilu (<900px) — desktopová typografie se nemění. */
+@media (max-width: 899.98px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 
 /* Skleněný povrch jen pro ambientní kontejnery/přechodné vrstvy (C9-G). */
 .glass {
@@ -74,8 +86,9 @@ body {
 
 body {
   @apply bg-slate-100 text-slate-900;
-  /* Pořadí fontů: Inter s fallbackem, ne naopak (C9-Y4). */
-  font-family: Inter, system-ui, sans-serif;
+  /* Pořadí fontů: reálně načtený Inter (next/font/google, viz layout.tsx) s
+     fallbackem, ne naopak (C9-Y4, FR-W1-6 design_review_73.md). */
+  font-family: var(--font-inter), system-ui, sans-serif;
 }
 
 /* Viditelný focus ring pro klávesovou obsluhu (C9-A1). */

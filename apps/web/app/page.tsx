@@ -13,6 +13,7 @@ import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
 import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize, IconPlus } from '@/components/Icons';
+import { useIsMobile, useIsWide } from '@/hooks/useBreakpoint';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
 // serveru, hydratace by narazila na jiný „dnešek" na klientu (CHANGE-34). Proto
@@ -199,8 +200,9 @@ export default function Page() {
   const [savedSignature, setSavedSignature] = useState(stateSignature);
   const [showChangeToast, setShowChangeToast] = useState(false);
   const [autosaveOk, setAutosaveOk] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isWide, setIsWide] = useState(false);
+  // Jediný zdroj 900px/1440px zlomu (FR-W1-1, design_review_73.md).
+  const isMobile = useIsMobile();
+  const isWide = useIsWide();
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -208,23 +210,6 @@ export default function Page() {
   const previousHistoryRef = useRef(historyLength);
   const isDirty = stateSignature !== savedSignature;
   const hasSelection = selectedActivityId !== null || selectedCustomEntryId !== null;
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 899.98px)');
-    const sync = () => setIsMobile(media.matches);
-    sync();
-    media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
-  }, []);
-
-  // Třísloupcový layout platí až od 1440 px (C9-L1). Mezi 900–1440 je Info slide-over.
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 1440px)');
-    const sync = () => setIsWide(media.matches);
-    sync();
-    media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
-  }, []);
 
   // Klávesové zkratky undo/redo.
   useEffect(() => {
@@ -482,8 +467,12 @@ export default function Page() {
         </div>
       )}
 
+      {/* Spodní navigace (nav, `desk:hidden`) rezervuje safe-area-inset-bottom navíc
+          k vlastní výšce — toast proto na mobilu počítá stejný odstup, ne pevných
+          64px, aby na zaříznutých iPhonech neschovala pod navigaci (FR-W1-4,
+          design_review_73.md). Na desktopu (`desk:`) žádná spodní nav není. */}
       {showChangeToast && (
-        <div className="no-print pointer-events-none fixed bottom-16 left-1/2 z-50 -translate-x-1/2">
+        <div className="no-print pointer-events-none fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-50 -translate-x-1/2 desk:bottom-16">
           <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-xl motion-safe:animate-[toastIn_180ms_ease-out]">
             <span>{lastActionLabel ?? 'Změna uložena do varianty'}</span>
             <button

@@ -344,3 +344,78 @@ test('T-220: shell používá 100dvh a rezervuje safe-area pro spodní navigaci/
   const safeAreaCount = (src.match(/env\(safe-area-inset-bottom/g) ?? []).length;
   expect(safeAreaCount, 'nav i sheet musí rezervovat safe-area-inset-bottom').toBeGreaterThanOrEqual(2);
 });
+
+test('T-221: toast po přidání zůstává nad spodní navigací i se safe-area (design_review_73.md FR-W1-4)', async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'spodní navigace existuje jen na kompaktních profilech');
+  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
+  await page.getByRole('button', { name: 'Rozbalit vše' }).click();
+  await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
+  await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
+
+  const toastBtn = page.getByRole('button', { name: 'Zpět', exact: true });
+  await expect(toastBtn).toBeVisible();
+  const toastBox = await toastBtn.locator('..').boundingBox();
+  const navBox = await page.getByRole('navigation').boundingBox();
+  expect(toastBox, 'toast nenalezen').not.toBeNull();
+  expect(navBox, 'spodní navigace nenalezena').not.toBeNull();
+  expect(
+    toastBox!.y + toastBox!.height,
+    `toast (spodek ${Math.round(toastBox!.y + toastBox!.height)}) překrývá navigaci (vrch ${Math.round(navBox!.y)})`,
+  ).toBeLessThanOrEqual(navBox!.y);
+});
+
+test('T-222: hlavička s dlouhým jménem kalendáře nezalomí do 3 řádků (design_review_73.md FR-W1-3)', async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'zalomení hrozí jen na úzkých šířkách');
+  const nameInput = page.getByLabel('Název kalendáře');
+  await nameInput.fill('Velmi Dlouhé Jméno Dítěte Pro Test Zalomení Řádku');
+  await nameInput.blur();
+
+  // Shluk správy kalendářů musí zůstat na JEDNOM řádku (vodorovně scrolluje,
+  // nezalomí) — pozná se tak, že jeho scrollWidth přesahuje clientWidth.
+  const clusterOverflowsHorizontally = await nameInput.evaluate((el) => {
+    const cluster = el.parentElement;
+    return cluster ? cluster.scrollWidth > cluster.clientWidth + 1 || cluster.scrollWidth >= cluster.clientWidth : false;
+  });
+  expect(clusterOverflowsHorizontally, 'shluk správy kalendářů nemá vodorovný scroll k dispozici').toBe(true);
+
+  // Hlavička jako celek zůstává max. na 2 řádcích (shluk kalendářů + řádek stavu/historie).
+  const rowTops = await page.evaluate(() => {
+    const header = document.querySelector('header');
+    if (!header) return [];
+    const tops = new Set<number>();
+    for (const el of Array.from(header.children)) {
+      const box = (el as HTMLElement).getBoundingClientRect();
+      if (box.height > 0) tops.add(Math.round(box.top));
+    }
+    return Array.from(tops);
+  });
+  expect(rowTops.length, `hlavička má ${rowTops.length} odlišných řádků: ${rowTops.join(', ')}`).toBeLessThanOrEqual(2);
+});
+
+test('T-223: textová pole na mobilu mají font-size ≥16px, ať iOS nezoomuje při fokusu (design_review_73.md FR-W1-5)', async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(!isCompact(width), 'iOS auto-zoom se týká jen kompaktních šířek');
+  const nameInput = page.getByLabel('Název kalendáře');
+  await expect(nameInput).toBeVisible();
+  const fontSize = await nameInput.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(fontSize, `font-size ${fontSize}px`).toBeGreaterThanOrEqual(16);
+});
+
+test('T-224: font Inter je reálně načtený, ne jen deklarovaný (design_review_73.md FR-W1-6)', async ({ page }) => {
+  const fontFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  expect(fontFamily, `font-family: ${fontFamily}`).toMatch(/Inter/i);
+  const loaded = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return Array.from(document.fonts).some((f) => /Inter/i.test(f.family) && f.status === 'loaded');
+  });
+  expect(loaded, 'žádný Inter FontFace nemá status "loaded"').toBe(true);
+});
+

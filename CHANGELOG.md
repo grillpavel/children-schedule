@@ -6,6 +6,25 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlna 3 velkého UI/UX redesignu, první část (CHANGE-83)
+
+Trigger: pokračování `design_review_73.md` po Vlně 1 (CHANGE-81) a Vlně 2 (CHANGE-82).
+Implementovány 2 z 8 FR, zuženě; zbývajících 6 (drag&drop, návrh alternativních termínů,
+multi-dítě překryv, sdílený odkaz, tokenizace dark modu, decluttering toolbaru) jsou
+samostatné netřiviální práce (viz spec §0.3, BL-052).
+
+- Textová `sr-only` alternativa mřížky (den/čas/název/konflikt) pro čtečky obrazovky —
+  vizuální `role="grid"` struktura beze změny (přepis na řádky-po-hodinách by rozbil desítky
+  testů vázaných na dnešní model `gridcell = den`, FR-W3-5).
+- Klávesová zkratka „/" fokusuje hledání katalogu (na mobilu nejprve přepne na záložku
+  „Katalog"); klávesy `1`–`4` přepnou pohled Den/3 dny/Týden/Měsíc na desktopu (FR-W3-8,
+  zúženě — bez ↑/↓ mezi „časovými sloty" a Enter/Delete, které by vyžadovaly nový
+  interakční model bez jasného zadání).
+- Nové testy T-311/T-312/T-313 v `a11y.spec.ts`.
+
+Spec: `.github/specs/design_review_76.md`. Ověřeno: `tsc --noEmit` (web) čisté, plná E2E
+sada beze změny vizuálních baseline (čistě aditivní změny).
+
 ### Vlna 2 velkého UI/UX redesignu (CHANGE-82, částečně)
 
 Trigger: pokračování `design_review_73.md` po Vlně 1 (CHANGE-81). Implementovány 3 z 5 FR;

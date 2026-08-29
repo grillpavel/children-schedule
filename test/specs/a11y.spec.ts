@@ -176,6 +176,42 @@ test('T-305: celý tok přidání funguje bez tažení', async ({ page }, testIn
   await expect(page.getByText('Přidáno')).toHaveCount(1);
 });
 
+test('T-311: klávesová zkratka „/" přeskočí do hledání katalogu (design_review_73.md FR-W3-8)', async ({ page }) => {
+  await expect(page.getByRole('banner')).toBeVisible();
+  await page.keyboard.press('/');
+  await expect(page.locator('[data-catalog-search]')).toBeFocused();
+});
+
+test('T-312: klávesy 1–4 přepnou pohled Den/3 dny/Týden/Měsíc (design_review_73.md FR-W3-8)', async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  test.skip(isCompact(width), 'přepínač pohledu je vidět jen na desktopu');
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click().catch(() => {});
+  // Klik mimo pole (grid je od začátku fokusovaný na body).
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('1');
+  await expect(page.getByRole('button', { name: 'Den', exact: true })).toHaveClass(/bg-white/);
+  await page.keyboard.press('3');
+  await expect(page.getByRole('button', { name: 'Týden', exact: true })).toHaveClass(/bg-white/);
+});
+
+test('T-313: mřížka nese textovou souhrnnou alternativu pro čtečky (design_review_73.md FR-W3-5)', async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.use.viewport!.width;
+  await enrollFirst(page, width);
+  if (isCompact(width)) {
+    // Na mobilu je výchozí pohled Agenda (sama o sobě textová) — sr-only
+    // souhrn patří k vizuální mřížce, přepnout na záložku „Mřížka".
+    await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+    await page.getByRole('tab', { name: 'Mřížka' }).click();
+  }
+  const summary = page.locator('.sr-only').filter({ hasText: 'Rozvrh — textový souhrn' });
+  await expect(summary).toHaveCount(1);
+  await expect(summary).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+});
+
 test('T-306: prefers-reduced-motion vypne animace i přechody', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await page.emulateMedia({ reducedMotion: 'reduce' });

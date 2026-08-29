@@ -226,6 +226,25 @@ export default function Page() {
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
 
+  // Klávesová zkratka „/" (FR-W3-8, design_review_73.md): skok do hledání v
+  // katalogu, běžná konvence (GitHub, Slack…). Ignoruje se, když uživatel
+  // právě píše do pole, ať nekolidují lomítka v adrese/textu.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      e.preventDefault();
+      if (isMobile) setMobileTab('catalog');
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLInputElement>('[data-catalog-search]')?.focus();
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobile]);
+
   // Escape zavře vybraný detail / mobilní sheet / Souhrn drawer (C9-A4).
   useEffect(() => {
     if (!hasSelection && !mediumInfoOpen) return;

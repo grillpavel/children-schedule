@@ -157,6 +157,25 @@ export function ScheduleGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, hasBlocks]);
 
+  // Klávesové zkratky 1–4 přepnou pohled Den/3 dny/Týden/Měsíc (FR-W3-8,
+  // design_review_73.md) — jen na desktopu, kde je přepínač vidět; na mobilu
+  // `mode` řídí jen datový rozsah bez viditelného UI (přepínač je `!isMobile`).
+  useEffect(() => {
+    if (isMobile) return;
+    const map: Record<string, ViewMode> = { '1': 'day', '2': '3day', '3': 'week', '4': 'month' };
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      const next = map[e.key];
+      if (!next) return;
+      e.preventDefault();
+      setMode(next);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobile]);
+
   const dates = visibleDates(mode, anchorDate);
   const holidayDates = useMemo(
     () => relevantExceptionDates(exceptions, districtCode),
@@ -398,6 +417,32 @@ export function ScheduleGrid({
               ref={gridRef}
               className="print-grid flex flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs"
             >
+              {/* Textová souhrnná alternativa pro čtečky obrazovky (FR-W3-5,
+                  design_review_73.md): vizuální mřížka má dny vedle sebe v JEDNOM
+                  `role="row"` — čtečka by ohlásila „řádek 1 z 1", což je zavádějící.
+                  Přepsat mřížku na poctivé řádky-po-hodinách by vyžadovalo změnit
+                  `gridcell` model z „den" na „den×hodina" a rozbilo by desítky
+                  testů vázaných na dnešní `getByRole('gridcell', {{name: den}})` —
+                  proto radši PŘIDAT čitelnou alternativu, ne měnit stávající
+                  strukturu (mřížka i klávesová navigace šipkami zůstávají beze
+                  změny, viz design_review_75.md §0.3 pro obdobné odůvodnění). */}
+              <div className="sr-only" aria-live="off">
+                <h3>Rozvrh — textový souhrn</h3>
+                {agendaItems.length === 0 ? (
+                  <p>V zobrazeném rozsahu nejsou žádné kroužky.</p>
+                ) : (
+                  <ul>
+                    {agendaItems.map((item) => (
+                      <li key={`sr-${item.sessionId}`}>
+                        {WEEKDAYS[item.weekday - 1]?.long} {formatTime(item.startMinutes)}–
+                        {formatTime(item.endMinutes)}: {item.label}
+                        {item.hasHardConflict ? `, tvrdý konflikt: ${item.conflictMessage ?? ''}` : ''}
+                        {item.hasSoftConflict && !item.hasHardConflict ? ', upozornění na kolizi' : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <div ref={scrollRef} className={clsx('flex flex-1 overflow-y-auto', isMobile && 'overflow-x-auto')}>
                 {/* Časová osa 00:00–24:00. `sticky` na mobilu, ať zůstává viditelná
                     při vodorovném scrollu pevně širokých sloupců dnů (FR-W2-3). */}

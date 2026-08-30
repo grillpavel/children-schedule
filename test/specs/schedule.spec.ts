@@ -31,6 +31,10 @@ async function addCustom(
   await page.getByRole('button', { name: /Vlastní událost/ }).click();
   const dialog = page.locator('.fixed.inset-0.z-50');
   await dialog.getByPlaceholder('Např. Logopedie').fill(name);
+  // Na mobilu je výchozí pohled ukotven na „dnešek“ (úterý ve zmrazeném čase,
+  // BL-055 fix z CHANGE-97) — bez výběru dne by výchozí pondělí bylo mimo
+  // 3denní okno a blok by v mřížce nebyl vidět.
+  if (isCompact(width)) await dialog.locator('select').first().selectOption('2');
   await dialog.locator('input[type="time"]').nth(0).fill(start);
   await dialog.locator('input[type="time"]').nth(1).fill(end);
   if (address) await dialog.getByLabel('Místo / Adresa').fill(address);
@@ -179,6 +183,10 @@ test('T-163: krátký přesun mezi různými místy nese logistické upozorněn�
     await page.getByRole('button', { name: /Vlastní událost/ }).click();
     const dialog = page.locator('.fixed.inset-0.z-50');
     await dialog.getByPlaceholder('Např. Logopedie').fill(name);
+    // Na mobilu je výchozí pohled ukotven na „dnešek“ (úterý ve zmrazeném čase,
+    // BL-055 fix z CHANGE-97) — bez výběru dne by výchozí pondělí bylo mimo
+    // 3denní okno a blok by v mřížce nebyl vidět.
+    if (isCompact(width)) await dialog.locator('select').first().selectOption('2');
     await dialog.locator('input[type="time"]').nth(0).fill(start);
     await dialog.locator('input[type="time"]').nth(1).fill(end);
     await dialog.getByPlaceholder('Ulice a číslo, Město').fill(address);
@@ -210,6 +218,10 @@ test('T-175: zkrácení času na přesun na 0 min odstraní logistické upozorn�
     await page.getByRole('button', { name: /Vlastní událost/ }).click();
     const dialog = page.locator('.fixed.inset-0.z-50');
     await dialog.getByPlaceholder('Např. Logopedie').fill(name);
+    // Na mobilu je výchozí pohled ukotven na „dnešek“ (úterý ve zmrazeném čase,
+    // BL-055 fix z CHANGE-97) — bez výběru dne by výchozí pondělí bylo mimo
+    // 3denní okno a blok by v mřížce nebyl vidět.
+    if (isCompact(width)) await dialog.locator('select').first().selectOption('2');
     await dialog.locator('input[type="time"]').nth(0).fill(start);
     await dialog.locator('input[type="time"]').nth(1).fill(end);
     await dialog.getByPlaceholder('Ulice a číslo, Město').fill(address);
@@ -331,6 +343,10 @@ test('T-177: vlastní událost může mít vlastní barvu, ne jen výchozí podl
   await page.getByRole('button', { name: /Vlastní událost/ }).click();
   const dialog = page.locator('.fixed.inset-0.z-50');
   await dialog.getByPlaceholder('Např. Logopedie').fill('Barevná událost');
+  // Na mobilu je výchozí pohled ukotven na „dnešek“ (úterý ve zmrazeném čase,
+  // BL-055 fix z CHANGE-97) — bez výběru dne by výchozí pondělí bylo mimo
+  // 3denní okno a blok by v mřížce nebyl vidět.
+  if (isCompact(width)) await dialog.locator('select').first().selectOption('2');
   await dialog.locator('input[type="time"]').nth(0).fill('16:00');
   await dialog.locator('input[type="time"]').nth(1).fill('17:00');
   // „Jiné" (výchozí typ) nemá vlastní barvu v KIND_DEFAULT_CSS — bez přepisu by byla šedomodrá.

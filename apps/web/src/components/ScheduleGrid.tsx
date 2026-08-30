@@ -25,7 +25,6 @@ import {
   isoDateOf,
   isoWeekdayOf,
   shiftAnchor,
-  startOfIsoWeek,
   topPx,
   visibleDates,
   type ViewMode,
@@ -114,6 +113,19 @@ export function ScheduleGrid({
   // najednou, jestli obě děti stihne odvézt. Vypnuto výchozí, ať mřížka jednoho dítěte
   // nezůstala vizuálně přeplněná, když ji nikdo nepotřebuje.
   const [showFamily, setShowFamily] = useState(false);
+  // Rozšíření FR-W3-3 (design_review_90.md): dřív se termíny sourozenců kreslily jako
+  // průsvitný overlay PŘES celou šířku sloupce dne — reálně se tak stále překrývaly s
+  // vlastními bloky aktivního dítěte. Teď se den při "Zobrazit i sourozence" rozdělí na
+  // N stejných svislých pruhů (N = počet dětí), každé dítě dostane svůj pruh — nic se
+  // vizuálně nepřekrývá. Pořadí dětí je stabilní (pořadí v `state.children`).
+  const familyChildOrder = showFamily ? children.map((c) => c.id) : [activeChildId];
+  const familySliceCount = familyChildOrder.length;
+  const familySlicePct = (childId: string): { left: number; width: number } => {
+    const idx = familyChildOrder.indexOf(childId);
+    if (idx === -1 || familySliceCount <= 1) return { left: 0, width: 100 };
+    return { left: (idx / familySliceCount) * 100, width: 100 / familySliceCount };
+  };
+  const activeChildSlice = familySlicePct(activeChildId);
   // FR-W3-1 (design_review_73.md): drag & drop pro vlastní události — katalogové kroužky
   // zůstávají needitovatelné (termín určuje poskytovatel), viz `item.activityId === undefined`
   // guard na místech použití. `dragRef` nese živý stav gesta (nepotřebuje re-render při
@@ -172,14 +184,15 @@ export function ScheduleGrid({
 
   // M5 (design_review_86.md; BL-055 design_review_87.md): sedm sloupců na mobilu
   // nikdy nejde vidět celé bez vodorovného scrollu — výchozí pohled na mobilu je
-  // '3day' od PONDĜLÍ aktuálního týdne (ne od dneška), ať nově přidaná událost
-  // (dialog výchozí na pondělí) nezmizela mimo výchozí okno beze změny navigace.
+  // '3day'. Kotva zůstává na DNEŠKU (design_review_90.md) — dřív se posouvala na
+  // pondělí aktuálního týdne, aby nově přidaná událost (dialog dřív defaultoval na
+  // pondělí) neskončila mimo okno; teď dialog sám defaultuje na dnešní den, takže
+  // kotva na "dnes" už nikoho neschová a navíc VŽDY ukáže funkční "now" čáru.
   // Ref hlídá, ať se pozdější ruční volba uživatele (jiný režim/den) nepřepsála zpět.
   useEffect(() => {
     if (isMobile && !appliedMobileDefaultRef.current) {
       appliedMobileDefaultRef.current = true;
       setMode('3day');
-      setAnchorDate((prev) => startOfIsoWeek(prev));
     }
   }, [isMobile]);
 
@@ -199,6 +212,10 @@ export function ScheduleGrid({
   // Osa je celodenní (C11); po zobrazení mřížky odroluj tak, aby nahoře byl
   // vidět rovnou 12:00 (design_review_88.md — dřív se centrovalo na aktuální
   // čas/střed 07–21 okna, uživatel chtěl stabilní výchozí pohled od poledne).
+  // `mobileAgendaMode` v závislostech (design_review_90.md): na mobilu je grid
+  // podmíněně MOUNTOVANÝ jen v režimu "calendar" (Agenda je výchozí) — bez
+  // tohoto pole efekt při prvním přepnutí z Agendy do Mřížky nikdy neproběhl
+  // (mode/hasBlocks se nezměnily, i když DOM prvek vznikl nový se scrollTop=0).
   const hasBlocks = view.blocks.length > 0;
   useEffect(() => {
     const el = scrollRef.current;
@@ -206,7 +223,7 @@ export function ScheduleGrid({
     const NATIVE_SCROLL_HOUR_MIN = 12 * 60;
     el.scrollTop = Math.max(0, topPx(NATIVE_SCROLL_HOUR_MIN, hourPx));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, hasBlocks]);
+  }, [mode, hasBlocks, mobileAgendaMode]);
 
   // Klávesové zkratky 1–4 přepnou pohled Den/3 dny/Týden/Měsíc (FR-W3-8,
   // design_review_73.md) — jen na desktopu, kde je přepínač vidět; na mobilu
@@ -765,6 +782,17 @@ export function ScheduleGrid({
                           />
                         ))}
 
+                        {/* Svislé oddělovače pruhů dětí (design_review_90.md) — jen když je den
+                            skutečně rozdělený (víc než 1 dítě, "Zobrazit i sourozence" zapnuto). */}
+                        {familySliceCount > 1 &&
+                          familyChildOrder.slice(1).map((childId, i) => (
+                            <div
+                              key={`slice-${childId}`}
+                              className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-slate-200"
+                              style={{ left: `${((i + 1) / familySliceCount) * 100}%` }}
+                            />
+                          ))}
+
                         {/* Duchové (možné termíny) */}
                         {dayGhosts.map((g, i) => {
                           const dim = hoveredGroupId && hoveredGroupId !== g.groupId;
@@ -826,8 +854,8 @@ export function ScheduleGrid({
                               style={{
                                 top: topPx(item.startMinutes, hourPx) + 26,
                                 height: heightPx(item.startMinutes, item.endMinutes, hourPx),
-                                left: `${leftPct}%`,
-                                width: `${widthPct}%`,
+                                left: `${activeChildSlice.left + (leftPct / 100) * activeChildSlice.width}%`,
+                                width: `${(widthPct / 100) * activeChildSlice.width}%`,
                                 backgroundColor: item.fill,
                                 color: item.text,
                               }}
@@ -896,7 +924,8 @@ export function ScheduleGrid({
                           );
                         })}
 
-                        {/* FR-W3-1 (design_review_73.md): náhled cílové pozice během tažení. */}
+                        {/* FR-W3-1 (design_review_73.md): náhled cílové pozice během tažení —
+                            ve vlastním pruhu aktivního dítěte (design_review_90.md). */}
                         {dragPreview && dragPreview.weekday === weekday && (
                           <div
                             data-testid="drag-preview"
@@ -904,15 +933,19 @@ export function ScheduleGrid({
                             style={{
                               top: topPx(dragPreview.startMinutes, hourPx) + 26,
                               height: heightPx(dragPreview.startMinutes, dragPreview.startMinutes + dragPreview.duration, hourPx),
-                              left: '2%',
-                              width: '96%',
+                              left: `${activeChildSlice.left + 0.02 * activeChildSlice.width}%`,
+                              width: `${0.96 * activeChildSlice.width}%`,
                             }}
                           />
                         )}
 
-                        {/* FR-W3-3 (design_review_73.md): překryvová vrstva termínů ostatních dětí —
-                            neinteraktivní, ať rodič vidí obě děti najednou bez rizika záměny kliku. */}
-                        {dayFamilyBlocks.map((fb) => (
+                        {/* FR-W3-3 (design_review_73.md) + rozdělení sloupce (design_review_90.md): den
+                            se při "Zobrazit i sourozence" rozdělí na N stejných pruhů (N = počet dětí),
+                            každé dítě má svůj pruh — nic se vizuálně nepřekrývá. Neinteraktivní,
+                            ať rodič vidí všechny děti najednou bez rizika záměny kliku. */}
+                        {dayFamilyBlocks.map((fb) => {
+                          const fbSlice = familySlicePct(fb.childId);
+                          return (
                           <div
                             key={fb.sessionId}
                             data-testid="family-block"
@@ -921,8 +954,8 @@ export function ScheduleGrid({
                             style={{
                               top: topPx(fb.startMinutes, hourPx) + 26,
                               height: heightPx(fb.startMinutes, fb.endMinutes, hourPx),
-                              left: '2%',
-                              width: '96%',
+                              left: `${fbSlice.left + 0.04 * fbSlice.width}%`,
+                              width: `${0.92 * fbSlice.width}%`,
                               borderColor: fb.fill,
                               backgroundColor: `${fb.fill}22`,
                             }}
@@ -931,7 +964,8 @@ export function ScheduleGrid({
                               {fb.childName}: {fb.label}
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   })}

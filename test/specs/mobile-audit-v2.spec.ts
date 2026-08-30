@@ -30,6 +30,10 @@ async function addCustomEntry(
   await page.getByRole('button', { name: /Vlastní událost/ }).click();
   const dialog = page.locator('.fixed.inset-0.z-50');
   await dialog.getByPlaceholder('Např. Logopedie').fill(name);
+  // Výchozí mobilní pohled je ukotven na „dnešek“ (úterý ve zmrazeném čase,
+  // BL-055 fix z CHANGE-97) — bez výběru dne by výchozí pondělí bylo mimo
+  // 3denní okno a blok by v mřížce nebyl vidět.
+  await dialog.locator('select').first().selectOption('2');
   const times = dialog.locator('input[type="time"]');
   await times.nth(0).fill(from);
   await times.nth(1).fill(to);

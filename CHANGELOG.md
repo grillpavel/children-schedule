@@ -6,6 +6,33 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Popup umístění, aktuální čas na mobilu a rozdělení sloupce pro sourozence (CHANGE-97)
+
+Trigger: uživatel po CHANGE-96 nahlásil, že stejný popup-position problém stále přetrvává, plus 3
+nové nálezy z reálného používání (design_review_90.md).
+
+- **Popup lokalizace — druhá, samostatná příčina**: `CustomEntryDetail` (vlastní událost) neměl
+  „← Zpět na souhrn" tlačítko, které `SelectedActivity` (kroužek) má nad svým `<h2>` — hlavička
+  vlastní události proto renderovala o ~34px výš. CHANGE-96 opravil jinou, reálnou chybu (stará
+  `scrollTop`), ale tuto strukturální asymetrii neřešil. Fix: `CustomEntryDetail` dostal shodný
+  sticky wrapper s tlačítkem zpět. Ověřeno měřením: obě hlavičky nyní `y=647`.
+- **Aktuální čas (červená čára) chyběl mimo pondělí–středu na mobilu**: mobilní mount efekt
+  (BL-055) kotvil `anchorDate` na pondělí aktuálního týdne, takže `'3day'` pohled ukazoval
+  [Po,Út,St] bez ohledu na dnešek — `todayInView` (řídí now-line i tučnou hodinu v ose) byl mimo
+  tento rozsah `false` každý den Čt–Ne. Fix: mobilní efekt už nekotví na pondělí, `anchorDate`
+  zůstává na dnešku.
+- **Scroll na 12:00 nefungoval při přepnutí Agenda→Mřížka**: scroll efekt měl závislosti `[mode,
+  hasBlocks]`, ale mřížka se na mobilu podmíněně MOUNTUJE — přepnutí z Agendy vytváří čerstvý DOM
+  se `scrollTop=0`, který efekt nikdy nereagoval na reset. Fix: přidána `mobileAgendaMode` do
+  závislostí efektu.
+- **Sourozenci se ve stejný čas plně překrývali**: `dayFamilyBlocks` (přehled sourozenců) se
+  vykresloval přes celou šířku dne (`left:2%, width:96%`), přímo přes vlastní bloky aktivního
+  dítěte. Fix: nová `familySlicePct(childId)` rozdělí sloupec dne na N stejných částí (N = aktivní
+  dítě + zobrazovaní sourozenci); vlastní i sourozenecké bloky se kreslí výhradně ve své části,
+  s tenkou přerušovanou dělicí čárou mezi nimi.
+- Spec: `.github/specs/design_review_90.md`. `tsc --noEmit` čisté (domain+web), domain vitest
+  135/135, plná 6profilová E2E sada = **740 passed / 232 skipped / 0 failed**.
+
 ### Mobilní sheet detailu: kroužek a vlastní událost se otevírají na stejném místě (CHANGE-96)
 
 Trigger: uživatel nahlásil, že na mobilu se sheet „Kalendář" po výběru kroužku otevírá na jiném

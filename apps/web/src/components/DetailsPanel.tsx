@@ -948,8 +948,21 @@ function CustomEntryDetail() {
   const kindMeta = CUSTOM_KIND_META[entry.kind];
 
   return (
-    <section className="space-y-2 border-b border-slate-200/80 bg-white p-3">
-      <h2 className="text-base font-bold text-slate-900">✎ {entry.name}</h2>
+    <section className="border-b border-slate-200/80 bg-white">
+      {/* Stejná struktura hlavičky jako SelectedActivity (design_review_90.md) — bez
+          tohoto back-linku byl nadpis o ~34px výš než u kroužku, sheet tak "otevíral
+          na jiném místě" podle typu položky. */}
+      <div className="sticky top-0 z-10 space-y-2 border-b border-slate-200/80 bg-white p-3">
+        <button
+          type="button"
+          onClick={() => selectCustomEntry(null)}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+        >
+          ← Zpět na souhrn
+        </button>
+        <h2 className="text-base font-bold text-slate-900 leading-snug">✎ {entry.name}</h2>
+      </div>
+      <div className="space-y-2 p-3">
       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
         <span aria-hidden>{kindMeta.icon}</span>
         <span>{kindMeta.label}</span>
@@ -1011,6 +1024,7 @@ function CustomEntryDetail() {
       {editing && (
         <CustomEntryDialog editEntry={entry} onClose={() => setEditing(false)} />
       )}
+      </div>
     </section>
   );
 }

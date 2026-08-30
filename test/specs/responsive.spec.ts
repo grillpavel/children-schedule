@@ -1,4 +1,4 @@
-import { test, expect, isCompact, isThreeColumn } from '../helpers/profiles';
+import { test, expect, isCompact, isThreeColumn, openCalendarMenuIfCompact } from '../helpers/profiles';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -160,13 +160,19 @@ test('T-162: na středních šířkách (900–1439) zůstává katalog vedle de
   ).toBeLessThanOrEqual(detailBox.x + 1);
 });
 
-test('T-167: mobilní horní lišta skrývá věk/přesun, ale správa kalendářů zůstává v liště (design_review_70.md)', async ({ page }, testInfo) => {
+test('T-167: mobilní horní lišta sbaluje správu kalendářů za tlačítko „Správa kalendářů" (BL-057, design_review_88.md)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(!isCompact(width), 'odlehčená lišta platí jen na mobilu <900px');
+  test.skip(!isCompact(width), 'odlehčená lišta platí jen na mobilu <768px');
 
-  // Věk/Přesun zůstávají skryté (editují se v záložce „Děti"), ale správa kalendářů
-  // (název/přidat/přepnout) je od design_review_70.md vždy v liště, i na mobilu.
+  // Věk/Přesun zůstávají skryté (editují se v záložce „Děti"); správa kalendářů
+  // (název/přidat/přepnout) žije od BL-057 za kompaktním tlačítkem, ne přímo v liště.
   await expect(page.getByRole('banner').getByText('Věk:', { exact: true })).toBeHidden();
+  await expect(page.getByRole('banner').getByRole('button', { name: /Přidat kalendář/ })).toBeHidden();
+  await expect(page.getByRole('banner').getByRole('textbox', { name: 'Název kalendáře' })).toHaveCount(0);
+  const toggle = page.getByRole('banner').getByRole('button', { name: /Správa kalendářů/ });
+  await expect(toggle).toBeVisible();
+
+  await toggle.click();
   await expect(page.getByRole('banner').getByRole('button', { name: /Přidat kalendář/ })).toBeVisible();
   await expect(page.getByRole('banner').getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
 
@@ -278,13 +284,15 @@ test('T-215: mobil má nav Domů/Katalog/Rozvrh/Děti a výchozí je Domů', asy
   await expect(page.getByRole('heading', { name: /Přehled/ })).toBeVisible();
 });
 
-test('T-216: Home ukazuje souhrn i doporučení a CTA otevře katalog', async ({ page }, testInfo) => {
+test('T-216: Home ukazuje souhrn i vybrané kroužky a CTA otevře katalog', async ({ page }, testInfo) => {
   test.skip(!isCompact(testInfo.project.use.viewport!.width), 'Home je mobilní záložka');
   const today = page.getByRole('region', { name: 'Dnes' });
   const week = page.getByRole('region', { name: 'Tento týden' });
   await expect(today).toBeVisible();
   await expect(week).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Doporučení' })).toBeVisible();
+  // design_review_88.md: „Doporučujeme" nahrazeno „Vybranými kroužky" (jen odsud
+  // dolů skutečně zapsané kroužky, ne doporučovací engine).
+  await expect(page.getByRole('region', { name: 'Vybrané kroužky' })).toBeVisible();
   // FR-2 (design_review_58.md): „Dnes" má prioritu nad týdenním přehledem.
   const todayY = (await today.boundingBox())!.y;
   const weekY = (await week.boundingBox())!.y;
@@ -367,24 +375,27 @@ test('T-221: toast po přidání zůstává nad spodní navigací i se safe-area
   ).toBeLessThanOrEqual(navBox!.y);
 });
 
-test('T-222: hlavička s dlouhým jménem kalendáře nezalomí do 3 řádků (design_review_73.md FR-W1-3)', async ({
+test('T-222: hlavička zůstává jednořádková i s dlouhým jménem kalendáře v otevřeném sheetu (BL-057, design_review_88.md)', async ({
   page,
 }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'zalomení hrozí jen na úzkých šířkách');
-  const nameInput = page.getByLabel('Název kalendáře');
+  await openCalendarMenuIfCompact(page, width);
+  const nameInput = page.getByRole('textbox', { name: 'Název kalendáře' });
   await nameInput.fill('Velmi Dlouhé Jméno Dítěte Pro Test Zalomení Řádku');
   await nameInput.blur();
 
-  // Shluk správy kalendářů musí zůstat na JEDNOM řádku (vodorovně scrolluje,
-  // nezalomí) — pozná se tak, že jeho scrollWidth přesahuje clientWidth.
+  // Shluk správy kalendářů (uvnitř sheetu) musí zůstat na JEDNOM řádku (vodorovně
+  // scrolluje, nezalomí) — pozná se tak, že jeho scrollWidth přesahuje clientWidth.
   const clusterOverflowsHorizontally = await nameInput.evaluate((el) => {
     const cluster = el.parentElement;
     return cluster ? cluster.scrollWidth > cluster.clientWidth + 1 || cluster.scrollWidth >= cluster.clientWidth : false;
   });
   expect(clusterOverflowsHorizontally, 'shluk správy kalendářů nemá vodorovný scroll k dispozici').toBe(true);
 
-  // Hlavička jako celek zůstává max. na 2 řádcích (shluk kalendářů + řádek stavu/historie).
+  // Samotná hlavička (kompaktní tlačítko „Správa kalendářů" + stav uložení + akce)
+  // zůstává na JEDNOM řádku bez ohledu na délku jména (BL-057) — sheet je `fixed`,
+  // mimo normální tok hlavičky.
   const rowTops = await page.evaluate(() => {
     const header = document.querySelector('header');
     if (!header) return [];
@@ -395,7 +406,7 @@ test('T-222: hlavička s dlouhým jménem kalendáře nezalomí do 3 řádků (d
     }
     return Array.from(tops);
   });
-  expect(rowTops.length, `hlavička má ${rowTops.length} odlišných řádků: ${rowTops.join(', ')}`).toBeLessThanOrEqual(2);
+  expect(rowTops.length, `hlavička má ${rowTops.length} odlišných řádků: ${rowTops.join(', ')}`).toBe(1);
 });
 
 test('T-223: textová pole na mobilu mají font-size ≥16px, ať iOS nezoomuje při fokusu (design_review_73.md FR-W1-5)', async ({
@@ -403,7 +414,8 @@ test('T-223: textová pole na mobilu mají font-size ≥16px, ať iOS nezoomuje 
 }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   test.skip(!isCompact(width), 'iOS auto-zoom se týká jen kompaktních šířek');
-  const nameInput = page.getByLabel('Název kalendáře');
+  await openCalendarMenuIfCompact(page, width);
+  const nameInput = page.getByRole('textbox', { name: 'Název kalendáře' });
   await expect(nameInput).toBeVisible();
   const fontSize = await nameInput.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   expect(fontSize, `font-size ${fontSize}px`).toBeGreaterThanOrEqual(16);

@@ -15,10 +15,12 @@ import {
   downloadStateJson,
   printSchedule,
   printAgenda,
+  type ExportHourRange,
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
 import { encodeStateToShareUrl } from '@/lib/shareLink';
 import { PrivacyDialog } from './PrivacyDialog';
+import { PrintRangeDialog } from './PrintRangeDialog';
 import {
   IconUndo,
   IconRedo,
@@ -70,9 +72,18 @@ export function Toolbar({
   const [newCalName, setNewCalName] = useState('');
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  // Nejprve vyber rozsah hodin, pak teprve vygeneruj tisk/obrázek (design_review_88.md).
+  const [printRangeAction, setPrintRangeAction] = useState<'print' | 'png' | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const mobileMenuBtnRef = useRef<HTMLButtonElement>(null);
   const [mobileMenuPos, setMobileMenuPos] = useState<{ top: number; right: number } | null>(null);
+  // BL-057 (design_review_88.md): na mobilu se správa kalendářů (přejmenování/
+  // přepnutí/přidání/odebrání) sbalí za jedno „⋯" tlačítko, ať zůstane hlavička
+  // jednořádková — na desktopu beze změny (design_review_70.md požadavek zůstává
+  // v platnosti tam, kde na šířce nezáleží).
+  const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
+  const calendarMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const [calendarMenuPos, setCalendarMenuPos] = useState<{ top: number; left: number } | null>(null);
 
   // Tlačítko „Další ▾“ už od design_review_70.md není vtžené k pravému okraji hlavičky
   // (ml-auto platí až desk:) — menu proto NESMí být `absolute` vůči svému malému
@@ -92,6 +103,23 @@ export function Toolbar({
     );
     setMobileMenuPos({ top: rect.bottom + 4, right });
   }, [mobileMenuOpen]);
+
+  // Stejný fixed-position vzor jako u mobilního „Další ▾" menu (design_review_71.md) —
+  // kotví se doleva k tlačítku, ohraničené uvnitř viewportu.
+  useEffect(() => {
+    if (!calendarMenuOpen || !calendarMenuBtnRef.current) {
+      setCalendarMenuPos(null);
+      return;
+    }
+    const rect = calendarMenuBtnRef.current.getBoundingClientRect();
+    const menuWidth = 288;
+    const margin = 8;
+    const left = Math.min(
+      Math.max(margin, rect.left),
+      Math.max(margin, window.innerWidth - menuWidth - margin),
+    );
+    setCalendarMenuPos({ top: rect.bottom + 4, left });
+  }, [calendarMenuOpen]);
 
   if (!child) return null;
 
@@ -138,10 +166,10 @@ export function Toolbar({
     setMobileMenuOpen(false);
   };
 
-  const exportPng = async () => {
+  const exportPng = async (range: ExportHourRange) => {
     if (!gridRef.current) return;
     try {
-      await downloadPng(gridRef.current, child);
+      await downloadPng(gridRef.current, child, range);
     } catch {
       alert('Obrázek se nepodařilo vytvořit, zkuste tisk rozvrhu.');
     }
@@ -245,7 +273,13 @@ export function Toolbar({
             </div>
           </MenuItem>
         )}
-        <MenuItem onClick={() => void exportPng()}>
+        <MenuItem
+          onClick={() => {
+            setPrintRangeAction('png');
+            setMenuOpen(false);
+            setMobileMenuOpen(false);
+          }}
+        >
           <div className="flex items-center gap-2">
             <IconFolderOpen className="h-4 w-4 text-slate-500" />
             <span>Obrázek rozvrhu (.png)</span>
@@ -259,7 +293,7 @@ export function Toolbar({
         </MenuItem>
         <MenuItem
           onClick={() => {
-            printSchedule();
+            setPrintRangeAction('print');
             setMenuOpen(false);
             setMobileMenuOpen(false);
           }}
@@ -302,120 +336,161 @@ export function Toolbar({
     </div>
   );
 
-  return (
-    <header className="no-print relative z-50 flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-white px-3 py-2 shadow-sm">
-      {/* Správa kalendářů (design_review_70.md): název (přejmenovatelné pole),
-          přepínač mezi kalendáři a přidání/odebrání jsou VŽDY v horní liště, na
-          všech šířkách — dřív žila správa jen na mobilní záložce „Děti". `flex-nowrap
-          overflow-x-auto` místo `flex-wrap` (FR-W1-3, design_review_73.md): dlouhé
-          jméno kalendáře nebo víc kalendářů dřív mohly zalomit TENTO shluk na 2
-          řádky, což s řádkem 2 dávalo nepředvídatelně 3 řádky hlavičky na mobilu —
-          teď přebytek jen vodorovně scrolluje, hlavička zůstává max. na 2 řádcích.
-          `w-full` na mobilu (`desk:w-auto`): shluk musí zabrat celý řádek 1 sám,
-          jinak by se na volné místo vedle něj vešel i stavový pilulek z řádku 2
-          (T-184 regrese) — na desktopu vedle sebe žijí i s dalšími skupinami. */}
-      <div className="flex w-full min-w-0 max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm desk:w-auto">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white text-xs shadow-sm">
-          {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-3.5 w-3.5" />}
-        </div>
-        <input
-          key={activeChildId}
-          defaultValue={child.name}
-          onBlur={(e) => renameChild(child.id, e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+  // Obsah správy kalendářů (design_review_70.md, BL-057 design_review_88.md) — sdílený
+  // mezi VŽDY-viditelným desktopovým shlukem a mobilním sheetem za „⋯" tlačítkem
+  // (avatar zůstává v obou místech vykreslen zvlášť, ten uvnitř sheetu není potřeba).
+  const calendarControls = (
+    <>
+      <input
+        key={activeChildId}
+        defaultValue={child.name}
+        onBlur={(e) => renameChild(child.id, e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+        placeholder="Název kalendáře"
+        aria-label="Název kalendáře"
+        className="min-w-0 w-28 shrink-0 truncate rounded-md border-0 bg-transparent px-1 py-1 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
+      />
+      {state.children.length > 1 && (
+        <select
+          value={activeChildId}
+          onChange={(e) => setActiveChild(e.target.value)}
+          aria-label="Přepnout kalendář"
+          className="min-w-0 max-w-[110px] shrink-0 truncate rounded-md border-0 bg-transparent py-1 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
+        >
+          {state.children.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {addingCalendar ? (
+        <form
+          className="flex shrink-0 items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addChild(newCalName);
+            setNewCalName('');
+            setAddingCalendar(false);
           }}
-          placeholder="Název kalendáře"
-          aria-label="Název kalendáře"
-          className="min-w-0 w-28 shrink-0 truncate rounded-md border-0 bg-transparent px-1 py-1 font-medium text-slate-800 text-sm focus:bg-white focus:ring-1 focus:ring-blue-500"
-        />
-        {state.children.length > 1 && (
-          <select
-            value={activeChildId}
-            onChange={(e) => setActiveChild(e.target.value)}
-            aria-label="Přepnout kalendář"
-            className="min-w-0 max-w-[110px] shrink-0 truncate rounded-md border-0 bg-transparent py-1 pl-1 pr-6 text-xs text-slate-600 focus:ring-1 focus:ring-blue-500"
-          >
-            {state.children.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        )}
-        {addingCalendar ? (
-          <form
-            className="flex shrink-0 items-center gap-1"
-            onSubmit={(e) => {
-              e.preventDefault();
-              addChild(newCalName);
-              setNewCalName('');
-              setAddingCalendar(false);
-            }}
-          >
-            <input
-              autoFocus
-              value={newCalName}
-              onChange={(e) => setNewCalName(e.target.value)}
-              placeholder="Název nového kalendáře"
-              aria-label="Název nového kalendáře"
-              className="w-32 min-w-0 shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              className="shrink-0 rounded-md border border-blue-600 bg-blue-600 px-2 py-1 text-xs font-medium text-white shadow-2xs hover:bg-blue-700 transition"
-            >
-              Přidat
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAddingCalendar(false);
-                setNewCalName('');
-              }}
-              aria-label="Zrušit přidání kalendáře"
-              className="shrink-0 rounded-md px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100"
-            >
-              ✕
-            </button>
-          </form>
-        ) : (
+        >
+          <input
+            autoFocus
+            value={newCalName}
+            onChange={(e) => setNewCalName(e.target.value)}
+            placeholder="Název nového kalendáře"
+            aria-label="Název nového kalendáře"
+            className="w-32 min-w-0 shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
           <button
-            type="button"
-            onClick={() => setAddingCalendar(true)}
-            className="shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
-            title="Přidat další kalendář (samostatný rozvrh a export)"
+            type="submit"
+            className="shrink-0 rounded-md border border-blue-600 bg-blue-600 px-2 py-1 text-xs font-medium text-white shadow-2xs hover:bg-blue-700 transition"
           >
-            <span className="inline-flex items-center gap-1">
-              <IconPlus className="h-3 w-3" />
-              <span>Přidat kalendář</span>
-            </span>
+            Přidat
           </button>
-        )}
-        {state.children.length > 1 && (
           <button
             type="button"
             onClick={() => {
-              if (
-                window.confirm(
-                  `Opravdu odebrat kalendář „${child.name}“ a všechny jeho zápisy z rozvrhu? Akci lze vrátit tlačítkem Zpět.`,
-                )
-              ) {
-                removeChild(child.id);
-              }
+              setAddingCalendar(false);
+              setNewCalName('');
             }}
-            aria-label={`Odebrat kalendář ${child.name}`}
-            title="Odebrat tento kalendář (nevratné, jde vrátit přes Zpět)"
-            className="shrink-0 rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 shadow-2xs hover:bg-red-50 transition"
+            aria-label="Zrušit přidání kalendáře"
+            className="shrink-0 rounded-md px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100"
           >
-            Odebrat
+            ✕
           </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAddingCalendar(true)}
+          className="shrink-0 rounded-md border border-slate-200/90 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
+          title="Přidat další kalendář (samostatný rozvrh a export)"
+        >
+          <span className="inline-flex items-center gap-1">
+            <IconPlus className="h-3 w-3" />
+            <span>Přidat kalendář</span>
+          </span>
+        </button>
+      )}
+      {state.children.length > 1 && (
+        <button
+          type="button"
+          onClick={() => {
+            if (
+              window.confirm(
+                `Opravdu odebrat kalendář „${child.name}“ a všechny jeho zápisy z rozvrhu? Akci lze vrátit tlačítkem Zpět.`,
+              )
+            ) {
+              removeChild(child.id);
+            }
+          }}
+          aria-label={`Odebrat kalendář ${child.name}`}
+          title="Odebrat tento kalendář (nevratné, jde vrátit přes Zpět)"
+          className="shrink-0 rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 shadow-2xs hover:bg-red-50 transition"
+        >
+          Odebrat
+        </button>
+      )}
+    </>
+  );
+
+  return (
+    <header
+      className="no-print relative z-50 flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-slate-200/80 bg-white px-3 py-2 shadow-sm desk:flex-wrap desk:gap-2 desk:overflow-visible"
+    >
+      {/* Správa kalendářů (design_review_70.md): název (přejmenovatelné pole),
+          přepínač mezi kalendáři a přidání/odebrání jsou VŽDY v horní liště NA DESKTOPU
+          (`hidden desk:flex`) — na mobilu se od BL-057 (design_review_88.md) sbalí za
+          jedno „⋯" tlačítko, ať zůstane hlavička jednořádková (dřív tu žil `flex-nowrap
+          overflow-x-auto` shluk přímo v řádku, i tak dvouřádkový na užších telefonech). */}
+      <div className="hidden w-full min-w-0 max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto rounded-lg border border-slate-200/80 bg-slate-50/70 p-1 text-sm desk:flex desk:w-auto">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white text-xs shadow-sm">
+          {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-3.5 w-3.5" />}
+        </div>
+        {calendarControls}
+      </div>
+
+      {/* Mobil (BL-057): kompaktní avatar+jméno tlačítko otevírá sheet se stejnou
+          správou kalendářů jako na desktopu. `aria-label` je stabilní bez ohledu
+          na iniciálu avataru (ta je `aria-hidden`, ať nekontaminuje accessible name). */}
+      <div className="relative flex shrink-0 desk:hidden">
+        <button
+          ref={calendarMenuBtnRef}
+          type="button"
+          onClick={() => setCalendarMenuOpen((v) => !v)}
+          aria-expanded={calendarMenuOpen}
+          aria-label={`Správa kalendářů (aktivní: ${child.name})`}
+          className="flex h-11 items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-2 text-sm shadow-2xs hover:bg-slate-100 transition"
+        >
+          <span
+            aria-hidden
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white text-xs shadow-sm"
+          >
+            {child.name ? child.name[0]?.toUpperCase() : <IconUser className="h-3.5 w-3.5" />}
+          </span>
+          <span aria-hidden className="max-w-[96px] truncate font-medium text-slate-800">
+            {child.name || 'Kalendář'}
+          </span>
+          <span aria-hidden className="text-slate-400">▾</span>
+        </button>
+        {calendarMenuOpen && calendarMenuPos && (
+          <div
+            style={{ top: calendarMenuPos.top, left: calendarMenuPos.left }}
+            className="fixed z-50 max-h-[calc(100vh-5rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-2xl"
+          >
+            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto text-sm">
+              {calendarControls}
+            </div>
+          </div>
         )}
       </div>
 
       {/* Status indikátor uložení. `h-11` na mobilu srovnává výšku s undo/redo a „Další ▾“
           (design_review_71.md dodatek — bez toho měly 3 různé výšky 22/34/44px ve stejném řádku). */}
-      <div className="flex h-11 items-center gap-1.5 text-xs desk:h-auto">
+      <div className="flex h-11 shrink-0 items-center gap-1.5 text-xs desk:h-auto">
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition ${
             !autosaveOk
@@ -443,7 +518,7 @@ export function Toolbar({
       {/* Pravá část akcí: Undo/Redo, Otevřít, Uložit, Další exporty. `ml-auto`/`justify-end`
           jen na desktopu — na mobilu by to od status indikátoru odtrhlo velkou prázdnou
           mezeru (nahlášeno jako "rozházená" lišta), místo aby akce navazovaly hned za sebou. */}
-      <div className="flex flex-wrap items-center gap-1.5 desk:ml-auto desk:justify-end">
+      <div className="flex flex-nowrap shrink-0 items-center gap-1.5 desk:ml-auto desk:flex-wrap desk:justify-end">
         <div className="flex h-11 items-center rounded-lg border border-slate-200/80 bg-white p-0.5 shadow-2xs desk:h-auto">
           <button
             type="button"
@@ -566,6 +641,21 @@ export function Toolbar({
         </div>
       </div>
       {privacyOpen && <PrivacyDialog onClose={() => setPrivacyOpen(false)} />}
+      {printRangeAction && (
+        <PrintRangeDialog
+          title={printRangeAction === 'print' ? 'Tisk rozvrhu' : 'Obrázek rozvrhu (.png)'}
+          confirmLabel={printRangeAction === 'print' ? 'Vytisknout' : 'Uložit obrázek'}
+          onClose={() => setPrintRangeAction(null)}
+          onConfirm={(range) => {
+            if (printRangeAction === 'print') {
+              printSchedule(gridRef.current, range);
+            } else {
+              void exportPng(range);
+            }
+            setPrintRangeAction(null);
+          }}
+        />
+      )}
     </header>
   );
 }

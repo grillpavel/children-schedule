@@ -185,11 +185,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   const [budgetInput, setBudgetInput] = useState('');
   const [startAfter, setStartAfter] = useState<string>('');
   const [endBefore, setEndBefore] = useState<string>('');
-  // Cenový rozsahový filtr (BL-042, design_review_65/67.md) — katalog dnes má všechny
-  // aktivity v periodě `per_year`, takže srovnání syrové částky je jednoznačné; pokud by
-  // se v budoucnu objevily jiné periody v katalogu, filtr by potřeboval normalizaci.
-  const [maxPriceInput, setMaxPriceInput] = useState('');
-  const [includePriceless, setIncludePriceless] = useState(false);
+  // Filtr podle cílového pohlaví (design_review_88.md, nahrazuje dřívější cenový
+  // filtr) — katalog dnes nemá cenový rozsah, který by stálo za to filtrovat, ale
+  // několik kroužků (např. "chlapci"/"dívky" v názvu) má čitelně danou skupinu.
+  const [genderFilter, setGenderFilter] = useState<'boys' | 'girls' | ''>('');
   const [collapsedRoots, setCollapsedRoots] = useState<Record<string, boolean>>({});
   const [collapsedSubs, setCollapsedSubs] = useState<Record<string, boolean>>({});
   // Doporučení jsou sekundární (hlavní tok je výběr kroužků → kalendář → export),
@@ -227,7 +226,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
   }, [query]);
 
   const hasActiveFilters = Boolean(
-    query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore || maxPriceInput,
+    query || category || providerFilter || weekdayFilter.length || ageOnly || fitOnly || startAfter || endBefore || genderFilter,
   );
   const resetFilters = () => {
     setQuery('');
@@ -238,8 +237,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     setFitOnly(false);
     setStartAfter('');
     setEndBefore('');
-    setMaxPriceInput('');
-    setIncludePriceless(false);
+    setGenderFilter('');
   };
 
   // Doporučení (CHANGE-51): dnešek je vstup enginu, počítá se v app vrstvě.
@@ -409,7 +407,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
     if (normalizedQuery && !haystack.includes(normalizedQuery)) return false;
     if (category && a.category !== category) return false;
     if (providerFilter && a.providerId !== providerFilter) return false;
-    if (ageOnly && child && (child.age < a.ageMin || child.age > a.ageMax)) {
+    if (ageOnly && child && child.age !== undefined && (child.age < a.ageMin || child.age > a.ageMax)) {
       return false;
     }
     const groups = groupsByActivity.get(a.id) ?? [];
@@ -437,13 +435,8 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
       );
       if (!canFit) return false;
     }
-    if (maxPriceInput.trim() !== '') {
-      const maxPrice = Number(maxPriceInput);
-      if (!Number.isFinite(a.price.amount)) {
-        if (!includePriceless) return false;
-      } else if (a.price.amount > maxPrice) {
-        return false;
-      }
+    if (genderFilter && a.targetGender && a.targetGender !== genderFilter) {
+      return false;
     }
     return true;
   });
@@ -791,9 +784,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
               type="checkbox"
               checked={ageOnly}
               onChange={(e) => setAgeOnly(e.target.checked)}
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              disabled={child?.age === undefined}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
             />
-            <span>Jen vhodné pro věk {child?.age}</span>
+            <span>{child?.age !== undefined ? `Jen vhodné pro věk ${child.age}` : 'Jen vhodné pro věk (nezadán)'}</span>
           </label>
           <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
             <input
@@ -808,7 +802,10 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
         </div>
 
         {showAdvanced && (
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 animate-in fade-in-50">
+          // grid-cols-1 (design_review_88.md): dřív grid-cols-2 s časovými poli
+          // (input type="time" má vlastní minimální šířku danou prohlížečem) na
+          // úzkém katalogu přetékalo mimo kartu — jeden sloupec vždy sedí.
+          <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 animate-in fade-in-50">
             <label className="text-xs font-medium text-slate-600">
               Začátek nejdřív v
               <input
@@ -828,24 +825,17 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
               />
             </label>
             <label className="text-xs font-medium text-slate-600">
-              Cena do (Kč)
-              <input
-                type="number"
-                min={0}
-                value={maxPriceInput}
-                onChange={(e) => setMaxPriceInput(e.target.value)}
-                placeholder="Bez limitu"
+              Pohlaví
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value as 'boys' | 'girls' | '')}
+                aria-label="Filtr podle pohlaví"
                 className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
-              />
-            </label>
-            <label className="flex items-center gap-1.5 self-end pb-1 text-xs font-medium text-slate-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includePriceless}
-                onChange={(e) => setIncludePriceless(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span>Zahrnout i bez uvedené ceny</span>
+              >
+                <option value="">Bez omezení</option>
+                <option value="boys">Chlapci</option>
+                <option value="girls">Dívky</option>
+              </select>
             </label>
           </div>
         )}

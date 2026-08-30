@@ -136,10 +136,16 @@ function MobileChildrenPanel() {
           min={3}
           max={19}
           defaultValue={child.age}
+          placeholder="—"
           onBlur={(e) => {
-            const n = Number(e.target.value);
+            const raw = e.target.value.trim();
+            if (raw === '') {
+              setChildAge(child.id, undefined);
+              return;
+            }
+            const n = Number(raw);
             if (Number.isFinite(n) && n >= 3 && n <= 19) setChildAge(child.id, n);
-            else e.target.value = String(child.age);
+            else e.target.value = child.age !== undefined ? String(child.age) : '';
           }}
           aria-label="Věk dítěte"
           className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -219,6 +225,11 @@ export default function Page() {
   const isMobileLayout = isMobile || isLandscapeCompact;
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
+  // Tabletové/střední šířky (design_review_88.md) mají DRUHý sheet — „Domů“
+  // (HomeScreen) vedle „Děti“ (dřív „Souhrn“, nyní vedle DetailsPanel i skutečná
+  // správa dětí jako na mobilu). Výběr aktivity/události (`hasSelection`) má vždy
+  // přednost před „Domů“ obsahem, ať se po kliknutí na kroužek ukáže jeho detail.
+  const [mediumHomeOpen, setMediumHomeOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const toastTimerRef = useRef<number | null>(null);
   const previousHistoryRef = useRef(historyLength);
@@ -256,18 +267,19 @@ export default function Page() {
     return () => window.removeEventListener('keydown', onKey);
   }, [isMobileLayout]);
 
-  // Escape zavře vybraný detail / mobilní sheet / Souhrn drawer (C9-A4).
+  // Escape zavře vybraný detail / mobilní sheet / medium sheety (C9-A4).
   useEffect(() => {
-    if (!hasSelection && !mediumInfoOpen) return;
+    if (!hasSelection && !mediumInfoOpen && !mediumHomeOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       selectActivity(null);
       selectCustomEntry(null);
       setMediumInfoOpen(false);
+      setMediumHomeOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hasSelection, mediumInfoOpen, selectActivity, selectCustomEntry]);
+  }, [hasSelection, mediumInfoOpen, mediumHomeOpen, selectActivity, selectCustomEntry]);
 
   // Autosave (BL-030): obnova po připojení + uložení při každé změně stavu.
   // Subscribe místo efektu nad `state`, aby výchozí mount-render nepřepsal obnovu.
@@ -436,8 +448,9 @@ export default function Page() {
 
         {/* Info na středních šířkách 900–1440 (FR-7, design_review_58.md): trvalý
             sloupec vedle katalogu a mřížky (master-detail), ne overlay přes obsah —
-            otevře výběr nebo „Souhrn". Test id `info-drawer` beze změny. */}
-        {!isMobileLayout && !isWide && (hasSelection || mediumInfoOpen) && (
+            otevře výběr, „Domů", nebo „Děti". Test id `info-drawer` beze změny.
+            Výběr aktivity/události má vždy přednost před „Domů" obsahem (design_review_88.md). */}
+        {!isMobileLayout && !isWide && (hasSelection || mediumInfoOpen || mediumHomeOpen) && (
           <div
             data-testid="info-drawer"
             className="no-print shrink-0 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xs animate-in slide-in-from-right"
@@ -449,6 +462,7 @@ export default function Page() {
                   selectActivity(null);
                   selectCustomEntry(null);
                   setMediumInfoOpen(false);
+                  setMediumHomeOpen(false);
                 }}
                 className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
                 aria-label="Zavřít detail"
@@ -456,9 +470,21 @@ export default function Page() {
                 Zavřít
               </button>
             </div>
-            <aside className="flex-1 overflow-y-auto" aria-label="Detail kroužku">
-              <DetailsPanel />
-            </aside>
+            {mediumHomeOpen && !hasSelection ? (
+              <div className="min-h-0 flex-1">
+                <HomeScreen
+                  onOpenCatalog={() => setMediumHomeOpen(false)}
+                  onOpenGrid={() => setMediumHomeOpen(false)}
+                />
+              </div>
+            ) : (
+              <aside className="flex flex-1 flex-col overflow-hidden" aria-label="Děti a detail kroužku">
+                <MobileChildrenPanel />
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <DetailsPanel />
+                </div>
+              </aside>
+            )}
           </div>
         )}
       </main>
@@ -507,15 +533,26 @@ export default function Page() {
       </nav>
 
       {/* Info slide-over pro střední šířky 900–1440 (C9-L1): Info není stálý
-          sloupec, otevře se přes obsah při výběru nebo tlačítkem „Souhrn". */}
-      {!isMobileLayout && !isWide && !(hasSelection || mediumInfoOpen) && (
-        <button
-          type="button"
-          onClick={() => setMediumInfoOpen(true)}
-          className="no-print fixed right-0 top-1/2 z-30 -translate-y-1/2 rounded-l-xl bg-slate-900 px-2 py-4 text-xs font-semibold text-white shadow-xl hover:bg-slate-800 transition"
-        >
-          Souhrn
-        </button>
+          sloupec, otevře se přes obsah při výběru nebo tlačítky „Domů"/„Děti"
+          (design_review_88.md — dřív jen jedno tlačítko „Souhrn", tablet neměl
+          žádný přístup k domovské obrazovce ani ke správě dětí). */}
+      {!isMobileLayout && !isWide && !(hasSelection || mediumInfoOpen || mediumHomeOpen) && (
+        <div className="no-print fixed right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col overflow-hidden rounded-l-xl shadow-xl">
+          <button
+            type="button"
+            onClick={() => setMediumHomeOpen(true)}
+            className="border-b border-slate-700 bg-slate-900 px-2 py-4 text-xs font-semibold text-white hover:bg-slate-800 transition"
+          >
+            Domů
+          </button>
+          <button
+            type="button"
+            onClick={() => setMediumInfoOpen(true)}
+            className="bg-slate-900 px-2 py-4 text-xs font-semibold text-white hover:bg-slate-800 transition"
+          >
+            Děti
+          </button>
+        </div>
       )}
 
       {/* Mobilní spodní sheet detailu (C8-F7): při výběru nad mřížkou. Odsazení

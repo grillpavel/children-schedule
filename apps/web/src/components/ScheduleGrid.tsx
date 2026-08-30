@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   colorForActivity,
+  colorForChild,
   relevantExceptionDates,
   type CustomEntry,
   type Weekday,
@@ -15,8 +16,6 @@ import { MonthView } from './MonthView';
 import {
   HOUR_MARKS,
   HOUR_PX,
-  DAY_WINDOW_START_MIN,
-  DAY_WINDOW_END_MIN,
   WEEKDAYS,
   dateRangeLabel,
   formatTime,
@@ -197,18 +196,15 @@ export function ScheduleGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce]);
 
-  // Osa je celodenní (C11); po zobrazení mřížky odroluj na denní okno a
-  // vycentruj aktuální čas, pokud je přes den (jinak střed okna 07–21).
+  // Osa je celodenní (C11); po zobrazení mřížky odroluj tak, aby nahoře byl
+  // vidět rovnou 12:00 (design_review_88.md — dřív se centrovalo na aktuální
+  // čas/střed 07–21 okna, uživatel chtěl stabilní výchozí pohled od poledne).
   const hasBlocks = view.blocks.length > 0;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const focus =
-      nowMinutes >= DAY_WINDOW_START_MIN && nowMinutes <= DAY_WINDOW_END_MIN
-        ? nowMinutes
-        : (DAY_WINDOW_START_MIN + DAY_WINDOW_END_MIN) / 2;
-    const centered = topPx(focus, hourPx) + 26 - el.clientHeight / 2;
-    el.scrollTop = Math.max(0, centered);
+    const NATIVE_SCROLL_HOUR_MIN = 12 * 60;
+    el.scrollTop = Math.max(0, topPx(NATIVE_SCROLL_HOUR_MIN, hourPx));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, hasBlocks]);
 
@@ -232,6 +228,10 @@ export function ScheduleGrid({
   }, [isMobile]);
 
   const dates = visibleDates(mode, anchorDate);
+  // „Now“ čára (design_review_88.md) se kreslí JEDNOU přes celou šířku všech
+  // zobrazovaných dní, ne per-sloupec — jen když je dnešek vůbec v rozsahu.
+  const todayInView = dates.some((d) => isSameDay(d, today));
+  const currentHourMark = Math.floor(nowMinutes / 60) * 60;
   const holidayDates = useMemo(
     () => relevantExceptionDates(exceptions, districtCode),
     [exceptions, districtCode],
@@ -445,7 +445,7 @@ export function ScheduleGrid({
           obě děti" — nejsilnější mobilní úloha vůbec — nebyla na mobilu dostupná
           vůbec, i když mobilní Mřížka (mobileAgendaMode==='calendar') prostor má. */}
       {children.length > 1 && (!isMobile || mobileAgendaMode === 'calendar') && (
-        <div className="no-print mb-2">
+        <div className="no-print mb-2 flex flex-wrap items-center gap-2">
           <button
             type="button"
             aria-pressed={showFamily}
@@ -459,6 +459,25 @@ export function ScheduleGrid({
           >
             👪 Zobrazit i sourozence
           </button>
+          {/* Legenda barev sourozenců (design_review_88.md) — stejně jako na iOS/
+              Androidu při zobrazení více kalendářů najednou, ať je jasné, které barevné
+              bloky patří kterému dítěti. */}
+          {showFamily && (
+            <div className="flex flex-wrap items-center gap-2" data-testid="family-legend">
+              {children
+                .filter((c) => c.id !== activeChildId)
+                .map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: colorForChild(c.id).fill }}
+                      aria-hidden
+                    />
+                    <span>{c.name}</span>
+                  </span>
+                ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -627,7 +646,11 @@ export function ScheduleGrid({
                   </ul>
                 )}
               </div>
-              <div ref={scrollRef} className="flex flex-1 overflow-y-auto overflow-x-auto">
+              <div
+                ref={scrollRef}
+                data-testid="grid-scroll"
+                className="flex flex-1 overflow-y-auto overflow-x-auto"
+              >
                 {/* Časová osa 00:00–24:00. `sticky`, ať zůstává viditelná při vodorovném
                     scrollu pevně širokých sloupců dnů — mobil FR-W2-3, desktop/medium BL-053. */}
                 <div
@@ -637,7 +660,12 @@ export function ScheduleGrid({
                   {HOUR_MARKS.map((m) => (
                     <div
                       key={m}
-                      className="absolute left-0 right-0 -translate-y-1/2 pl-1.5 text-slate-400"
+                      className={clsx(
+                        'absolute left-0 right-0 -translate-y-1/2 pl-1.5',
+                        // Hodina odpovídající „now“ čáře se zvýrazní červeně (design_review_88.md) —
+                        // jen pokud je dnešek vůbec v zobrazeném rozsahu dnů.
+                        todayInView && m === currentHourMark ? 'font-bold text-red-600' : 'text-slate-400',
+                      )}
                       style={{ top: topPx(m, hourPx) + 26 }}
                     >
                       {formatTime(m)}
@@ -647,9 +675,11 @@ export function ScheduleGrid({
 
                 {/* Dny. Na mobilu mají sloupce pevnou minimální šířku a přebytek
                     scrolluje vodorovně, místo aby se při 7 sloupcích stísnaly do
-                    nečitelných ~23px (FR-W2-3, design_review_73.md). */}
+                    nečitelných ~23px (FR-W2-3, design_review_73.md). `relative`, ať
+                    může „now“ čára (design_review_88.md) žít v tomto wrapperu a
+                    přetáhnout se přes VŠECHNY dny najednou, ne jen přes dnešní sloupec. */}
                 <div
-                  className={clsx(isMobile ? 'shrink-0' : 'flex-1')}
+                  className={clsx('relative', isMobile ? 'shrink-0' : 'flex-1')}
                   style={{
                     height: gridHeightPx(hourPx) + 26,
                     minWidth: dates.length * dayMinPx,
@@ -734,17 +764,6 @@ export function ScheduleGrid({
                             style={{ top: topPx(m, hourPx) + 26 }}
                           />
                         ))}
-
-                        {/* „Now“ čára jen na dnešním sloupci (FR-2) */}
-                        {isToday && (
-                          <div
-                            data-testid="now-line"
-                            className="pointer-events-none absolute left-0 right-0 z-20 border-t-2 border-red-500"
-                            style={{ top: topPx(nowMinutes, hourPx) + 26 }}
-                          >
-                            <span className="absolute -left-1 -top-1.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white shadow-xs" />
-                          </div>
-                        )}
 
                         {/* Duchové (možné termíny) */}
                         {dayGhosts.map((g, i) => {
@@ -917,6 +936,19 @@ export function ScheduleGrid({
                     );
                   })}
                   </div>
+
+                  {/* „Now“ čára přes VŠECHNY zobrazené dny najednou (design_review_88.md) —
+                      dřív se kreslila per-sloupec, teď jeden pruh přes celou šířku mřížky,
+                      stejně jako v iOS/Android kalendáři. Jen když je dnešek v rozsahu. */}
+                  {todayInView && (
+                    <div
+                      data-testid="now-line"
+                      className="pointer-events-none absolute left-0 right-0 z-20 border-t-2 border-red-500"
+                      style={{ top: topPx(nowMinutes, hourPx) + 26 }}
+                    >
+                      <span className="absolute -left-1 -top-1.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white shadow-xs" />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

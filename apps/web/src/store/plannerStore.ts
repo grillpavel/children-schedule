@@ -120,7 +120,9 @@ interface PlannerStore {
   loadState(state: PlannerState): void;
   /** Obnovení z autosave — nastaví stav bez zápisu do historie (BL-030). */
   hydrate(state: PlannerState): void;
-  setChildAge(childId: string, age: number): void;
+  /** `age: undefined` smaže známý věk (design_review_88.md — věk se nikdy nativně
+   * nevyplňuje a lze ho i kdykoli zase vymazat). */
+  setChildAge(childId: string, age: number | undefined): void;
   /** Nastaví zájmy dítěte (personalizace doporučení, CHANGE-51). */
   setChildInterests(childId: string, interests: ActivityCategory[]): void;
   /** Nastaví dny/okna dostupnosti dítěte (CHANGE-52). */
@@ -598,9 +600,14 @@ export const usePlannerStore = create<PlannerStore>()(
 
       setChildAge: (childId, age) =>
         commit((draft) => {
-          if (!Number.isFinite(age) || age < 3 || age > 19) return;
           const child = draft.children.find((c) => c.id === childId);
-          if (child) child.age = age;
+          if (!child) return;
+          if (age === undefined) {
+            delete child.age;
+            return;
+          }
+          if (!Number.isFinite(age) || age < 3 || age > 19) return;
+          child.age = age;
         }),
 
       setChildInterests: (childId, interests) =>
@@ -647,7 +654,7 @@ export const usePlannerStore = create<PlannerStore>()(
           draft.children.push({
             id,
             name: name?.trim() || `Kalendář ${draft.children.length + 1}`,
-            age: first?.age ?? 9,
+            // Věk se nikdy nativně nevyplňuje (design_review_88.md) — rodič ho zadá sám.
             interests: [],
             availability: [],
             schoolEndByWeekday: {},

@@ -102,7 +102,6 @@ const SCHOOL_VENUE = NS_VENUES['zs-ucebna'];
 const DEFAULT_CHILD: Child = {
   id: 'child-1',
   name: 'Moje dítě',
-  age: 9,
   interests: [],
   availability: [],
   schoolEndByWeekday: {},

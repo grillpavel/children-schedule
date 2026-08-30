@@ -262,7 +262,7 @@ test('T-308: obsazenost týdne nese čísla textově, nejen pruhy', async ({ pag
     detail = page.getByRole('main');
   } else {
     // Střední šířky: Info je slide-over, po odznačení se zavře — otevřeme přes „Souhrn".
-    const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+    const souhrn = page.getByRole('button', { name: 'Děti', exact: true });
     if (await souhrn.isVisible()) await souhrn.click();
     detail = page.getByTestId('info-drawer');
   }

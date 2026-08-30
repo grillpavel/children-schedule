@@ -5,6 +5,7 @@ import {
   buildCatalogIndex,
   colorByCss,
   colorForActivity,
+  colorForChild,
   detectConflicts,
   resolvePlacedSessions,
   scheduleSummary,
@@ -133,10 +134,14 @@ export function useScheduleView(): ScheduleView {
       };
     });
 
+    // Barva překryvu sourozenců (design_review_88.md) je podle DÍTĚTE, ne podle
+    // aktivity — dvě děti zapsané do stejného kroužku by jinak měly stejnou barvu
+    // a rodič by je v překryvu neodlišil. Konzistentní napříč VŠEMI bloky daného
+    // sourozence, bez ohledu na to, jakou aktivitu zrovna má.
     const familyBlocks: FamilyBlock[] = otherPlaced.map((p) => ({
       ...p,
       childName: childNameById.get(p.childId) ?? '',
-      fill: colorOf(p).fill,
+      fill: colorForChild(p.childId).fill,
     }));
 
     return {

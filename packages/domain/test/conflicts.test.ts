@@ -57,6 +57,18 @@ describe('detectConflicts', () => {
     expect(report.conflicts.some((c) => c.kind === 'age_out_of_range')).toBe(true);
   });
 
+  it('H2 — neznámý věk (undefined) se přeskočí do skippedChecks, ne jako konflikt (design_review_88.md)', () => {
+    const unknownAge = { ...TEST_CHILD, age: undefined };
+    const report = detectConflicts({
+      schedule: makeSchedule({ enrollments: [enrollKeramika] }),
+      catalog: TEST_CATALOG,
+      children: [unknownAge],
+      schoolYear: TEST_SCHOOL_YEAR,
+    });
+    expect(report.conflicts.some((c) => c.kind === 'age_out_of_range')).toBe(false);
+    expect(report.skippedChecks.some((s) => s.check === 'H2_age_out_of_range')).toBe(true);
+  });
+
   it('H3 — kroužek začíná dřív, než končí vyučování', () => {
     const lateSchool = {
       ...TEST_CHILD,

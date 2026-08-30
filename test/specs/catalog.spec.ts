@@ -1,4 +1,4 @@
-import { test, expect, isCompact, isThreeColumn } from '../helpers/profiles';
+import { test, expect, isCompact, isThreeColumn, openCalendarMenuIfCompact } from '../helpers/profiles';
 import { EXPECTED_CATALOG_COUNT } from '../fixtures/catalog';
 
 test.beforeEach(async ({ page }) => {
@@ -42,9 +42,10 @@ test('T-100: věkový filtr je při prvním načtení vypnutý', async ({ page }
   await expect(page.getByRole('checkbox', { name: /Jen vhodné pro věk/ })).not.toBeChecked();
 });
 
-test('T-101: pole názvu kalendáře odráží jméno aktivního kalendáře', async ({ page }) => {
-  // Od design_review_70.md je pole vždy v horní liště (na všech šířkách) a představuje
-  // přímo přejmenovatelný název kalendáře (dříve jen dočasný export titulek).
+test('T-101: pole názvu kalendáře odráží jméno aktivního kalendáře', async ({ page }, testInfo) => {
+  // Od design_review_70.md je pole vždy v horní liště na desktopu; od BL-057
+  // (design_review_88.md) je na mobilu sbalené za tlačítko „Správa kalendářů".
+  await openCalendarMenuIfCompact(page, testInfo.project.use.viewport!.width);
   await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toHaveValue('Moje dítě');
 });
 
@@ -59,7 +60,7 @@ test('T-103: prázdný pravý panel neukazuje nulové metriky', async ({ page },
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Děti', exact: true }).click();
   } else if (!isThreeColumn(width)) {
-    const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+    const souhrn = page.getByRole('button', { name: 'Děti', exact: true });
     if (await souhrn.isVisible()) await souhrn.click();
   }
   const scope =
@@ -379,22 +380,25 @@ test('T-183: nadpis „Další kroužky (N)" se v mobilním drill-down kořeni n
   await expect(page.getByText(/^Další kroužky \(\d+\)$/)).toHaveCount(1);
 });
 
-// --- Cenový rozsahový filtr (CHANGE-67, design_review_65/67.md BL-042) ---
+// --- Filtr podle pohlaví (design_review_88.md, nahrazuje dřívější cenový filtr BL-042) ---
 
-test('T-172: cenový filtr omezí katalog, „bez ceny" lze zahrnout zvlášť', async ({ page }, testInfo) => {
+test('T-172: filtr podle pohlaví vyloučí kroužek cílený na opačné pohlaví, jinak nechá katalog beze změny', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await openCatalog(page, width);
   await expandAll(page);
   await expect(cards(page).first()).toBeVisible();
+  const fullCount = await cards(page).count();
 
   await page.getByRole('button', { name: 'Další filtry' }).click();
-  // Celý reálný katalog stojí ≥ 800 Kč/rok — limit 100 Kč musí vše vyfiltrovat.
-  await page.getByRole('spinbutton', { name: 'Cena do (Kč)' }).fill('100');
-  expect(await cards(page).count(), 'limit 100 Kč měl vyfiltrovat úplně vše').toBe(0);
+  // Jediný kroužek s explicitně danou cílovou skupinou v katalogu je „Basketbal —
+  // chlapci" (targetGender: 'boys') — filtr „Dívky" ho vyloučí, ostatní (bez
+  // omezení pohlaví) zůstanou beze změny.
+  await page.getByRole('combobox', { name: 'Filtr podle pohlaví' }).selectOption('girls');
+  expect(await cards(page).count(), 'filtr „Dívky" měl vyloučit přesně 1 kroužek').toBe(fullCount - 1);
+  await expect(page.getByText(/Basketbal — chlapci/)).toHaveCount(0);
 
-  // Zapnutí „Zahrnout i bez uvedené ceny" přidá zpět aktivity bez ceny (fotbal).
-  await page.getByRole('checkbox', { name: 'Zahrnout i bez uvedené ceny' }).check();
-  await expect(page.getByText('Cena neuvedena').first()).toBeVisible();
+  await page.getByRole('combobox', { name: 'Filtr podle pohlaví' }).selectOption('');
+  expect(await cards(page).count(), '„Bez omezení" vrátí plný katalog').toBe(fullCount);
 });
 
 // --- 3-stavový náhled kolize na kartě katalogu (CHANGE-67, design_review_65/67.md BL-039) ---

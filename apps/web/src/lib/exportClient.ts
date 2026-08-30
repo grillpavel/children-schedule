@@ -82,17 +82,74 @@ export function downloadStateJson(state: PlannerState, child: Child): void {
 export async function downloadPng(
   element: HTMLElement,
   child: Child,
+  range?: ExportHourRange,
 ): Promise<void> {
-  const dataUrl = await toPng(element, { pixelRatio: 2, backgroundColor: '#ffffff' });
-  const link = document.createElement('a');
-  link.href = dataUrl;
-  link.download = `rozvrh-${slugify(child.name)}.png`;
-  link.click();
+  const restore = range ? applyExportRange(element, range) : null;
+  try {
+    const dataUrl = await toPng(element, { pixelRatio: 2, backgroundColor: '#ffffff' });
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `rozvrh-${slugify(child.name)}.png`;
+    link.click();
+  } finally {
+    restore?.();
+  }
 }
 
-export function printSchedule(): void {
+/** Vybraný rozsah hodin pro export (design_review_88.md) — nejprve rozsah,
+ * teprve pak se vygeneruje výstup (tisk nebo obrázek). Nativní výchozí
+ * rozsah je 13:00–21:00 (viz `DEFAULT_EXPORT_RANGE`), uživatel ho může
+ * upravit v `PrintRangeDialog` (Toolbar.tsx). */
+export interface ExportHourRange {
+  startMinutes: number;
+  endMinutes: number;
+}
+
+export const DEFAULT_EXPORT_RANGE: ExportHourRange = { startMinutes: 13 * 60, endMinutes: 21 * 60 };
+
+/** Osa mřížky je vždy celodenní (00:00–24:00); výška sticky hlavičky dne (26px)
+ * je zakódovaná v `topPx(m, hourPx) + 26` v ScheduleGrid.tsx — používáme stejnou
+ * konstantu, ať dopočet z reálné `scrollHeight` sedí přesně bez ohledu na
+ * aktuální `hourPx` (mobil/desktop mají jiný). */
+const AXIS_HEADER_PX = 26;
+
+/** Dočasně ořízne scrollovatelný obsah mřížky na zvolený rozsah hodin — použito
+ * jak před `window.print()`, tak před `toPng()`. `!important` inline styl,
+ * protože tiskové CSS (`@media print .print-grid > div { overflow:visible!important }`)
+ * by jinak vyhrálo nad obyčejným inline stylem. Vrací funkci pro obnovu původního stavu. */
+function applyExportRange(gridEl: HTMLElement, range: ExportHourRange): () => void {
+  const scrollEl = gridEl.querySelector<HTMLElement>('[data-testid="grid-scroll"]');
+  if (!scrollEl) return () => {};
+  const totalContentPx = scrollEl.scrollHeight - AXIS_HEADER_PX;
+  const pxPerMinute = totalContentPx / (24 * 60);
+  const topPx = AXIS_HEADER_PX + range.startMinutes * pxPerMinute;
+  const heightPx = (range.endMinutes - range.startMinutes) * pxPerMinute + AXIS_HEADER_PX;
+
+  const prevOverflow = scrollEl.style.getPropertyValue('overflow');
+  const prevHeight = scrollEl.style.getPropertyValue('height');
+  const prevScrollTop = scrollEl.scrollTop;
+
+  scrollEl.style.setProperty('overflow', 'hidden', 'important');
+  scrollEl.style.setProperty('height', `${heightPx}px`, 'important');
+  scrollEl.scrollTop = topPx;
+
+  return () => {
+    scrollEl.style.setProperty('overflow', prevOverflow || '');
+    scrollEl.style.setProperty('height', prevHeight || '');
+    scrollEl.scrollTop = prevScrollTop;
+  };
+}
+
+export function printSchedule(gridEl: HTMLElement | null, range?: ExportHourRange): void {
+  const restore = gridEl && range ? applyExportRange(gridEl, range) : null;
+  const cleanup = () => {
+    restore?.();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  if (restore) window.addEventListener('afterprint', cleanup);
   window.print();
 }
+
 
 /** Tisk/uložení jen agendy (souhrn kroužků, `.print-summary`), bez mřížky —
  * kratší, textový výstup pro babičku/žákovskou, ne vizuální rozvrh. Přepínač

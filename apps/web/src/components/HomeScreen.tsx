@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
-import { buildRecommendations, type ActivityCategory, type Weekday } from '@krouzky/domain';
-import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
+import { type ActivityCategory, type Weekday } from '@krouzky/domain';
+import { usePlannerStore } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
-import { formatTime } from '@/lib/grid';
+import { formatTime, WEEKDAYS } from '@/lib/grid';
 import {
   IconCalendar,
   IconSparkles,
-  IconCheck,
   IconFolderOpen,
   IconUser,
 } from './Icons';
@@ -42,7 +41,7 @@ const PRICE_PERIOD_SHORT: Record<string, string> = {
   per_session: 'lekce',
 };
 
-/** Domovská obrazovka (týden-first): souhrn, doporučení a rychlé nastavení. */
+/** Domovská obrazovka (týden-first): souhrn, vybrané kroužky a rychlé nastavení. */
 export function HomeScreen({
   onOpenCatalog,
   onOpenGrid,
@@ -51,11 +50,11 @@ export function HomeScreen({
   onOpenGrid: () => void;
 }) {
   const catalog = usePlannerStore((s) => s.catalog);
-  const schedule = usePlannerStore((s) => activeSchedule(s.state));
   const child = usePlannerStore((s) => s.state.children.find((c) => c.id === s.activeChildId));
   const setChildAge = usePlannerStore((s) => s.setChildAge);
   const setChildInterests = usePlannerStore((s) => s.setChildInterests);
   const selectActivity = usePlannerStore((s) => s.selectActivity);
+  const selectCustomEntry = usePlannerStore((s) => s.selectCustomEntry);
   const view = useScheduleView();
 
   const [onboarded, setOnboarded] = useState(true);
@@ -81,10 +80,30 @@ export function HomeScreen({
         .sort((a, b) => a.startMinutes - b.startMinutes),
     [view.blocks, todayWeekday, todayIso],
   );
-  const recommendations = useMemo(
-    () => (child ? buildRecommendations(child, catalog, schedule, todayIso, { limit: 3 }) : []),
-    [child, catalog, schedule, todayIso],
-  );
+  // Vybrané kroužky (design_review_88.md, nahrazuje dřívější „Doporučujeme" —
+  // primární tok appky je katalog → rozvrh → export, ne doporučovací engine).
+  // Deduplikace podle activityId (varianty téhož kroužku splynou do jednoho
+  // řádku), vlastní události podle ownerId. Řazeno podle nejbližšího termínu.
+  const selectedItems = useMemo(() => {
+    const byKey = new Map<
+      string,
+      { key: string; activityId?: string; customEntryId?: string; label: string; fill: string; weekday: Weekday; startMinutes: number }
+    >();
+    for (const b of view.blocks) {
+      const key = b.activityId ?? b.ownerId;
+      if (byKey.has(key)) continue;
+      byKey.set(key, {
+        key,
+        activityId: b.activityId,
+        customEntryId: b.activityId ? undefined : b.ownerId,
+        label: b.label,
+        fill: b.fill,
+        weekday: b.weekday,
+        startMinutes: b.startMinutes,
+      });
+    }
+    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, 'cs'));
+  }, [view.blocks]);
   const catalogCategories = useMemo(() => {
     const set = new Set<ActivityCategory>();
     for (const a of catalog.activities) set.add(a.category);
@@ -112,7 +131,10 @@ export function HomeScreen({
         </div>
         <div>
           <h1 className="text-lg font-bold text-slate-900 leading-tight">Přehled — {child.name}</h1>
-          <p className="text-xs text-slate-500 font-medium">Věk {child.age} let · {view.scheduleName}</p>
+          <p className="text-xs text-slate-500 font-medium">
+            {child.age !== undefined ? `Věk ${child.age} let · ` : ''}
+            {view.scheduleName}
+          </p>
         </div>
       </div>
 
@@ -130,10 +152,16 @@ export function HomeScreen({
               min={3}
               max={19}
               defaultValue={child.age}
+              placeholder="—"
               onBlur={(e) => {
-                const n = Number(e.target.value);
+                const raw = e.target.value.trim();
+                if (raw === '') {
+                  setChildAge(child.id, undefined);
+                  return;
+                }
+                const n = Number(raw);
                 if (Number.isFinite(n) && n >= 3 && n <= 19) setChildAge(child.id, n);
-                else e.target.value = String(child.age);
+                else e.target.value = child.age !== undefined ? String(child.age) : '';
               }}
               aria-label="Věk dítěte"
               className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -240,38 +268,36 @@ export function HomeScreen({
         )}
       </section>
 
-      {/* Doporučení sekce */}
-      <section aria-label="Doporučení" className="space-y-2">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Doporučujeme</h2>
-        {recommendations.length > 0 ? (
+      {/* Vybrané kroužky (design_review_88.md) */}
+      <section aria-label="Vybrané kroužky" className="space-y-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Vybrané kroužky</h2>
+        {selectedItems.length > 0 ? (
           <ul className="space-y-2">
-            {recommendations.map((rec) => (
-              <li key={rec.activity.id}>
+            {selectedItems.map((item) => (
+              <li key={item.key}>
                 <button
                   type="button"
-                  aria-label={`Doporučeno: ${rec.activity.name}`}
-                  onClick={() => selectActivity(rec.activity.id)}
+                  aria-label={`Vybraný kroužek: ${item.label}`}
+                  onClick={() =>
+                    item.activityId
+                      ? selectActivity(item.activityId)
+                      : selectCustomEntry(item.customEntryId!)
+                  }
                   className="w-full rounded-xl border border-slate-200/90 bg-white p-3 text-left transition hover:border-blue-400 hover:shadow-xs"
                 >
-                  <div className="text-sm font-bold text-slate-900 leading-snug">{rec.activity.name}</div>
-                  <div className="mt-0.5 text-xs text-slate-500 font-medium">{CATEGORY_LABELS[rec.activity.category]}</div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {rec.fit.reasons
-                      .filter((r) => r.ok)
-                      .slice(0, 3)
-                      .map((r) => (
-                        <span key={r.key} className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-100">
-                          <IconCheck className="h-3 w-3" />
-                          <span>{r.label.replace(/^✓\s*/, '')}</span>
-                        </span>
-                      ))}
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.fill }} aria-hidden />
+                    <span className="text-sm font-bold text-slate-900 leading-snug">{item.label}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 font-medium">
+                    {WEEKDAYS.find((w) => w.value === item.weekday)?.short} {formatTime(item.startMinutes)}
                   </div>
                 </button>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-slate-500">Zatím nemáme co doporučit.</p>
+          <p className="text-xs text-slate-500">Zatím nemáte vybraný žádný kroužek.</p>
         )}
       </section>
 

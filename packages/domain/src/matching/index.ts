@@ -111,12 +111,16 @@ export function activityFit(
 ): ActivityFit {
   const reasons: FitReason[] = [];
 
-  const ageOk = child.age >= activity.ageMin && child.age <= activity.ageMax;
-  reasons.push({
-    key: 'age',
-    ok: ageOk,
-    label: ageOk ? '✓ Vhodné pro věk' : '× Mimo věkový rozsah',
-  });
+  // Neznámý věk (design_review_88.md) se chová neutrálně — kritérium se vynechá,
+  // stejně jako prázdné zájmy/dostupnost/rozpočet.
+  if (child.age !== undefined) {
+    const ageOk = child.age >= activity.ageMin && child.age <= activity.ageMax;
+    reasons.push({
+      key: 'age',
+      ok: ageOk,
+      label: ageOk ? '✓ Vhodné pro věk' : '× Mimo věkový rozsah',
+    });
+  }
 
   if (child.interests.length > 0) {
     const interestOk = child.interests.includes(activity.category);

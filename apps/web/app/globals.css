@@ -209,6 +209,12 @@ body {
     display: none !important;
   }
 
+  /* „Tisk rozvrhu“ (design_review_88.md) je POUZE gafická mřížka, žádné
+     doplňkové textové info — tabulka `.print-summary` patří jen k `printAgenda()`. */
+  body:not([data-print-mode='agenda']) .print-summary {
+    display: none !important;
+  }
+
   .print-summary {
     margin-top: 4mm !important;
     break-inside: avoid;

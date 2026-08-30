@@ -1,4 +1,4 @@
-import { test, expect, isCompact, isThreeColumn } from '../helpers/profiles';
+import { test, expect, isCompact, isThreeColumn, openCalendarMenuIfCompact } from '../helpers/profiles';
 import { readFileSync } from 'node:fs';
 
 test.beforeEach(async ({ page }) => {
@@ -228,9 +228,10 @@ test('T-175: zkrácení času na přesun na 0 min odstraní logistické upozorn�
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Děti', exact: true }).click();
   } else {
-    // Věk/Přesun žijí od FR-W3-7 (design_review_73.md) v Souhrnu (ChildSettings) —
-    // na středních šířkách nutno nejdřív otevřít, na širokém desktopu je vidět rovnou.
-    const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+    // Věk/Přesun žijí od FR-W3-7 (design_review_73.md) v panelu Dítěte — na
+    // středních šířkách nutno nejdřív otevřít tlačítkem „Děti“ (design_review_88.md), na
+    // širokém desktopu je vidět rovnou.
+    const souhrn = page.getByRole('button', { name: 'Děti', exact: true });
     if (await souhrn.isVisible().catch(() => false)) await souhrn.click();
   }
   await page.getByRole('combobox', { name: 'Minimální čas na přesun' }).selectOption('0');
@@ -414,6 +415,7 @@ test('T-179: editace času odmítne neplatný rozsah (začátek po konci) beze z
 
 test('T-180: kalendář lze přejmenovat, přidat další s vlastním názvem a odebrat i s jeho zápisy (design_review_70.md)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
+  await openCalendarMenuIfCompact(page, width);
   const banner = page.getByRole('banner');
   const nameInput = banner.getByRole('textbox', { name: 'Název kalendáře' });
 
@@ -471,15 +473,17 @@ test('T-182: pole adresy vlastní události upozorňuje na odeslání na Nominat
 test('T-185: věk mimo rozsah 3–19 se do kalendáře nezapíše (audit after_review_71 §5)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   // Věk je od FR-W3-7 (design_review_73.md) vždy v panelu Dítěte — na mobilu
-  // v záložce „Děti" (MobileChildrenPanel), na desktopu v Souhrnu (ChildSettings,
-  // na středních šířkách nutno nejdřív otevřít přes „Souhrn").
+  // v záložce „Děti" (MobileChildrenPanel), na desktopu v panelu otevřeném
+  // tlačítkem „Děti" (design_review_88.md, dřív „Souhrn").
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Děti', exact: true }).click();
   } else {
-    const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+    const souhrn = page.getByRole('button', { name: 'Děti', exact: true });
     if (await souhrn.isVisible().catch(() => false)) await souhrn.click();
   }
-  const ageInput = page.getByLabel('Věk dítěte');
+  // `exact: true`, ať nekoliduje s checkboxem „Jen vhodné pro věk dítěte" (CatalogPanel),
+  // jehož accessible name obsahuje stejnou frázi jako podřetězec.
+  const ageInput = page.getByRole('spinbutton', { name: 'Věk dítěte', exact: true });
   const before = await ageInput.inputValue();
   await ageInput.fill('999');
   await ageInput.blur();
@@ -490,6 +494,7 @@ test('T-185: věk mimo rozsah 3–19 se do kalendáře nezapíše (audit after_r
 test('T-186: odebrání kalendáře/rozvrhu zobrazí toast s akcí Zpět (audit after_review_71 §7)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   const banner = page.getByRole('banner');
+  await openCalendarMenuIfCompact(page, width);
 
   // Kalendář — na všech šířkách.
   await banner.getByRole('button', { name: 'Přidat kalendář' }).click();

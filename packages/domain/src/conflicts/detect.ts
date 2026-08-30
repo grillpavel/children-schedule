@@ -89,13 +89,31 @@ function detectTimeOverlaps(placed: PlacedSession[]): Conflict[] {
 }
 
 // H2 — věk mimo rozsah kroužku.
-function detectAgeConflicts(input: ConflictInput, index: CatalogIndex): Conflict[] {
+function detectAgeConflicts(
+  input: ConflictInput,
+  index: CatalogIndex,
+): { conflicts: Conflict[]; skipped: SkippedCheck[] } {
   const conflicts: Conflict[] = [];
+  const skipped: SkippedCheck[] = [];
   const children = childById(input.children);
+  const skippedIds = new Set<string>();
   for (const enrollment of input.schedule.enrollments) {
     const activity = index.activity.get(enrollment.activityId);
     const child = children.get(enrollment.childId);
     if (!activity || !child) continue;
+    // Neznámý věk (design_review_88.md) — kontrola se přeskočí, ne se falešně
+    // vyhodnotí jako konflikt.
+    if (child.age === undefined) {
+      if (!skippedIds.has(child.id)) {
+        skippedIds.add(child.id);
+        skipped.push({
+          check: 'H2_age_out_of_range',
+          reason: `Neznámý věk (${child.name}) — vhodnost pro věkový rozsah neověřena.`,
+          enrollmentIds: [enrollment.id],
+        });
+      }
+      continue;
+    }
     if (child.age < activity.ageMin || child.age > activity.ageMax) {
       conflicts.push({
         kind: 'age_out_of_range',
@@ -105,8 +123,9 @@ function detectAgeConflicts(input: ConflictInput, index: CatalogIndex): Conflict
       });
     }
   }
-  return conflicts;
+  return { conflicts, skipped };
 }
+
 
 // H3 — začátek kroužku před koncem vyučování (+ rezerva na přesun).
 function detectSchoolNotFinished(
@@ -333,18 +352,19 @@ export function detectConflicts(input: ConflictInput): ConflictReport {
     childSettings,
   );
   const family = detectFamilyConflicts(placed, input.children);
+  const age = detectAgeConflicts(input, index);
 
   return {
     conflicts: [
       ...detectTimeOverlaps(placed),
-      ...detectAgeConflicts(input, index),
+      ...age.conflicts,
       ...school.conflicts,
       ...detectValidity(input, placed),
       ...detectCapacityUnknown(input, index),
       ...transfer.conflicts,
       ...family.conflicts,
     ],
-    skippedChecks: [...school.skipped, ...transfer.skipped, ...family.skipped],
+    skippedChecks: [...school.skipped, ...transfer.skipped, ...family.skipped, ...age.skipped],
   };
 }
 

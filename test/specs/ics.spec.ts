@@ -1,4 +1,4 @@
-import { test, expect, isCompact } from '../helpers/profiles';
+import { test, expect, isCompact, openCalendarMenuIfCompact } from '../helpers/profiles';
 import { assertCRLF, assertFolding, unfold, getProperty } from '../helpers/ics-raw';
 import { readFileSync } from 'node:fs';
 
@@ -10,9 +10,12 @@ async function openCatalog(page: import('@playwright/test').Page, width: number)
   if (isCompact(width)) await page.getByRole('button', { name: 'Katalog', exact: true }).click();
 }
 
-// Správa kalendářů (přidání/přepnutí/přejmenování/odebrání) je od design_review_70.md
-// VŽDY v horní liště (banner), na všech šířkách — už nežije jen v mobilní záložce „Děti".
-async function addCalendar(page: import('@playwright/test').Page, name?: string) {
+// Správa kalendářů (přidání/přepnutí/přejmenování/odebrání) je na desktopu od
+// design_review_70.md Vždy v horní liště (banner); na mobilu je od BL-057
+// (design_review_88.md) sbalená za tlačítko „Správa kalendářů" — musí se
+// nejdřív otevřít.
+async function addCalendar(page: import('@playwright/test').Page, width: number, name?: string) {
+  await openCalendarMenuIfCompact(page, width);
   await page.getByRole('banner').getByRole('button', { name: 'Přidat kalendář' }).click();
   if (name) {
     await page.getByRole('banner').getByRole('textbox', { name: 'Název nového kalendáře' }).fill(name);
@@ -150,13 +153,15 @@ test('T-609: export s více kalendáři dá samostatný soubor na kalendář', a
   const raw = await exportIcsRaw(page);
   expect(getProperty(raw, 'X-WR-CALNAME')[0], 'kalendář nese svůj název').toBeTruthy();
 
-  // C6-C2: víc kalendářů = samostatný export na kalendář (design_review_70.md).
+  // C6-C2: víc kalendářů = samostatný export na kalendář (design_review_70.md); na mobilu
+  // je tlačítko za sheetem „Správa kalendářů" (BL-057, design_review_88.md).
+  await openCalendarMenuIfCompact(page, width);
   await expect(page.getByRole('banner').getByRole('button', { name: 'Přidat kalendář' })).toBeVisible();
 });
 
-test('T-610: export všech kalendářů stáhne samostatný soubor na každý kalendář', async ({ page }) => {
+test('T-610: export všech kalendářů stáhne samostatný soubor na každý kalendář', async ({ page }, testInfo) => {
   // C6-C2: druhý kalendář → jedním exportem dva samostatné .ics.
-  await addCalendar(page, 'Druhé dítě');
+  await addCalendar(page, testInfo.project.use.viewport!.width, 'Druhé dítě');
 
   const downloads: import('@playwright/test').Download[] = [];
   page.on('download', (d) => downloads.push(d));

@@ -18,7 +18,7 @@ import {
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import { useScheduleView } from '@/hooks/useScheduleView';
-import { useIsMobile } from '@/hooks/useBreakpoint';
+import { useIsWide } from '@/hooks/useBreakpoint';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
 import { geocodeAddress } from '@/lib/geocode';
 import { ColorSwatches } from './ColorSwatches';
@@ -197,7 +197,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const addressEdited = override?.address !== undefined;
   const priceEdited = override?.price !== undefined;
   const child = state.children.find((c) => c.id === activeChildId);
-  const ageMatches = child ? child.age >= activity.ageMin && child.age <= activity.ageMax : undefined;
+  const ageMatches =
+    child?.age !== undefined ? child.age >= activity.ageMin && child.age <= activity.ageMax : undefined;
 
   return (
     <section className="border-b border-slate-200/80 bg-white">
@@ -464,10 +465,16 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             <div
               className={clsx(
                 'flex items-center gap-1 text-[11px] font-semibold',
-                ageMatches ? 'text-emerald-700' : 'text-amber-700',
+                child.age === undefined
+                  ? 'text-slate-500'
+                  : ageMatches
+                    ? 'text-emerald-700'
+                    : 'text-amber-700',
               )}
             >
-              {ageMatches ? (
+              {child.age === undefined ? (
+                <span>Věk {child.name} není vyplněný — vhodnost neověřena</span>
+              ) : ageMatches ? (
                 <>
                   <IconCheck className="h-3 w-3" />
                   <span>Věk odpovídá ({child.name}, {child.age} let)</span>
@@ -1012,17 +1019,20 @@ function CustomEntryDetail() {
 /** Věk a čas na přesun (FR-W3-7, design_review_73.md) — dřív jen v desktopovém
  * Toolbaru, na mobilu jen v záložce „Děti" (MobileChildrenPanel). Toolbar dnes
  * nese 9 nesouvisejících věcí; věk/přesun patří k dítěti, ne k historii/exportu.
- * `useIsMobile` (ne CSS `hidden`), ať se na mobilu (záložka „Děti" mountuje
- * DetailsPanel VEDLE MobileChildrenPanel) needuplikuje stejný `aria-label`. */
+ * `useIsWide` (design_review_88.md, dřív `useIsMobile`) — od BL-057/tabletových
+ * sheetů se `MobileChildrenPanel` (včetně věku/přesunu) mountuje VEDLE `DetailsPanel`
+ * i na středních šířkách (sheet „Děti"), ne jen na mobilu — `ChildSettings` by tam
+ * duplikoval stejné pole. Zobrazuje se tedy jen na širokém desktopu (≥1180px),
+ * kde je `DetailsPanel` jediný zdroj této správy. */
 function ChildSettings() {
-  const isMobile = useIsMobile();
+  const isWide = useIsWide();
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const child = usePlannerStore((s) => s.state.children.find((c) => c.id === s.activeChildId));
   const setChildAge = usePlannerStore((s) => s.setChildAge);
   const setChildTravelBuffer = usePlannerStore((s) => s.setChildTravelBuffer);
   const setChildTravelMode = usePlannerStore((s) => s.setChildTravelMode);
 
-  if (isMobile || !child) return null;
+  if (!isWide || !child) return null;
 
   return (
     <section className="space-y-2 border-b border-slate-200/80 p-3">
@@ -1035,10 +1045,16 @@ function ChildSettings() {
           min={3}
           max={19}
           defaultValue={child.age}
+          placeholder="—"
           onBlur={(e) => {
-            const n = Number(e.target.value);
+            const raw = e.target.value.trim();
+            if (raw === '') {
+              setChildAge(activeChildId, undefined);
+              return;
+            }
+            const n = Number(raw);
             if (Number.isFinite(n) && n >= 3 && n <= 19) setChildAge(activeChildId, n);
-            else e.target.value = String(child.age);
+            else e.target.value = child.age !== undefined ? String(child.age) : '';
           }}
           aria-label="Věk dítěte"
           className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"

@@ -6,7 +6,48 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
-### 5 nahlášených chyb + BL-055/056 dokončeny, BL-057 pozastaveno (CHANGE-94)
+### 11 přímých nálezů uživatele + BL-057 implementováno (CHANGE-95)
+
+Trigger: uživatel nahlásil 11 konkrétních UI/UX chyb/požadavků z vlastního používání appky
+(design_review_88.md) a výslovně potvrdil implementaci `BL-057` (dřív NEEDS INPUT).
+
+- **Věk dítěte se nikdy nativně nevyplňuje**: `Child.age` je nyní `z.number().int().min(3).max(19)
+  .optional()` (relaxace povinného pole je zpětně kompatibilní, žádná migrace/`schemaVersion` bump
+  není potřeba). Všechna konstrukční místa přestala dosazovat výchozí `age: 9`. Neznámý věk je
+  neutrální všude — `activityFit()` (matching) vynechá kritérium věku, `detectAgeConflicts()` (H2)
+  zapíše do `skippedChecks` místo falešného konfliktu, `CatalogPanel.tsx`'s filtr „Jen vhodné pro
+  věk" je bez zadaného věku zašedlý. `setChildAge(id, undefined)` umožňuje věk i následně vymazat.
+- **Home „Vybrané kroužky" místo „Doporučujeme"**: nová sekce v `HomeScreen.tsx` ukazuje už
+  zapsané kroužky/vlastní události (dedup podle `activityId`/`ownerId`), klikatelné na detail —
+  nahrazuje dřívější doporučovací sekci (primární tok appky je katalog→rozvrh→export).
+  `CatalogPanel.tsx`'s vlastní sekce „Co se hodí…" zůstává beze změny.
+- **„Další filtry" oprava přetékání + filtr podle pohlaví**: `grid-cols-2` → `grid-cols-1`
+  (časová pole na úzkém katalogu přetékala mimo kartu). Cenový filtr nahrazen filtrem podle
+  pohlaví — nové `Activity.targetGender?: 'boys' | 'girls'` (nezadáno = bez omezení, doplněno jen
+  tam, kde je to v katalogu čitelně uvedené — „Basketbal — chlapci").
+- **Sheet „Kalendář"**: (a) výchozí scroll zarovná 12:00 na vrch (dřív centrováno na aktuální
+  čas); (b) barva překryvu sourozenců je nyní podle DÍTĚTE (`colorForChild`), ne podle aktivity
+  (dvě děti ve stejném kroužku už nemají stejnou barvu) + nová barevná legenda; (c) „now" čára se
+  kreslí JEDNOU přes celou šířku všech dní (dřív per sloupec) a odpovídající hodina na časové ose
+  se zvýrazní červeně.
+- **Tablet dostal sheety „Domů" a „Děti"**: střední šířky (768–1179px) měly jen jedno tlačítko
+  „Souhrn" (jen `DetailsPanel`). Nyní dvě tlačítka — „Domů" (otevře `HomeScreen`) a „Děti"
+  (přejmenováno ze „Souhrn", otevře `MobileChildrenPanel`+`DetailsPanel` dohromady, jako na
+  mobilu). Vedlejší oprava: `ChildSettings` (věk/přesun v `DetailsPanel.tsx`) se dřív zobrazovalo
+  na všech nemobilních šířkách a duplikovalo pole s nově přidaným `MobileChildrenPanel` na médiu —
+  gate změněn na `useIsWide()` (≥1180px, jen široký desktop).
+- **Tisk/PNG: nejprve vyber rozsah hodin**: nový `PrintRangeDialog.tsx` (Od/Do, nativně
+  13:00–21:00) před „Tisk rozvrhu"/„Obrázek rozvrhu (.png)" (agenda je textová, netýká se jí).
+  `applyExportRange()` dočasně ořízne scrollovatelný obsah mřížky na zvolený rozsah, pak obnoví.
+  „Tisk rozvrhu" nyní ukazuje JEN grafickou mřížku — `.print-summary` tabulka se tiskne pouze v
+  režimu agendy.
+- **BL-057 hotovo** (design_review_87.md §6, dřív NEEDS INPUT): správa kalendářů
+  (přejmenování/přepnutí/přidání/odebrání) na mobilu sbalena za kompaktní tlačítko „avatar + jméno
+  + ▾" (`aria-label="Správa kalendářů (aktivní: …)"`), otevírá `fixed`-pozicovaný sheet se stejným
+  obsahem. Na desktopu beze změny (vždy viditelné v liště). Hlavička dostala `flex-nowrap
+  overflow-x-auto` (mobil) + `shrink-0` na všechny skupiny — je teď VŽDY přesně 1 řádek na mobilu
+  (změřeno 113px → 61px).
+
 
 Trigger: uživatel nahlásil 5 konkrétních chyb (tisk/PDF, výběr termínu, věk dítěte) a požádal o
 dokončení `BL-055`/`BL-056`/`BL-057` (design_review_86.md).

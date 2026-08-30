@@ -32,6 +32,11 @@ describe('activityFit', () => {
     expect(out.reasons.find((r) => r.key === 'age')!.ok).toBe(false);
   });
 
+  it('neznámý věk (undefined) je neutrální — kritérium se vynechá, nevrací se jako × (design_review_88.md)', () => {
+    const unknown = activityFit(keramika, child({ age: undefined }), makeSchedule(), TEST_CATALOG, TODAY);
+    expect(unknown.reasons.find((r) => r.key === 'age')).toBeUndefined();
+  });
+
   it('zájem: shoda → ok, jiný → ×, prázdné → neutrální (bez důvodu)', () => {
     const match = activityFit(keramika, child({ interests: ['crafts'] }), makeSchedule(), TEST_CATALOG, TODAY);
     expect(match.reasons.find((r) => r.key === 'interest')!.ok).toBe(true);

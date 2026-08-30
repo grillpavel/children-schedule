@@ -1,4 +1,4 @@
-import { test, expect, isCompact } from '../helpers/profiles';
+import { test, expect, isCompact, openCalendarMenuIfCompact } from '../helpers/profiles';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -146,9 +146,11 @@ test('T-154: soubor se starším schemaVersion se načte přes migraci', async (
   expect(dialogMsg, 'migrace nesmí hlásit chybu').toBeNull();
 });
 
-test('T-158: na mobilu jsou Otevřít/Uložit v menu „Další ▾", název kalendáře je vždy v liště', async ({ page }, testInfo) => {
+test('T-158: na mobilu jsou Otevřít/Uložit v menu „Další ▾", název kalendáře je za tlačítkem „Správa kalendářů" (BL-057, design_review_88.md)', async ({ page }, testInfo) => {
   test.skip(!isCompact(testInfo.project.use.viewport!.width), 'platí jen pro mobilní lištu');
-  // Název kalendáře je od design_review_70.md vždy viditelný přímo v liště.
+  // Než se otevře, textové pole v DOM není (BL-057 sbalilo správu kalendářů za tlačítko).
+  await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toHaveCount(0);
+  await openCalendarMenuIfCompact(page, testInfo.project.use.viewport!.width);
   await expect(page.getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
   // V zavřené liště nejsou ostatní akce přímo dostupné.
   await expect(page.getByRole('button', { name: 'Uložit', exact: true })).toBeHidden();

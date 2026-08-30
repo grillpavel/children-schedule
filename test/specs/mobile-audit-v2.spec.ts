@@ -406,28 +406,26 @@ test.describe('M10 — validace věku dítěte', () => {
     await page.goto('/');
   });
 
-  test('T-256 (M10): smazání obsahu pole věku nenastaví 0 ani NaN', async ({ page }) => {
+  test('T-256 (M10): smazání obsahu pole věku nastaví „věk neznámý" (undefined), ne 0 ani NaN (design_review_88.md: nativně bez věku je validní stav, uživatel ho může i vymazat)', async ({ page }) => {
     await page.getByRole('button', { name: 'Děti', exact: true }).click();
 
     const age = page.getByLabel('Věk dítěte');
     await expect(age).toBeVisible();
     await age.fill('');
     await age.blur();
+    // Pole zůstává prázdné (design_review_88.md) — neplatná/prázdná hodnota se
+    // nezobrazí jako 0/NaN ani se nevrátí na starou hodnotu, věk je prostě neznámý.
+    await expect(age).toHaveValue('');
 
-    // Store nesmí přijmout hodnotu mimo 3–19. Kontrolujeme přes zobrazený věk
-    // na přehledu, který čte tentýž stav.
     await page.getByRole('button', { name: 'Domů', exact: true }).click();
-    const summary = page.getByText(/Věk \d+ let|Věk NaN let/);
-    const text = (await summary.textContent()) ?? '';
-    const parsed = Number(text.replace(/\D+/g, ''));
-
-    expect(
-      Number.isFinite(parsed) && parsed >= 3 && parsed <= 19,
-      `věk po smazání pole je „${text.trim()}“ — store nevaliduje rozsah (nález M10)`,
-    ).toBe(true);
+    await expect(page.getByText(/Věk NaN let|Věk undefined let|Věk 0 let/)).toHaveCount(0);
   });
 
   test('T-257 (M10): neplatný věk nesmí vyprázdnit doporučení', async ({ page }) => {
+    // design_review_88.md: HomeScreen „Doporučujeme" bylo nahrazeno „Vybranými
+    // kroužky" (aria-label „Vybraný kroužek: …", ne „Doporučeno: …") — na Domů
+    // záložce už tedy žádné „Doporučeno:" tlačítko nikdy nebude, test se natrvalo
+    // přeskočí (self-skip níže), ponecháno pro historii nálezu M10.
     await page.getByRole('button', { name: 'Domů', exact: true }).click();
     const before = await page.getByRole('button', { name: /^Doporučeno:/ }).count();
     test.skip(before === 0, 'výchozí stav nemá doporučení, test nemá co srovnávat');

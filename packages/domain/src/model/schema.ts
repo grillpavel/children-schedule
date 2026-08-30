@@ -100,6 +100,10 @@ export const activitySchema = z.object({
   category: activityCategorySchema,
   ageMin: z.number().int(),
   ageMax: z.number().int(),
+  /** Cílová skupina podle pohlaví (např. „Basketbal — chlapci“) — nezadáno = smíšené/
+   * bez omezení. Nikdy neuhádnuto: doplňuje se jen tam, kde už je to v názvu/popisu
+   * katalogu čitelně uvedeno. */
+  targetGender: z.enum(['boys', 'girls']).optional(),
   price: priceSchema,
   capacity: z.number().int().optional(),
   description: z.string().optional(),
@@ -182,7 +186,10 @@ export const childSchema = z.object({
   id: z.string(),
   name: z.string(),
   birthYear: z.number().int().optional(),
-  age: z.number().int(),
+  // Neznámý výchozí stav (design_review_88.md) — nikdy se nativně nevyplňuje
+  // vymyšleným číslem; `undefined` = věk neznámý, věkové kritium se při
+  // doporučování/filtraci vynechá (stejně jako prázdné zájmy/dostupnost).
+  age: z.number().int().min(3).max(19).optional(),
   // Personalizační vstupy pro doporučovací engine (CHANGE-45); prázdné = neutrální.
   interests: z.array(activityCategorySchema).default([]),
   availability: z.array(availabilityWindowSchema).default([]),

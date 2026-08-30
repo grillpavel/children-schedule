@@ -498,6 +498,7 @@ export const NS_CATALOG: Catalog = {
       category: 'sport',
       ageMin: 13,
       ageMax: 18,
+      targetGender: 'boys',
       price: { amount: 1200, period: 'per_year' },
       lastVerifiedAt: VERIFIED_AT,
       description:

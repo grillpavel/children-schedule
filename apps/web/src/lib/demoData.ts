@@ -209,7 +209,6 @@ export function buildDemoExceptions(): CalendarException[] {
 export const DEMO_CHILD: Child = {
   id: 'demo-child',
   name: 'Julinka',
-  age: 9,
   interests: [],
   availability: [],
   schoolEndByWeekday: { '1': 840, '2': 840, '3': 840, '4': 840, '5': 780 },

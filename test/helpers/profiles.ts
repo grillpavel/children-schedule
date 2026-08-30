@@ -14,6 +14,18 @@ export function isThreeColumn(width: number): boolean {
   return width >= 1180;
 }
 
+/** BL-057 (design_review_88.md): na mobilu (<768px) je správa kalendářů (název/
+ * přepnutí/přidání/odebrání) sbalená za kompaktní avatar+jméno tlačítko v horní
+ * liště ("Správa kalendářů (aktivní: …)") — otevře ji do sheetu. Na širších
+ * profilech je stejný obsah vždy přímo v liště, není co otevírat. */
+export async function openCalendarMenuIfCompact(
+  page: import('@playwright/test').Page,
+  width: number,
+): Promise<void> {
+  if (!isCompact(width)) return;
+  await page.getByRole('banner').getByRole('button', { name: /Správa kalendářů/ }).click();
+}
+
 /** Zmrazí čas, aby now-line nerozbíjela vizuální snímky (Z-07). */
 export const test = base.extend<{ frozenClock: void }>({
   frozenClock: [

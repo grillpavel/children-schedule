@@ -18,7 +18,7 @@ function detailScope(page: import('@playwright/test').Page, width: number) {
 /** Na středních šířkách otevře Souhrn slide-over (když není otevřený výběrem). */
 async function openSummaryIfMedium(page: import('@playwright/test').Page, width: number) {
   if (isCompact(width) || isThreeColumn(width)) return;
-  const souhrn = page.getByRole('button', { name: 'Souhrn', exact: true });
+  const souhrn = page.getByRole('button', { name: 'Děti', exact: true });
   if (await souhrn.isVisible()) await souhrn.click();
 }
 

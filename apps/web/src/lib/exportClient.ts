@@ -25,7 +25,28 @@ export function formatDtStamp(date: Date = new Date()): string {
   );
 }
 
+/** iPhone/iPad — vč. iPadOS 13+, které se hlásí jako `MacIntel`, ale má dotyk. */
+export function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) return true;
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
+/** Přímý `data:` URI je jediná spolehlivá cesta pro `.ics` na iOS Safari — viz `download()`. */
+export function icsDataUri(content: string, mime: string): string {
+  return `data:${mime},${encodeURIComponent(content)}`;
+}
+
 function download(filename: string, content: string, mime: string): void {
+  // iOS Safari `<a download>` u blob: URL pro .ics nespolehlivě funguje (běžně
+  // se buď otevře syrový text, nebo se nestane nic) — přímá navigace na
+  // `data:` URI se stejným MIME typem naopak spolehlivě vyvolá nativní
+  // "Přidat do kalendáře" (design_review_93.md). Mac Safari/Chrome i Android
+  // zvládají obojí stejně, proto se přepínáme jen na iOS a jen pro .ics.
+  if (mime.startsWith('text/calendar') && isIosDevice()) {
+    window.location.href = icsDataUri(content, mime);
+    return;
+  }
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

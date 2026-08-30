@@ -173,3 +173,90 @@ test('T-610: export všech kalendářů stáhne samostatný soubor na každý ka
   const names = downloads.map((d) => d.suggestedFilename());
   expect(new Set(names).size, 'každý kalendář má vlastní soubor').toBe(2);
 });
+
+// --- Stažení .ics na iPhonu (design_review_93.md, CHANGE-100) ---------------
+//
+// Reálný nález: import kalendáře do Kalendáře fungoval na macOS, ale ne na
+// iPhonu. Příčina NENÍ v obsahu .ics (ten je RFC 5545 validní a testovaný výše)
+// — je v MECHANISMU stažení: `<a download>` na blob: URL je na iOS Safari
+// nespolehlivé (známý, dlouhodobý bug), zatímco přímá navigace na `data:` URI
+// se stejným MIME typem spolehlivě vyvolá nativní „Přidat do kalendáře".
+// Skutečnou navigaci na `data:` URI NELZE v Chromiu (na kterém Playwright
+// běží) ověřit — Chrome takové navigace z bezpečnostních důvodů blokuje bez
+// ohledu na to, jaký User-Agent hlásí (ověřeno ručně: click na exportní
+// tlačítko s iOS User-Agentem v Chromiu jen visí na "waiting for scheduled
+// navigations to finish", URL se nezmění, žádný download event nepřijde).
+// Proto testujeme jen NAŠI VLASTNÍ rozhodovací logiku: sledujeme, zda appka
+// vůbec zavolala `URL.createObjectURL` (blob cesta) — na iOS to musí být 0
+// volání (jde cestou `data:` URI), jinde beze změny (blob cesta zůstává).
+const IOS_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+const MAC_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+
+test.describe('iOS export .ics (design_review_93.md)', () => {
+  const ONLY_ONCE = 'chování závisí na User-Agentu, ne na viewportu — testuje se jen jednou';
+
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', ONLY_ONCE);
+  });
+
+  async function spyCreateObjectURL(page: import('@playwright/test').Page) {
+    await page.addInitScript(() => {
+      (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls = 0;
+      const orig = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = (...args: Parameters<typeof URL.createObjectURL>) => {
+        (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls++;
+        return orig(...args);
+      };
+    });
+  }
+
+  test('T-611: iPhone (User-Agent) exportuje .ics přes data: URI, ne blob: download', async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: IOS_UA, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.clock.install({ time: new Date('2026-10-06T15:30:00+02:00') });
+    await spyCreateObjectURL(page);
+    await page.goto('/');
+    await addCustom(page, 1440, { name: 'iOS export test' });
+    await page.getByRole('button', { name: /Další ▾/ }).click();
+    await page.getByRole('button', { name: 'Kalendář (.ics)' }).click({ noWaitAfter: true });
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls))
+      .toBe(0);
+    await context.close();
+  });
+
+  test('T-612: iPad (Mac User-Agent + dotyk) je detekován jako iOS stejně jako iPhone', async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: MAC_UA, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.clock.install({ time: new Date('2026-10-06T15:30:00+02:00') });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 });
+    });
+    await spyCreateObjectURL(page);
+    await page.goto('/');
+    await addCustom(page, 1440, { name: 'iPad export test' });
+    await page.getByRole('button', { name: /Další ▾/ }).click();
+    await page.getByRole('button', { name: 'Kalendář (.ics)' }).click({ noWaitAfter: true });
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls))
+      .toBe(0);
+    await context.close();
+  });
+
+  test('T-613: skutečný Mac (bez dotyku) i ostatní prohlížeče nadále stahují .ics přes blob: URL (regrese)', async ({ page }) => {
+    await spyCreateObjectURL(page);
+    // Sdílená `page` z beforeEach už navigovala PŘED tímto testem — addInitScript
+    // se projeví až po dalším loadu.
+    await page.reload();
+    await addCustom(page, 1440, { name: 'desktop export test' });
+    await page.getByRole('button', { name: /Další ▾/ }).click();
+    const pending = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Kalendář (.ics)' }).click();
+    await pending;
+    const calls = await page.evaluate(() => (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls);
+    expect(calls, 'desktop/ostatní musí použít blob: URL (beze změny)').toBeGreaterThan(0);
+  });
+});
+

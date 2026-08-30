@@ -6,6 +6,30 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### iOS export .ics selhával — mechanismus stažení, ne obsah (CHANGE-100)
+
+Trigger: uživatel nahlásil, že import kalendáře na iPhonu nefunguje, na Macu funguje bez problémů
+(design_review_93.md).
+
+- **Root cause**: `.ics` obsah je RFC 5545 validní a dlouhodobě testovaný (T-600–T-610) — chyba
+  není v obsahu. `download()` (`exportClient.ts`) používal `Blob` → `blob:` URL → skrytý `<a
+  download>` element → `.click()` — dlouhodobě známý nespolehlivý vzorec na iOS Safari (buď se
+  otevře syrový text, nebo se nestane nic; nikdy nevyvolá „Přidat do kalendáře"). Mac Safari/Chrome
+  zvládá `<a download>` u `blob:` URL spolehlivě, proto tam export fungoval.
+- **Fix**: pro export `.ics` (`mime` začínající `text/calendar`) NA iOS zařízení (nová
+  `isIosDevice()` — iPhone/iPod/iPad podle User-Agentu, nebo `MacIntel` + `maxTouchPoints>1` pro
+  iPadOS 13+) se místo blob+`<a download>` použije přímá navigace na `data:` URI se stejným MIME
+  typem — zdokumentovaný vzorec, který na iOS Safari spolehlivě vyvolá nativní EventKit „Přidat do
+  kalendáře". Ostatní exporty (JSON, PNG) i `.ics` na ne-iOS zařízeních beze změny.
+- Nové testy `test/specs/ics.spec.ts` T-611 (iPhone → `data:` URI, ne blob), T-612 (iPadOS
+  detekován stejně jako iPhone), T-613 (desktop/Android/Mac bez dotyku beze změny — regrese).
+  Skutečnou navigaci na `data:` URI nelze v Chromiu (Playwright) ověřit — Chrome ji z
+  bezpečnostních důvodů blokuje bez ohledu na User-Agent; testy proto ověřují vlastní rozhodovací
+  logiku appky (volání `URL.createObjectURL`), ne chování reálného iOS Safari.
+- Spec: `.github/specs/design_review_93.md`. `tsc --noEmit` čisté (web), domain vitest 135/135,
+  plná 6profilová E2E sada = **zelená** (T-611–613 běží jen na `desktop`, jinde korektně
+  `skipped`).
+
 ### Oprava kategorizace ZŠ/ZUŠ a přesné názvy poskytovatelů (CHANGE-99)
 
 Trigger: uživatel po CHANGE-98 nahlásil, že ZŠ „Výuka" se v katalogu zařadila pod „Hry a myšlení",

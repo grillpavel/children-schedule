@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   colorForActivity,
@@ -1267,15 +1267,28 @@ function ScheduleNotices() {
 }
 
 export function DetailsPanel({ onEnrolled }: { onEnrolled?: () => void } = {}) {
-  const hasSelection = usePlannerStore(
-    (s) => s.selectedActivityId !== null || s.selectedCustomEntryId !== null,
-  );
+  const selectedActivityId = usePlannerStore((s) => s.selectedActivityId);
+  const selectedCustomEntryId = usePlannerStore((s) => s.selectedCustomEntryId);
+  const hasSelection = selectedActivityId !== null || selectedCustomEntryId !== null;
+
+  // Toto je jediný SKUTEČNĚ scrollující kontejner (na mobilu/médiu je vnořený
+  // ještě uvnitř dalšího `overflow-y-auto` wrapperu ve `page.tsx`, který ale
+  // sám nikdy nescrolluje, protože ho toto dítě vyplňuje přes `h-full`).
+  // Kroužek a vlastní událost sdílejí TENTO div beze změny identity při
+  // přepnutí výběru — beze resetu by starý `scrollTop` (z delšího obsahu)
+  // přetrval do nově vybrané (kratší) položky, takže by se pohled „otevřel"
+  // uprostřed/na konci místo nahoře (nahlášeno jako „otevře na jiném místě" /
+  // „nezobrazí vše"). Reset na každou změnu identity výběru.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [selectedActivityId, selectedCustomEntryId]);
 
   // Vybraný kroužek/událost ukazuje JEN svůj detail — týdenní souhrn (Obsazenost
   // týdne/Souhrn týdne/Náklady) sem nepatří a nemá být fixní záhlaví nad detailem.
   if (hasSelection) {
     return (
-      <div className="flex h-full flex-col overflow-y-auto bg-slate-50/40">
+      <div ref={scrollRef} className="flex h-full flex-col overflow-y-auto bg-slate-50/40">
         <SelectedActivity onEnrolled={onEnrolled} />
         <CustomEntryDetail />
       </div>
@@ -1283,7 +1296,7 @@ export function DetailsPanel({ onEnrolled }: { onEnrolled?: () => void } = {}) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-slate-50/40">
+    <div ref={scrollRef} className="flex h-full flex-col overflow-y-auto bg-slate-50/40">
       <PinnedSummary />
       <ScheduleNotices />
     </div>

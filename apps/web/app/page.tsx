@@ -235,7 +235,6 @@ export default function Page() {
   const previousHistoryRef = useRef(historyLength);
   const isDirty = stateSignature !== savedSignature;
   const hasSelection = selectedActivityId !== null || selectedCustomEntryId !== null;
-
   // Klávesové zkratky undo/redo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

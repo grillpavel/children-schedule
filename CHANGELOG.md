@@ -6,6 +6,25 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Mobilní sheet detailu: kroužek a vlastní událost se otevírají na stejném místě (CHANGE-96)
+
+Trigger: uživatel nahlásil, že na mobilu se sheet „Kalendář" po výběru kroužku otevírá na jiném
+místě než po kliknutí na vlastní událost, nezobrazuje vše, položky jsou pod displejem
+(design_review_89.md).
+
+- **Root cause**: `DetailsPanel.tsx`'s vlastní root div (`h-full overflow-y-auto`) je jediný
+  SKUTEČNĚ scrollující kontejner detailu (ověřeno měřením: 1052px obsahu v 545px viditelné
+  oblasti) — nevyremountuje se při přepnutí výběru, takže `scrollTop` přetrvává mezi různě
+  dlouhým obsahem. Scénář: scroll dolů v delším detailu kroužku (varianty/kolize) → klik na
+  kratší vlastní událost → stará (velká) `scrollTop` hodnota se ořízne prohlížečem na konec
+  nového obsahu → vidět jen tlačítka dole, ne název/hlavičku nahoře.
+- **Oprava**: nový `useEffect` uvnitř `DetailsPanel` (na `[selectedActivityId,
+  selectedCustomEntryId]`) resetuje `scrollTop = 0` na svém vlastním kořenovém divu při KAŽDÉ
+  změně identity výběru — funguje shodně ve všech 4 místech mountu (mobilní bottom sheet,
+  tabletový „Děti" drawer, mobilní záložka „Děti", široký desktopový sloupec).
+- Ověřeno empiricky (headless Chromium 390×844): reálné přetečení obsahu (1052 vs 545px),
+  scroll na dno (`scrollTop=507`), přepnutí na kolidující vlastní událost → `scrollTop` = 0.
+
 ### 11 přímých nálezů uživatele + BL-057 implementováno (CHANGE-95)
 
 Trigger: uživatel nahlásil 11 konkrétních UI/UX chyb/požadavků z vlastního používání appky

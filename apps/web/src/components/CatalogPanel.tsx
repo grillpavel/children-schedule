@@ -101,7 +101,9 @@ type RootGroupKey =
   | 'hudba_tanec'
   | 'priroda_dobrodruzstvi'
   | 'hry_mysleni'
-  | 'jazyky';
+  | 'jazyky'
+  | 'skola'
+  | 'zus';
 
 interface GroupedActivity {
   root: RootGroupKey;
@@ -116,6 +118,8 @@ const ROOT_ORDER: RootGroupKey[] = [
   'priroda_dobrodruzstvi',
   'hry_mysleni',
   'jazyky',
+  'skola',
+  'zus',
 ];
 
 const ROOT_LABELS: Record<RootGroupKey, string> = {
@@ -126,9 +130,27 @@ const ROOT_LABELS: Record<RootGroupKey, string> = {
   priroda_dobrodruzstvi: 'Příroda a dobrodružství',
   hry_mysleni: 'Hry a myšlení',
   jazyky: 'Jazyky',
+  skola: 'Škola',
+  zus: 'ZUŠ',
 };
 
-function classifyActivity(activityName: string, category: ActivityCategory): GroupedActivity {
+/** ZUŠ obory (design_review_92.md) — vlastní kořenová skupina, ne sdílené Hudba/Tanec/Výtvarka. */
+function classifyZus(activityId: string, category: ActivityCategory): GroupedActivity {
+  if (activityId.startsWith('zus-pripravna-')) return { root: 'zus', sub: 'Přípravný obor' };
+  if (activityId.startsWith('zus-vytvarny-')) return { root: 'zus', sub: 'Výtvarný obor' };
+  if (category === 'drama') return { root: 'zus', sub: 'Literárně dramatický obor' };
+  if (category === 'dance') return { root: 'zus', sub: 'Taneční obor' };
+  return { root: 'zus', sub: 'Hudební obor' };
+}
+
+function classifyActivity(
+  activityId: string,
+  activityName: string,
+  category: ActivityCategory,
+  providerId: string,
+): GroupedActivity {
+  if (providerId === 'zus-nove-straseci') return classifyZus(activityId, category);
+  if (providerId === 'zs-ms-komenskeho') return { root: 'skola', sub: 'Výuka' };
   const name = normalizeCz(activityName);
   if (category === 'athletics') return { root: 'sport_pohyb', sub: 'Atletika' };
   if (category === 'sport') {
@@ -148,6 +170,7 @@ function classifyActivity(activityName: string, category: ActivityCategory): Gro
   if (category === 'language') return { root: 'jazyky', sub: 'Jazyky' };
   return { root: 'hry_mysleni', sub: 'Ostatní' };
 }
+
 
 /** Krátké označení období na kartě (skutečná cena, žádný přepočet na měsíc). */
 const PRICE_PERIOD_SHORT: Record<string, string> = {
@@ -452,7 +475,7 @@ export function CatalogPanel({ onOpenCustom }: { onOpenCustom: () => void }) {
       roots.set(key, { root: key, items: [], subMap: new Map() });
     }
     for (const activity of available) {
-      const group = classifyActivity(activity.name, activity.category);
+      const group = classifyActivity(activity.id, activity.name, activity.category, activity.providerId);
       const bucket = roots.get(group.root)!;
       bucket.items.push(activity);
       const subItems = bucket.subMap.get(group.sub) ?? [];

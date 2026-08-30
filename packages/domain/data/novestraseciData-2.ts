@@ -285,7 +285,7 @@ export const NS_CATALOG: Catalog = {
   providers: [
     {
       id: 'ddm-rakovnik',
-      name: 'Dům dětí a mládeže Rakovník, příspěvková organizace',
+      name: 'DDM (Dům dětí a mládeže)',
       kind: 'ddm',
       address: {
         street: 'S. K. Neumanna 251, Rakovník II',
@@ -296,33 +296,38 @@ export const NS_CATALOG: Catalog = {
         phone: '+420 731 610 569',
         personName: 'Jitka Samšuková (vedoucí pracoviště Nové Strašecí)',
       },
+      note: 'Plný název: Dům dětí a mládeže Rakovník, příspěvková organizace.',
     },
     {
       id: 'scns',
-      name: 'Sportovní Centrum Nové Strašecí, z. s.',
+      name: 'SCNS (Sportovní centrum Nové Strašecí)',
       kind: 'sport_club',
       address: { street: 'Ke Stadionu 1150', city: 'Nové Strašecí', ...NO_COORD },
       contact: {
         phone: '+420 606 268 804',
         personName: 'Lukáš Knobloch (manager klubu, trenér atletiky)',
       },
+      note: 'Plný název: Sportovní Centrum Nové Strašecí, z. s.',
     },
     {
       id: 'sokol-fotbal',
-      name: 'TJ Sokol Nové Strašecí, z. s. — fotbalový oddíl',
+      name: 'TJ Sokol',
       kind: 'sport_club',
       address: { street: 'U Stadionu 957', city: 'Nové Strašecí', ...NO_COORD },
       contact: {
         phone: '+420 602 682 401',
         personName: 'Ing. Jiří Jurgovski (j.jurgi@seznam.cz)',
       },
+      note:
+        'Plný název: TJ Sokol Nové Strašecí, z. s. — fotbalový oddíl. Pokrývá jen ' +
+        'fotbal (florbal/Kelti basketbal jsou samostatné oddíly, zatím v NS_PENDING).',
     },
     // Dřív jen v NS_PENDING (zs-ms-komenskeho) — tehdy jako MÍSTO bez vlastních
     // kroužků. Nově i jako ORGANIZÁTOR běžné výuky (bod 7, design_review_91.md):
     // adresu/kontakt/web přebírá stejná ověřená data, jen jiný účel záznamu.
     {
       id: 'zs-ms-komenskeho',
-      name: 'ZŠ a MŠ J. A. Komenského v Novém Strašecí',
+      name: 'ZŠ (Základní škola)',
       kind: 'school',
       website: 'https://zsnovestraseci.cz/',
       address: { street: 'Komenského nám. 209', city: 'Nové Strašecí', ...ZS_COORD },
@@ -330,6 +335,7 @@ export const NS_CATALOG: Catalog = {
         phone: '+420 311 240 400',
         personName: 'Mgr. Petr Chochola (ředitel)',
       },
+      note: 'Plný název: ZŠ a MŠ J. A. Komenského v Novém Strašecí.',
     },
     // Dřív jen v NS_PENDING (zus-nove-straseci), `missing: ['schedule']`. Skutečný
     // den/čas je individuální podle nástroje a pedagoga a nezná ho ani rodič před
@@ -337,7 +343,7 @@ export const NS_CATALOG: Catalog = {
     // níže), který si rodič po domluvě s pedagogem sám upraví (design_review_91.md).
     {
       id: 'zus-nove-straseci',
-      name: 'Základní umělecká škola, Nové Strašecí, Komenského 189',
+      name: 'ZUŠ (Základní umělecká škola)',
       kind: 'zus',
       website: 'https://www.zusbubu.cz/',
       address: { street: 'Komenského nám. 189', city: 'Nové Strašecí', ...NO_COORD },
@@ -345,6 +351,7 @@ export const NS_CATALOG: Catalog = {
         phone: '+420 313 572 441',
         personName: 'Mgr. Jiřina Kinkalová (ředitelka)',
       },
+      note: 'Plný název: Základní umělecká škola, Nové Strašecí, Komenského 189.',
     },
   ],
 

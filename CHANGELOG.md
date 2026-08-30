@@ -6,6 +6,26 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Oprava kategorizace ZŠ/ZUŠ a přesné názvy poskytovatelů (CHANGE-99)
+
+Trigger: uživatel po CHANGE-98 nahlásil, že ZŠ „Výuka" se v katalogu zařadila pod „Hry a myšlení",
+ZUŠ obory se nezobrazovaly jako 5 samostatných podskupin, a názvy poskytovatelů neodpovídaly
+požadovanému přesnému tvaru (design_review_92.md).
+
+- **ZŠ „Výuka"** má nyní vlastní kořenovou skupinu „Škola" v mobilním drill-down katalogu — dřív
+  padala do generického fallbacku „Hry a myšlení" (`category: 'other'` nikam jinam neseděla).
+- **ZUŠ obory** mají vlastní kořenovou skupinu „ZUŠ" s přesně 5 podskupinami: Přípravný obor (2),
+  Hudební obor (26), Literárně dramatický obor (1), Taneční obor (5), Výtvarný obor (4) — dřív se
+  mísily se sdílenými DDM skupinami „Hudba"/"Tanec"/"Výtvarka". `classifyActivity()` nyní rozlišuje
+  podle `providerId`/`activityId`, ne jen podle `ActivityCategory`.
+- **Přesné názvy poskytovatelů**: „DDM (Dům dětí a mládeže)", „SCNS (Sportovní centrum Nové
+  Strašecí)", „TJ Sokol", „ZŠ (Základní škola)", „ZUŠ (Základní umělecká škola)" — plný ověřený
+  právní název zachován v novém `note` poli.
+- Spec: `.github/specs/design_review_92.md`. `tsc --noEmit` čisté (web), domain vitest 135/135,
+  plná 6profilová E2E sada = **740 passed / 232 skipped / 0 failed** po regeneraci vizuální
+  baseline `sheet-glass-on/off` (mobil, mobil-small — kratší jméno poskytovatele DDM na první
+  kartě sheetu).
+
 ### Katalog: ZŠ a ZUŠ Nové Strašecí s předpřipravenými termíny (CHANGE-98)
 
 Trigger: uživatel doplnil `.github/specs/zs_zus.md` (obory a školné ZŠ/ZUŠ) a požádal o rozšíření

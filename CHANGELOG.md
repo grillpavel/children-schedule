@@ -6,6 +6,30 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Katalog: ZŠ a ZUŠ Nové Strašecí s předpřipravenými termíny (CHANGE-98)
+
+Trigger: uživatel doplnil `.github/specs/zs_zus.md` (obory a školné ZŠ/ZUŠ) a požádal o rozšíření
+katalogu na 5 poskytovatelů (DDM, SCNS, TJ Sokol, ZŠ, ZUŠ) s tím, že den/čas u nových položek
+zatím není znám a doplní ho rodič později (design_review_91.md).
+
+- **Nová kategorie `drama`** (`@krouzky/domain` 0.9.0→0.10.0, zpětně kompatibilní enum přidání,
+  žádná migrace) pro „Literárně dramatický" obor ZUŠ — dřív žádná hodnota `ActivityCategory`
+  neseděla. Label „Divadlo" doplněn do všech 5 vyčerpávajících `Record<ActivityCategory, string>`
+  map + mobilního drill-down stromu.
+- **ZŠ „Výuka"** (1 aktivita) a **ZUŠ 38 oborů** (Přípravný 2, Hudební 26, Literárně dramatický 1,
+  Taneční 5, Výtvarný 4) přidány do reálného katalogu — dřív `NS_PENDING` (`missing: ['schedule']`,
+  „NEMODELOVAT jako běžný kroužek"). Každá dostala jednu `SessionGroup` s **předpřipraveným
+  zástupným termínem** (Po 08:00–08:45, u ZŠ 5× Po–Pá) a `label: 'Termín upřesní rodič'` — v UI se
+  nikdy nezobrazí jako potvrzený čas. Rodič po přidání do rozvrhu upraví den/čas přes existující
+  „Upravit čas" (CHANGE-74).
+- **Cena jen informativně**: `price: PRICE_UNKNOWN` (zobrazí se „Cena neuvedena") + celý známý
+  ceník (skupinové/individuální/přípravné + SRPŠ) jako text v `description` — zdroj nerozlišuje,
+  které konkrétní položky jsou skupinové/individuální, proto se nedopočítává konkrétní částka.
+- `EXPECTED_CATALOG_COUNT` (E2E fixture) 37→76.
+- Spec: `.github/specs/design_review_91.md`. Nová **BL-060** (doplnit reálné dny/časy po ověření).
+  Domain vitest 135/135, `tsc --noEmit` čisté (domain+web), plná 6profilová E2E sada = **740
+  passed / 232 skipped / 0 failed**, beze změny visuálních baselines.
+
 ### Popup umístění, aktuální čas na mobilu a rozdělení sloupce pro sourozence (CHANGE-97)
 
 Trigger: uživatel po CHANGE-96 nahlásil, že stejný popup-position problém stále přetrvává, plus 3

@@ -68,6 +68,7 @@ export const activityCategorySchema = z.enum([
   'art',
   'music',
   'dance',
+  'drama',
   'language',
   'science_tech',
   'science',

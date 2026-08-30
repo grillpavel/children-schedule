@@ -3,7 +3,7 @@ import {
 } from '@krouzky/domain';
 
 /**
- * REÁLNÁ DATA — Nové Strašecí, školní rok 2026/2027.  Verze 3, 10. 8. 2026.
+ * REÁLNÁ DATA — Nové Strašecí, školní rok 2026/2027.  Verze 4, 30. 8. 2026.
  *
  * ZDROJE
  *   [DDM]    https://www.ddmrako.cz/krouzky ......... katalog 2026/2027
@@ -12,11 +12,17 @@ import {
  *   [FOTBAL] podklad od provozovatele katalogu (TJ Sokol NS, fotbalový oddíl)
  *   [SKAUT]  https://musketyri.skauting.cz/
  *   [ZUS]    https://www.zusbubu.cz/inpage/skolne-714/
+ *            .github/specs/zs_zus.md ............... obory + školné 2026/27
+ *   [ZS]     https://zsnovestraseci.cz/
  *   [MESTO]  https://www.novestraseci.cz/volny-cas/spolky-kluby-strany/
  *
  * PRAVIDLO #1: nic se nedopočítává. Neznámá hodnota = Number.NaN (souřadnice,
  * cena), aby výpočet spadl viditelně místo tichého nesmyslu. Chybějící rozvrh
- * = záznam patří do NS_PENDING, ne do katalogu.
+ * = záznam patří do NS_PENDING, ne do katalogu — VÝJIMKA (design_review_91.md,
+ * bod 7): když uživatel výslovně požádá o PŘEDPŘIPRAVENÝ zástupný termín (den/
+ * čas teprve doladí rodič s pedagogem), smí být aktivita v katalogu s
+ * technickým placeholder termínem — nikdy tvrzeným jako skutečný, vždy s
+ * `label`em „Termín upřesní rodič“ a popisem v `description`. Viz ZŠ/ZUŠ níže.
  *
  * ---------------------------------------------------------------------------
  * POŽADOVANÉ ZMĚNY V @krouzky/domain
@@ -220,6 +226,56 @@ export const NS_VENUES: Record<string, NsVenue> = {
 };
 
 // ===========================================================================
+// ZUŠ — seznamy oborů (zdroj .github/specs/zs_zus.md), sdílené activities i
+// sessionGroups níže, ať se název nepřepisuje na dvou místech (bod 7,
+// design_review_91.md)
+// ===========================================================================
+
+const ZUS_HUDEBNI = [
+  'Klavír',
+  'Elektronické klávesové nástroje',
+  'Housle',
+  'Zobcová flétna',
+  'Hoboj',
+  'Příčná flétna',
+  'Klarinet',
+  'Saxofon',
+  'Trubka',
+  'Baskřídlovka',
+  'Baryton',
+  'Pozoun',
+  'Tuba',
+  'Klasická kytara',
+  'Elektrická kytara',
+  'Basová kytara',
+  'Bicí',
+  'Sólový zpěv',
+  'Hudební nauka',
+  'Quodlibet — soubor zobcových fléten',
+  'Lísteček — kapela lidové hudby',
+  'Rybky — pěvecký sbor',
+  'Hra v orchestru',
+  'Kytarový soubor',
+  'Orffův instrumentář',
+  'Komorní hra',
+] as const;
+
+const ZUS_TANECNI = [
+  'Současný tanec',
+  'Lidový tanec',
+  'Klasická taneční technika — balet',
+  'Historický tanec',
+  'Taneční praxe',
+] as const;
+
+const ZUS_VYTVARNY = [
+  'Základní studium',
+  'Rozšířené studium',
+  'Výtvarná fotografie',
+  'Keramika',
+] as const;
+
+// ===========================================================================
 // KATALOG
 // ===========================================================================
 
@@ -259,6 +315,35 @@ export const NS_CATALOG: Catalog = {
       contact: {
         phone: '+420 602 682 401',
         personName: 'Ing. Jiří Jurgovski (j.jurgi@seznam.cz)',
+      },
+    },
+    // Dřív jen v NS_PENDING (zs-ms-komenskeho) — tehdy jako MÍSTO bez vlastních
+    // kroužků. Nově i jako ORGANIZÁTOR běžné výuky (bod 7, design_review_91.md):
+    // adresu/kontakt/web přebírá stejná ověřená data, jen jiný účel záznamu.
+    {
+      id: 'zs-ms-komenskeho',
+      name: 'ZŠ a MŠ J. A. Komenského v Novém Strašecí',
+      kind: 'school',
+      website: 'https://zsnovestraseci.cz/',
+      address: { street: 'Komenského nám. 209', city: 'Nové Strašecí', ...ZS_COORD },
+      contact: {
+        phone: '+420 311 240 400',
+        personName: 'Mgr. Petr Chochola (ředitel)',
+      },
+    },
+    // Dřív jen v NS_PENDING (zus-nove-straseci), `missing: ['schedule']`. Skutečný
+    // den/čas je individuální podle nástroje a pedagoga a nezná ho ani rodič před
+    // zápisem — proto PŘEDPŘIPRAVENÝ termín u každého oboru (viz sessionGroups
+    // níže), který si rodič po domluvě s pedagogem sám upraví (design_review_91.md).
+    {
+      id: 'zus-nove-straseci',
+      name: 'Základní umělecká škola, Nové Strašecí, Komenského 189',
+      kind: 'zus',
+      website: 'https://www.zusbubu.cz/',
+      address: { street: 'Komenského nám. 189', city: 'Nové Strašecí', ...NO_COORD },
+      contact: {
+        phone: '+420 313 572 441',
+        personName: 'Mgr. Jiřina Kinkalová (ředitelka)',
       },
     },
   ],
@@ -752,6 +837,133 @@ export const NS_CATALOG: Catalog = {
         'Vedoucí týmu Ing. Jiří Jurgovski, j.jurgi@seznam.cz, +420 602 682 401. ' +
         'Členské příspěvky nejsou veřejně zveřejněny — ověřit u oddílu.',
     },
+
+    // =====================================================================
+    // ZŠ a MŠ J. A. KOMENSKÉHO — bod 7, design_review_91.md
+    // =====================================================================
+    // Věk 3–19 = celý rozsah Child.age (BL-017 styl "neznámé, nefiltrovat" —
+    // ročník/třída nebyl zdrojem uveden, žádné skutečné číslo se nedopočítává).
+    {
+      id: 'zs-vyuka',
+      providerId: 'zs-ms-komenskeho',
+      name: 'Výuka',
+      category: 'other',
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Běžná školní výuka, Po–Pá. PŘEDPŘIPRAVENÝ termín (viz sessionGroups) — ' +
+        'skutečný denní rozvrh (dle třídy/ročníku) doplní rodič ručně přes „Upravit ' +
+        'čas“ u každého dne zvlášť.',
+    },
+
+    // =====================================================================
+    // ZUŠ — Přípravný obor (bod 7, design_review_91.md, zdroj .github/specs/zs_zus.md)
+    // =====================================================================
+    // Kategorie podle cílového uměleckého oboru (hudba/tanec), ne "přípravný"
+    // samo o sobě — v ActivityCategory pro přípravné ročníky vlastní hodnota není.
+    {
+      id: 'zus-pripravna-tanecni-vychova',
+      providerId: 'zus-nove-straseci',
+      name: 'Přípravná taneční výchova',
+      category: 'dance',
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Přípravný obor ZUŠ. Školné 2026/27 (ročně): přípravné studium 3200 Kč + SRPŠ ' +
+        '800 Kč/rok. PŘEDPŘIPRAVENÝ termín — den/čas upřesní rodič po domluvě s pedagogem.',
+    },
+    {
+      id: 'zus-pripravna-hudebni-vychova',
+      providerId: 'zus-nove-straseci',
+      name: 'Přípravná hudební výchova',
+      category: 'music',
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Přípravný obor ZUŠ. Školné 2026/27 (ročně): přípravné studium 3200 Kč + SRPŠ ' +
+        '800 Kč/rok. PŘEDPŘIPRAVENÝ termín — den/čas upřesní rodič po domluvě s pedagogem.',
+    },
+
+    // =====================================================================
+    // ZUŠ — Hudební obor (26 nástrojů/souborů)
+    // =====================================================================
+    // Školné 2026/27 (ročně, +SRPŠ 800 Kč): skupinové studium 3200 Kč, individuální
+    // studium 3800 Kč. Zdroj nerozlišuje, které konkrétní nástroje/soubory jsou
+    // skupinové a které individuální — NEDOPOČÍTÁVÁNO, obojí uvedeno jen v popisu,
+    // konkrétní zařazení určí pedagog při zápisu.
+    ...(ZUS_HUDEBNI.map((name) => ({
+      id: `zus-${zusSlug(name)}`,
+      providerId: 'zus-nove-straseci',
+      name,
+      category: 'music' as const,
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Hudební obor ZUŠ. Školné 2026/27 (ročně): skupinové studium 3200 Kč, ' +
+        'individuální studium 3800 Kč + SRPŠ 800 Kč/rok — konkrétní zařazení určí ' +
+        'pedagog při zápisu. PŘEDPŘIPRAVENÝ termín — den/čas upřesní rodič po ' +
+        'domluvě s pedagogem.',
+    }))),
+
+    // =====================================================================
+    // ZUŠ — Literárně dramatický obor
+    // =====================================================================
+    {
+      id: 'zus-literarne-dramaticky',
+      providerId: 'zus-nove-straseci',
+      name: 'Literárně-dramatický obor',
+      category: 'drama',
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Literárně-dramatický obor ZUŠ (LDO). Školné 2026/27 (ročně): základní studium ' +
+        '3200 Kč + SRPŠ 800 Kč/rok. PŘEDPŘIPRAVENÝ termín — den/čas upřesní rodič po ' +
+        'domluvě s pedagogem.',
+    },
+
+    // =====================================================================
+    // ZUŠ — Taneční obor (5)
+    // =====================================================================
+    ...(ZUS_TANECNI.map((name) => ({
+      id: `zus-${zusSlug(name)}`,
+      providerId: 'zus-nove-straseci',
+      name,
+      category: 'dance' as const,
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Taneční obor ZUŠ. Školné 2026/27 (ročně): základní studium 3200 Kč + SRPŠ ' +
+        '800 Kč/rok. PŘEDPŘIPRAVENÝ termín — den/čas upřesní rodič po domluvě s pedagogem.',
+    }))),
+
+    // =====================================================================
+    // ZUŠ — Výtvarný obor (4)
+    // =====================================================================
+    ...(ZUS_VYTVARNY.map((name) => ({
+      id: `zus-vytvarny-${zusSlug(name)}`,
+      providerId: 'zus-nove-straseci',
+      name,
+      category: 'art' as const,
+      ageMin: 3,
+      ageMax: 19,
+      price: PRICE_UNKNOWN,
+      lastVerifiedAt: VERIFIED_AT,
+      description:
+        'Výtvarný obor ZUŠ. Školné 2026/27 (ročně): studium 3400 Kč + SRPŠ 800 Kč/rok. ' +
+        'PŘEDPŘIPRAVENÝ termín — den/čas upřesní rodič po domluvě s pedagogem.',
+    }))),
   ],
 
   sessionGroups: [
@@ -820,12 +1032,38 @@ export const NS_CATALOG: Catalog = {
     g('fotbal-mladsi-zaci', [s(1, 990, 1080), s(3, 990, 1080)]),
     g('fotbal-starsi-zaci', [s(1, 990, 1080), s(3, 990, 1080), s(4, 990, 1080)]),
     g('fotbal-dorost', [s(2, 1020, 1110), s(5, 990, 1080)]),
+
+    // ================ ZŠ + ZUŠ — PŘEDPŘIPRAVENÉ termíny (bod 7) ================
+    // Den/čas zatím neznámý — 08:00–08:45 je čistě technický zástupný slot (Session
+    // vyžaduje aspoň 1 termín), ne tvrzení o skutečném rozvrhu. Rodič ho po domluvě
+    // s pedagogem/školou upraví přes „Upravit čas“ (design_review_91.md).
+    g(
+      'zs-vyuka',
+      [s(1, 480, 525), s(2, 480, 525), s(3, 480, 525), s(4, 480, 525), s(5, 480, 525)],
+      'Po–Pá, termín upřesní rodič',
+    ),
+    g('zus-pripravna-tanecni-vychova', [s(1, 480, 525)], 'Termín upřesní rodič'),
+    g('zus-pripravna-hudebni-vychova', [s(1, 480, 525)], 'Termín upřesní rodič'),
+    ...ZUS_HUDEBNI.map((name) => g(`zus-${zusSlug(name)}`, [s(1, 480, 525)], 'Termín upřesní rodič')),
+    g('zus-literarne-dramaticky', [s(1, 480, 525)], 'Termín upřesní rodič'),
+    ...ZUS_TANECNI.map((name) => g(`zus-${zusSlug(name)}`, [s(1, 480, 525)], 'Termín upřesní rodič')),
+    ...ZUS_VYTVARNY.map((name) => g(`zus-vytvarny-${zusSlug(name)}`, [s(1, 480, 525)], 'Termín upřesní rodič')),
   ],
 };
 
 // ===========================================================================
 // HELPERY
 // ===========================================================================
+
+/** Kebab-case id z českého názvu (bez diakritiky), pro ZUŠ položky generované mapem. */
+function zusSlug(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 type RawSession = {
   weekday: 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -1280,27 +1518,6 @@ export const NS_PENDING: NsPendingOrg[] = [
       'pro školní plánovač irelevantní, pro předškoláky ano.',
   },
   {
-    id: 'zus-nove-straseci',
-    name: 'Základní umělecká škola, Nové Strašecí, Komenského 189',
-    kind: 'zus',
-    website: 'https://www.zusbubu.cz/',
-    email: 'info@zusnovestraseci.cz',
-    phone: '+420 313 572 441',
-    contactPerson: 'Mgr. Jiřina Kinkalová (ředitelka)',
-    address: 'Komenského nám. 189, 271 01 Nové Strašecí',
-    missing: ['schedule'],
-    verification: 'verified_2025_2026',
-    known:
-      'Obory: hudební, výtvarný, taneční, literárně-dramatický. ' +
-      'Měsíční školné 2025/26: hudební skupinová 320 Kč, hudební individuální 380 Kč, ' +
-      'výtvarný 340 Kč, taneční 320 Kč, LDO 320 Kč — ke každému +80 Kč SRPŠ; ' +
-      'sborový zpěv a souborová práce 100 Kč bez SRPŠ.',
-    note:
-      'Ceník 2026/27 zatím nezveřejněn. NEMODELOVAT jako běžný kroužek — rozvrh se skládá ' +
-      'individuálně podle nástroje a pedagoga. ZUŠ NENÍ v seznamu spolků města ' +
-      '(je vedena jako školské zařízení).',
-  },
-  {
     id: 'tj-sokol-florbal',
     name: 'TJ Sokol Nové Strašecí — florbalový oddíl',
     kind: 'sport_club',
@@ -1472,22 +1689,6 @@ export const NS_PENDING: NsPendingOrg[] = [
     missing: ['schedule', 'price', 'age_groups', 'existence'],
     verification: 'organization_verified',
   },
-  {
-    id: 'zs-ms-komenskeho',
-    name: 'ZŠ a MŠ J. A. Komenského v Novém Strašecí',
-    kind: 'school',
-    website: 'https://zsnovestraseci.cz/',
-    email: 'skola@zsnovestraseci.cz',
-    phone: '+420 311 240 400',
-    contactPerson: 'Mgr. Petr Chochola (ředitel)',
-    address: 'Komenského nám. 209, 271 01 Nové Strašecí',
-    missing: ['existence'],
-    verification: 'organization_verified',
-    note:
-      'ŠKOLA NEMÁ VLASTNÍ KATALOG KROUŽKŮ. Podle výroční zprávy poskytuje prostory a její ' +
-      'pedagogové vedou kroužky POD HLAVIČKOU DDM. Do plánovače patří jako místo, ' +
-      'ne jako organizátor. V areálu jsou nejméně tři tělocvičny (nová, stará, dřevěná).',
-  },
 ];
 
 // ===========================================================================
@@ -1497,7 +1698,8 @@ export const NS_PENDING: NsPendingOrg[] = [
 export const NS_STATS = {
   season: '2026/2027',
   verifiedAt: VERIFIED_AT,
-  /** Aktivity s ověřeným dnem, časem a věkem. Cena může chybět (viz price_missing). */
+  /** Aktivity v katalogu. Den/čas může být PŘEDPŘIPRAVENÝ zástupný termín, ne
+   * ověřený (39 ZŠ/ZUŠ položek, design_review_91.md) — viz jejich `description`. */
   plannableActivities: NS_CATALOG.activities.length,
   /** Termínů celkem (aktivita může mít víc variant docházky). */
   sessionGroups: NS_CATALOG.sessionGroups.length,
@@ -1508,6 +1710,7 @@ export const NS_STATS = {
     'https://www.scns.cz/index.php/cenik',
     'https://musketyri.skauting.cz/',
     'https://www.zusbubu.cz/inpage/skolne-714/',
+    'https://zsnovestraseci.cz/',
     'https://www.novestraseci.cz/volny-cas/spolky-kluby-strany/',
   ],
 };

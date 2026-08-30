@@ -74,6 +74,7 @@ const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   art: 'Výtvarka',
   music: 'Hudba',
   dance: 'Tanec',
+  drama: 'Divadlo',
   language: 'Jazyky',
   science_tech: 'Věda a technika',
   science: 'Věda',
@@ -141,6 +142,7 @@ function classifyActivity(activityName: string, category: ActivityCategory): Gro
   if (category === 'crafts') return { root: 'umeni_tvoreni', sub: 'Rukodělky' };
   if (category === 'music') return { root: 'hudba_tanec', sub: 'Hudba' };
   if (category === 'dance') return { root: 'hudba_tanec', sub: 'Tanec' };
+  if (category === 'drama') return { root: 'umeni_tvoreni', sub: 'Divadlo' };
   if (category === 'outdoor' || category === 'scouting') return { root: 'priroda_dobrodruzstvi', sub: 'Turistika a skauting' };
   if (category === 'games') return { root: 'hry_mysleni', sub: 'Deskové hry a logika' };
   if (category === 'language') return { root: 'jazyky', sub: 'Jazyky' };

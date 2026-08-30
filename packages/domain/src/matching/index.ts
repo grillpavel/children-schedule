@@ -44,6 +44,7 @@ const CATEGORY_CS: Record<ActivityCategory, string> = {
   art: 'Výtvarka',
   music: 'Hudba',
   dance: 'Tanec',
+  drama: 'Divadlo',
   language: 'Jazyky',
   science_tech: 'Věda a technika',
   science: 'Věda',

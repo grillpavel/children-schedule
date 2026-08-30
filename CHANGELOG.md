@@ -6,6 +6,39 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Audit v2 mobilní kvality — M1/M2/M5(částečně)/M7/M8/M9 (CHANGE-93)
+
+Trigger: druhé kolo auditu (`.github/audit/after_review_85/`), zaměřené jen na mobilní kvalitu po
+CHANGE-91/92. Každý nález ověřen skutečným Playwright během proti dev serveru, ne jen přečten —
+2 z 10 nálezů (M3, M10) se ukázaly jako neprokazatelné/falešné, 4 (M4, M5 částečně, M6) vědomě
+odloženy jako `BL-055`/`BL-056`/`BL-057`.
+
+- **M1** (nejzávažnější): `isLandscapeCompact` (rail, jen výška/orientace) a `isMobile` (obsah,
+  jen šířka) se mohly rozejít — na širokém telefonu na šířku (932×430, empiricky i běžný
+  844×390 iPhone 14) se vykreslil rail, o který se nestaral žádný panel (klik na záložku nic
+  nezobrazil). Nový `isMobileLayout = isMobile || isLandscapeCompact` v `page.tsx`, jediný zdroj
+  pravdy pro HomeScreen/katalog/mřížku/info/VariantTabs/mobilní sheet místo statických Tailwind
+  `desk:` tříd (ty neznají výšku).
+- **M2**: `hourPx` v landscape-compact 26→**40** (audit navrhoval 34, naměřením se ukázalo
+  nedostatečné o 4px) — hodinový blok (nejběžnější délka v katalogu) už neořezává vlastní čas.
+- **M5** (částečně): přepínač Den/3 dny/Týden/Měsíc zpřístupněn i na mobilu (dřív `!isMobile`
+  gate) + `snap-x`/`snap-start` na vodorovný scroll dnů. Změna VÝCHOZÍHO pohledu na `'3day'`
+  vědomě NEIMPLEMENTOVÁNA — rozbíjela existující testy vázané na výchozí `'week'`, odloženo jako
+  `BL-055`.
+- **M7**: mobilní sheet `h-[70vh]` → `h-[70dvh]` (stejný důvod jako `h-dvh` na kořeni, CHANGE-55).
+- **M8**: sourozenecký přepínač (`👪 Zobrazit i sourozence`) byl jen za `!isMobile` — teď i v
+  mobilní Mřížce (`mobileAgendaMode === 'calendar'`), kde na něj je prostor.
+- **M9**: dotykové cíle `‹`/`›`/„Dnes"/undo/redo (`h-11 desk:h-7`) a destruktivní ✕ u kalendáře v
+  mobilním panelu „Děti" (`h-11 w-11`) — z 28px na 44px, zavedeným vzorem z CHANGE-47/79.
+- **M3** (rotace odhodí scroll) a **M10** (věk bez validace) — audit navrhoval opravu, ale
+  empiricky NEBYLY reprodukovány (M3: prohlížeč sám ořízne `scrollTop`; M10: `setChildAge` už
+  validuje od CHANGE-80). Bez zásahu.
+
+Spec: `.github/specs/design_review_86.md`. Ověřeno: `tsc --noEmit` (web) čisté, nová
+`test/specs/mobile-audit-v2.spec.ts` (T-244–T-257, přečíslováno z T-230–T-243 auditu kvůli
+kolizi s existujícími T-230..233) 12/14 zelených + 2 `test.fixme`, existující
+`landscape.spec.ts` (T-226/T-227) beze změny, plná E2E sada 0 failed.
+
 ### BL-041: formální doménová rodinná kolize (CHANGE-92)
 
 Trigger: dokončení celé Vlny 2/3 (design_review_73.md), poslední kus po CHANGE-91.

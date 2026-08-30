@@ -71,7 +71,7 @@ function MobileChildrenPanel() {
                 }}
                 aria-label={`Odebrat kalendář ${c.name}`}
                 className={clsx(
-                  'flex h-7 w-7 items-center justify-center rounded-full transition',
+                  'flex h-11 w-11 items-center justify-center rounded-full transition',
                   c.id === activeChildId ? 'hover:bg-blue-700' : 'hover:bg-slate-100',
                 )}
               >
@@ -207,6 +207,11 @@ export default function Page() {
   // Mobil na šířku s málo výškou dostane boční rail místo spodní navigace
   // (FR-W2-1, design_review_73.md).
   const isLandscapeCompact = useIsLandscapeCompact();
+  // M1 (design_review_86.md): `isLandscapeCompact` je nezávislý na šířce, `isMobile`
+  // nezávislý na výšce — široký telefon na šířku (932×430) tak dostal rail, o který
+  // se ale žádný panel níže nestaral (všechny byly gated jen na `isMobile`). Jeden
+  // společný přepínač pro VŠECHNY jednopanelové/tabové větve layoutu.
+  const isMobileLayout = isMobile || isLandscapeCompact;
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -237,14 +242,14 @@ export default function Page() {
       const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
       e.preventDefault();
-      if (isMobile) setMobileTab('catalog');
+      if (isMobileLayout) setMobileTab('catalog');
       requestAnimationFrame(() => {
         document.querySelector<HTMLInputElement>('[data-catalog-search]')?.focus();
       });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isMobile]);
+  }, [isMobileLayout]);
 
   // Escape zavře vybraný detail / mobilní sheet / Souhrn drawer (C9-A4).
   useEffect(() => {
@@ -345,16 +350,21 @@ export default function Page() {
       )}
     >
       <Toolbar gridRef={gridRef} isDirty={isDirty} autosaveOk={autosaveOk} onMarkSaved={markSaved} />
-      {/* Varianty rozvrhu jsou pokročilá funkce — na mobilu skryté (C11 UX). */}
-      <div className="hidden desk:block">
-        <VariantTabs />
-      </div>
+      {/* Varianty rozvrhu jsou pokročilá funkce — v jednopanelovém layoutu skryté (C11 UX,
+          M1 design_review_86.md: `desk:block` samo o sobě neví o `isLandscapeCompact`). */}
+      {!isMobileLayout && (
+        <div className="hidden desk:block">
+          <VariantTabs />
+        </div>
+      )}
 
       {/* Desktop: tři sloupce. Mobil: jeden panel podle spodní navigace. */}
       <main className="relative flex flex-1 overflow-hidden">
-        {/* Domů (týden-first) je jen mobilní záložka; desktop má tři sloupce. */}
-        {isMobile && mobileTab === 'home' && (
-          <section className="w-full overflow-hidden desk:hidden">
+        {/* Domů (týden-first) je jen jednopanelová záložka; desktop má tři sloupce.
+            M1 (design_review_86.md): gated na `isMobileLayout`, ne jen `isMobile` — jinak
+            se na širokém telefonu na šířku nevykreslí vůbec nic pod tímto tlačítkem. */}
+        {isMobileLayout && mobileTab === 'home' && (
+          <section className="w-full overflow-hidden">
             <HomeScreen
               onOpenCatalog={() => setMobileTab('catalog')}
               onOpenGrid={() => setMobileTab('grid')}
@@ -363,8 +373,8 @@ export default function Page() {
         )}
         <aside
           className={clsx(
-            'no-print shrink-0 overflow-hidden border-r border-slate-200/80 bg-white desk:block shadow-2xs',
-            mobileTab === 'catalog' ? 'block w-full desk:w-80' : 'hidden desk:w-80',
+            'no-print shrink-0 overflow-hidden border-r border-slate-200/80 bg-white shadow-2xs',
+            isMobileLayout ? (mobileTab === 'catalog' ? 'block w-full' : 'hidden') : 'block w-80',
           )}
         >
           <CatalogPanel onOpenCustom={() => setCustomOpen(true)} />
@@ -372,8 +382,8 @@ export default function Page() {
 
         <section
           className={clsx(
-            'flex-1 overflow-hidden p-2 desk:block',
-            mobileTab === 'grid' ? 'block' : 'hidden desk:block',
+            'flex-1 overflow-hidden p-2',
+            isMobileLayout ? (mobileTab === 'grid' ? 'block' : 'hidden') : 'block',
           )}
         >
           <ScheduleGrid
@@ -392,13 +402,13 @@ export default function Page() {
         </section>
 
         {/* Info je stálý sloupec jen na širokém desktopu (≥1440, C9-L1);
-            na mobilu je to záložka a mezi 900–1440 slide-over níže. */}
+            v jednopanelovém layoutu je to záložka a jinak slide-over níže. */}
         <aside
           className={clsx(
             'no-print overflow-hidden border-l border-slate-200/80 bg-white shadow-2xs',
             isWide
               ? clsx('block shrink-0', hasScheduleContent ? 'w-80' : 'w-64')
-              : isMobile
+              : isMobileLayout
                 ? mobileTab === 'details'
                   ? 'block w-full'
                   : 'hidden'
@@ -406,10 +416,10 @@ export default function Page() {
           )}
         >
           {/* Mount jen v aktivním slotu, ať je DetailsPanel v DOM právě jednou (C12).
-              Mobilní záložka „Děti" navíc nese skutečnou správu dětí nad detailem
+              Jednopanelová záložka „Děti" navíc nese skutečnou správu dětí nad detailem
               (FR-13, design_review_65.md) — dřív tu byl jen duplicitní souhrn. */}
           {isWide && <DetailsPanel />}
-          {isMobile && mobileTab === 'details' && (
+          {isMobileLayout && mobileTab === 'details' && (
             <div className="flex h-full flex-col">
               <MobileChildrenPanel />
               <div className="min-h-0 flex-1">
@@ -422,7 +432,7 @@ export default function Page() {
         {/* Info na středních šířkách 900–1440 (FR-7, design_review_58.md): trvalý
             sloupec vedle katalogu a mřížky (master-detail), ne overlay přes obsah —
             otevře výběr nebo „Souhrn". Test id `info-drawer` beze změny. */}
-        {!isMobile && !isWide && (hasSelection || mediumInfoOpen) && (
+        {!isMobileLayout && !isWide && (hasSelection || mediumInfoOpen) && (
           <div
             data-testid="info-drawer"
             className="no-print shrink-0 flex w-96 max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-2xs animate-in slide-in-from-right"
@@ -493,7 +503,7 @@ export default function Page() {
 
       {/* Info slide-over pro střední šířky 900–1440 (C9-L1): Info není stálý
           sloupec, otevře se přes obsah při výběru nebo tlačítkem „Souhrn". */}
-      {!isMobile && !isWide && !(hasSelection || mediumInfoOpen) && (
+      {!isMobileLayout && !isWide && !(hasSelection || mediumInfoOpen) && (
         <button
           type="button"
           onClick={() => setMediumInfoOpen(true)}
@@ -508,17 +518,20 @@ export default function Page() {
           `bottom-12 mb-[env(...)]` (ne přepočtený `bottom`), ať zůstane stabilní
           CSS selektor `.fixed.inset-x-0.bottom-12` používaný napříč testy. V
           landscape-compact (FR-W2-1) není spodní nav, sheet jde až k okraji. */}
-      {isMobile && hasSelection && mobileTab !== 'details' && (
+      {isMobileLayout && hasSelection && mobileTab !== 'details' && (
         <div
           className={clsx(
-            'no-print fixed inset-x-0 mb-[env(safe-area-inset-bottom,0px)] z-40 desk:hidden',
+            'no-print fixed inset-x-0 mb-[env(safe-area-inset-bottom,0px)] z-40',
             isLandscapeCompact ? 'bottom-0' : 'bottom-12',
           )}
         >
           <div
             className={clsx(
               'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
-              sheetExpanded ? 'h-[70vh]' : 'h-60',
+              // M7 (design_review_86.md): `vh` je na mobilním Safari počítané k největšímu
+              // viewportu (bez adresního řádku) — rozbalený sheet pak přeteče nahoře přes
+              // hranu. `dvh` sleduje SKUTEČNOU dostupnou výšku, stejně jako kořen v `h-dvh`.
+              sheetExpanded ? 'h-[70dvh]' : 'h-60',
             )}
           >
             <div className="flex items-center justify-between px-3">

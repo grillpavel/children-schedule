@@ -436,7 +436,7 @@ export function Toolbar({
             type="button"
             onClick={undo}
             disabled={!canUndo}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent desk:h-7 desk:w-7"
             title="Zpět (Cmd/Ctrl+Z)"
             aria-label="Zpět (Cmd/Ctrl+Z)"
           >
@@ -446,7 +446,7 @@ export function Toolbar({
             type="button"
             onClick={redo}
             disabled={!canRedo}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent desk:h-7 desk:w-7"
             title="Vpřed (Cmd/Ctrl+Shift+Z)"
             aria-label="Vpřed (Cmd/Ctrl+Shift+Z)"
           >

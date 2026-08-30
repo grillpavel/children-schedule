@@ -136,8 +136,12 @@ export function ScheduleGrid({
   const isMobile = useIsMobile();
   // Mobil na šířku s málo výškou potřebuje nižší hustotu časové osy, jinak by
   // blok nebyl čitelný ani po odrolování (FR-W2-2, design_review_73.md).
+  // M2 (design_review_86.md): 26px/h bylo POD hranicí, kde se do bloku vejde i
+  // jeho vlastní čas (naměřeno 38px potřeba u hodinového bloku s p-1.5+název+čas)
+  // — 34px navrhoval audit, ale naměřením vyšlo, že ještě těsně ořezává (38 vs
+  // 34), 40px je nejnižší hustota, při které se čas vejde i s rezervou.
   const isLandscapeCompact = useIsLandscapeCompact();
-  const hourPx = isLandscapeCompact ? 26 : HOUR_PX;
+  const hourPx = isLandscapeCompact ? 40 : HOUR_PX;
   // BL-053 (design_review_84.md): stejná záchranná síť jako mobilní FR-W2-3, jen s vyšším
   // prahem — sloupec dne nikdy neklesne pod 105px (T-200), přebytek vodorovně scrolluje
   // místo aby se sloupce stísnaly do nečitelna. Bez rizika pro současné šířky (dnešní
@@ -162,6 +166,14 @@ export function ScheduleGrid({
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // M5 (design_review_86.md): sedm sloupců na mobilu nikdy nejde vidět celé bez
+  // vodorovného scrollu — zpřístupnit přepínač je samo o sobě neriskantní krok.
+  // Změna VÝCHOZÍHO pohledu (audit navrhuje '3day') je záměrně NEIMPLEMENTOVÁNA
+  // tady: mění, které dny jsou viditelné bez doteku, a tedy i chování řady
+  // stávajících testů, které si přidají vlastní událost do konkrétního dne a
+  // spoléhají na výchozí 'week' — audit sám tuto změnu řadí do "Potom", ne
+  // "Hned", přesně proto. Uživatel si 3 dny může zvolit sám přes přepínač.
 
   // Souhrn požádal o den (C8-B7): přepni na denní pohled zvoleného dne v týdnu.
   useEffect(() => {
@@ -358,33 +370,33 @@ export function ScheduleGrid({
       {/* Ovládání pohledu (FR-6) */}
       <div className="no-print mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {/* Přepínač Den/3 dny/Týden/Měsíc jen na desktopu */}
-          {!isMobile && (
-            <div className="inline-flex rounded-lg border border-slate-200/90 bg-slate-100/80 p-0.5 text-xs shadow-2xs">
-              {(['day', '3day', 'week', 'month'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={clsx(
-                    'rounded-md px-3 py-1 font-medium transition',
-                    mode === m
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900',
-                  )}
-                >
-                  {VIEW_LABELS[m]}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Přepínač Den/3 dny/Týden/Měsíc (M5, design_review_86.md): dřív jen na desktopu —
+              mobil tak neměl jak uniknout ze sedmidenního týdne, který se nikdy nevejde bez
+              vodorovného scrollu. Výchozí hodnota pro mobil se nastavuje níže na '3day'. */}
+          <div className="inline-flex rounded-lg border border-slate-200/90 bg-slate-100/80 p-0.5 text-xs shadow-2xs">
+            {(['day', '3day', 'week', 'month'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={clsx(
+                  'rounded-md px-3 py-1 font-medium transition',
+                  mode === m
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                {VIEW_LABELS[m]}
+              </button>
+            ))}
+          </div>
 
           {/* Navigace pro všechny pohledy */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setAnchorDate((d) => shiftAnchor(mode, d, -1))}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 transition"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 transition desk:h-7 desk:w-7"
               aria-label="Předchozí"
             >
               ‹
@@ -392,14 +404,14 @@ export function ScheduleGrid({
             <button
               type="button"
               onClick={() => setAnchorDate(new Date())}
-              className="rounded-lg border border-slate-200/80 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+              className="flex h-11 items-center justify-center rounded-lg border border-slate-200/80 bg-white px-2.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition desk:h-7"
             >
               Dnes
             </button>
             <button
               type="button"
               onClick={() => setAnchorDate((d) => shiftAnchor(mode, d, 1))}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 transition"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 transition desk:h-7 desk:w-7"
               aria-label="Další"
             >
               ›
@@ -413,9 +425,12 @@ export function ScheduleGrid({
         </div>
       </div>
 
-      {/* FR-W3-3 (design_review_73.md): jen když je víc než 1 dítě a nejsme v mobilní Agendě
-          (ta má vlastní, po jednom dítěti řazený seznam bez prostoru pro překryv). */}
-      {!isMobile && children.length > 1 && (
+      {/* FR-W3-3 (design_review_73.md): jen když je víc než 1 dítě a jsme v pohledu
+          s mřížkou (ta má prostor pro překryv) — mobilní Agenda (seznam) ho nemá.
+          M8 (design_review_86.md): dřív šlo jen o `!isMobile`, takže "stihnu odvézt
+          obě děti" — nejsilnější mobilní úloha vůbec — nebyla na mobilu dostupná
+          vůbec, i když mobilní Mřížka (mobileAgendaMode==='calendar') prostor má. */}
+      {children.length > 1 && (!isMobile || mobileAgendaMode === 'calendar') && (
         <div className="no-print mb-2">
           <button
             type="button"
@@ -598,7 +613,7 @@ export function ScheduleGrid({
                   </ul>
                 )}
               </div>
-              <div ref={scrollRef} className="flex flex-1 overflow-y-auto overflow-x-auto">
+              <div ref={scrollRef} className="flex flex-1 overflow-y-auto overflow-x-auto snap-x snap-mandatory">
                 {/* Časová osa 00:00–24:00. `sticky`, ať zůstává viditelná při vodorovném
                     scrollu pevně širokých sloupců dnů — mobil FR-W2-3, desktop/medium BL-053. */}
                 <div
@@ -679,7 +694,7 @@ export function ScheduleGrid({
                         onFocus={() => setFocusedCol(idx)}
                         data-weekday={weekday}
                         className={clsx(
-                          'relative border-r border-slate-100 last:border-r-0',
+                          'relative snap-start border-r border-slate-100 last:border-r-0',
                           holiday && 'bg-slate-50/60',
                         )}
                       >

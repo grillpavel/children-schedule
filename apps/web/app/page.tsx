@@ -131,11 +131,16 @@ function MobileChildrenPanel() {
       <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
         <span>Věk ({child.name}):</span>
         <input
+          key={child.id}
           type="number"
           min={3}
           max={19}
-          value={child.age}
-          onChange={(e) => setChildAge(child.id, Number(e.target.value))}
+          defaultValue={child.age}
+          onBlur={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n) && n >= 3 && n <= 19) setChildAge(child.id, n);
+            else e.target.value = String(child.age);
+          }}
           aria-label="Věk dítěte"
           className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
@@ -343,7 +348,7 @@ export default function Page() {
   return (
     <div
       className={clsx(
-        'flex h-dvh flex-col bg-slate-100/50',
+        'flex h-dvh flex-col bg-slate-100/50 print-shell',
         // Obsah se posune vpravo od bočního railu (FR-W2-1) — `fixed` prvky
         // (rail/toast/sheet) toto odsazení nedědí, řeší se zvlášť.
         isLandscapeCompact && 'pl-14',
@@ -359,7 +364,7 @@ export default function Page() {
       )}
 
       {/* Desktop: tři sloupce. Mobil: jeden panel podle spodní navigace. */}
-      <main className="relative flex flex-1 overflow-hidden">
+      <main className="print-shell relative flex flex-1 overflow-hidden">
         {/* Domů (týden-first) je jen jednopanelová záložka; desktop má tři sloupce.
             M1 (design_review_86.md): gated na `isMobileLayout`, ne jen `isMobile` — jinak
             se na širokém telefonu na šířku nevykreslí vůbec nic pod tímto tlačítkem. */}
@@ -382,7 +387,7 @@ export default function Page() {
 
         <section
           className={clsx(
-            'flex-1 overflow-hidden p-2',
+            'print-section flex-1 overflow-hidden p-2',
             isMobileLayout ? (mobileTab === 'grid' ? 'block' : 'hidden') : 'block',
           )}
         >

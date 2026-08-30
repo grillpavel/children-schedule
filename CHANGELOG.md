@@ -6,6 +6,46 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### 5 nahlášených chyb + BL-055/056 dokončeny, BL-057 pozastaveno (CHANGE-94)
+
+Trigger: uživatel nahlásil 5 konkrétních chyb (tisk/PDF, výběr termínu, věk dítěte) a požádal o
+dokončení `BL-055`/`BL-056`/`BL-057` (design_review_86.md).
+
+- **Tisk → PDF byl bílá stránka / jen 00:00–14:00**: kořen appky (`h-dvh`), `<main>` a mřížková
+  sekce jsou stavěné pro obrazovku (`dvh`/`overflow-hidden`/skrytá mobilní záložka) — na tiskové
+  stránce se `dvh` může vyhodnotit jako 0 (bílá stránka) a skrytá záložka by mřížku vůbec
+  nevytiskla. Nové `.print-shell`/`.print-section` (globals.css) resetují na `auto`/`visible` v
+  `@media print`. Vnitřní scroll kontejner mřížky (`.print-grid > div`) dřív zůstal „zamrzlý" na
+  odrolovaném výřezu — teď `overflow: visible !important` vytiskne CELÝ den. „Teď" čára
+  (`[data-testid='now-line']`) se v tisku skrývá — stav obrazovky, ne součást uloženého rozvrhu.
+- **Nová položka „Tisk agendy (souhrn kroužků)"**: `printAgenda()` (exportClient.ts) přepne
+  `data-print-mode='agenda'`, CSS skryje `.print-grid` a nechá jen existující tabulku „Přehled
+  kroužků". Stejný prohlížečův tiskový dialog nabízí i „Uložit jako PDF".
+- **Výběr jen jednoho termínu z vícenásobné skupiny (basketbal přípravka)**: nové volitelné
+  `Enrollment.sessionIds?: string[]` (`schemaVersion` 8→9, migrace no-op) — podmnožina termínů
+  skupiny, na které dítě skutečně chodí. `resolve.ts`/`generate.ts` filtrují podle něj (detekce
+  kolizí/souhrn/doporučení dostávají filtr zdarma přes sdílené `resolvePlacedSessions`). Nová
+  store akce `setEnrollmentSessions`; `DetailsPanel.tsx` u zapsané skupiny s >1 schůzkou týdně
+  ukáže checkbox seznam jednotlivých dnů. Katalogová data basketbalu VĚDOMĚ NEZMĚNĚNA (nelze
+  uhodnout, zda je docházka jen v pondělí NEBO jen ve středu reálně možná).
+- **Změna věku dítěte nefungovala**: `setChildAge` (CHANGE-80) validuje rozsah a mimo něj tiše
+  no-op — kontrolovaný vstup (`value={child.age}` + `onChange` za KAŽDÝM stiskem) se ale při
+  jakékoli neplatné mezihodnotě (např. smazané pole) vrátil zpět na starou hodnotu dřív, než šlo
+  dopsat novou. Opraveno na nekontrolovaný vzor s commitem `onBlur` (stejně jako
+  `SessionTimeEditor`, CHANGE-74) ve všech 3 místech (`DetailsPanel.tsx`, `HomeScreen.tsx`,
+  `page.tsx` `MobileChildrenPanel`).
+- **BL-055** (design_review_86.md M5): výchozí mobilní pohled `'3day'` OD PONDĚLÍ aktuálního
+  týdne (ne od „dneška") — zachovává viditelnost nově přidané vlastní události (dialog defaultuje
+  na pondělí) bez nutnosti navigace.
+- **BL-056** (design_review_86.md M6): `touch-action:none` přesunuto z celého bloku vlastní
+  události na malý úchyt (`⠿`, 16×16px) — zbytek plochy zůstává scrollovatelný prstem.
+- **BL-057 VĚDOMĚ NEIMPLEMENTOVÁNO** — přesun správy kalendářů do sheetu přímo obrací explicitní
+  rozhodnutí z CHANGE-75 (uživatel tehdy výslovně požádal, ať je přepínač VŽDY vidět v liště).
+  Čeká na výslovné potvrzení, viz design_review_87.md §6.
+
+Spec: `.github/specs/design_review_87.md`. Ověřeno: `tsc --noEmit` (web+domain) čisté; domain
+vitest 133/133; `mobile-audit-v2.spec.ts` 14/14 (0 fixme); plná E2E sada 0 failed.
+
 ### Audit v2 mobilní kvality — M1/M2/M5(částečně)/M7/M8/M9 (CHANGE-93)
 
 Trigger: druhé kolo auditu (`.github/audit/after_review_85/`), zaměřené jen na mobilní kvalitu po

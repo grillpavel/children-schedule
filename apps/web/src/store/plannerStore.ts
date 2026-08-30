@@ -75,6 +75,10 @@ interface PlannerStore {
   // ---- přímé uživatelské akce (potvrzené kliknutím) ----
   enrollGroup(activityId: string, sessionGroupId: string): void;
   removeEnrollment(enrollmentId: string): void;
+  /** Částečná docházka (design_review_87.md): dítě chodí jen na NĚKTERÉ termíny skupiny
+   * (např. skupina má pondělí+středu, dítě jen na pondělí). `sessionIds: undefined`
+   * = všechny termíny skupiny (výchozí, zpětně kompatibilní). */
+  setEnrollmentSessions(enrollmentId: string, sessionIds: string[] | undefined): void;
   changeVariant(enrollmentId: string, newGroupId: string): void;
   addCustomEntry(entry: CustomEntry): void;
   addCustomEntries(entries: CustomEntry[]): void;
@@ -293,6 +297,17 @@ export const usePlannerStore = create<PlannerStore>()(
           },
         );
       },
+
+      setEnrollmentSessions: (enrollmentId, sessionIds) =>
+        commit((draft) => {
+          const schedule = activeSchedule(draft);
+          const enrollment = schedule.enrollments.find((e) => e.id === enrollmentId);
+          if (!enrollment) return;
+          // Aspoň jeden termín musí zůstat vybraný — prázdný výběr by znamenal
+          // zápis bez jediného skutečného termínu.
+          if (sessionIds && sessionIds.length === 0) return;
+          enrollment.sessionIds = sessionIds;
+        }),
 
       changeVariant: (enrollmentId, newGroupId) =>
         commit((draft) => {

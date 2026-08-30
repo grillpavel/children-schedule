@@ -31,7 +31,7 @@ export function parseExceptionsFile(input: unknown): Result<ExceptionsFile> {
 }
 
 /**
- * Migruje starší uložený stav na aktuální `schemaVersion` (řetězeně 1 → 2 → … → 8).
+ * Migruje starší uložený stav na aktuální `schemaVersion` (řetězeně 1 → 2 → … → 9).
  * v1 → v2: `session.biweekly.parity` (sudý/lichý týden) → `everyWeeks: 2`.
  * v2 → v3: doplní prázdné `overrides` (uživatelské přepisy aktivit).
  * v3 → v4: personalizační pole `Child` (`interests`/`availability`) — defaulty doplní schema.
@@ -42,6 +42,8 @@ export function parseExceptionsFile(input: unknown): Result<ExceptionsFile> {
  * (`undefined`), žádná transformace dat potřeba.
  * v7 → v8: `sessionOverrides` (design_review_69.md, CHANGE-74) — nové pole, doplní prázdné,
  * pokud chybí.
+ * v8 → v9: `Enrollment.sessionIds` (design_review_87.md, CHANGE-94) — volitelné
+ * (`undefined` = všechny termíny skupiny, beze změny chování), žádná transformace dat potřeba.
  */
 function migrateToCurrent(input: unknown): unknown {
   if (typeof input !== 'object' || input === null) return input;
@@ -101,6 +103,11 @@ function migrateToCurrent(input: unknown): unknown {
   // v7 → v8: sessionOverrides (design_review_69.md) — nové pole, doplní prázdné, pokud chybí.
   if (clone.schemaVersion === 7) {
     clone = { ...clone, schemaVersion: 8, sessionOverrides: clone.sessionOverrides ?? [] };
+  }
+
+  // v8 → v9: Enrollment.sessionIds (design_review_87.md) — volitelné, jen bump verze.
+  if (clone.schemaVersion === 8) {
+    clone = { ...clone, schemaVersion: 9 };
   }
 
   return clone;

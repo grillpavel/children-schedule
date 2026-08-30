@@ -283,8 +283,9 @@ test('T-176: kroužek se v den školních prázdnin nevykreslí v mřížce, po 
 
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
-    await page.getByRole('tab', { name: 'Mřížka' }).click();
-  }
+    await page.getByRole('tab', { name: 'Mřížka' }).click();    // BL-055 (design_review_87.md): výchozí mobilní pohled je '3 dny' (článek „Další“
+    // by posouval o 3 dny, ne o týden) — tento test potřebuje týdenní navigaci.
+    await page.getByRole('button', { name: 'Týden', exact: true }).click();  }
 
   // Zmrazené hodiny (Z-07) = 2026-10-06; 3× „Další" (týdenní posun) doveze na týden
   // 26. 10. – 1. 11., který obsahuje podzimní prázdniny okresu Rakovník (29.–30. 10. 2026,
@@ -564,7 +565,10 @@ test('T-233: přetažení myší přesune vlastní událost na jiný čas (desig
 
   const block = page.getByRole('grid').getByRole('button', { name: /Přesun myší/ });
   await expect(block).toContainText('10:00–11:00');
-  const before = (await block.boundingBox())!;
+  // M6 (design_review_87.md, BL-056): tažení jde jen z malého úchytu, ne z celé
+  // plochy bloku — zbytek plochy zůstává scrollovatelný prstem na dotykových zařízeních.
+  const handle = block.getByTestId('drag-handle');
+  const before = (await handle.boundingBox())!;
 
   await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
   await page.mouse.down();

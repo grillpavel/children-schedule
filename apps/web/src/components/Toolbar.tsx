@@ -14,6 +14,7 @@ import {
   downloadPng,
   downloadStateJson,
   printSchedule,
+  printAgenda,
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
 import { encodeStateToShareUrl } from '@/lib/shareLink';
@@ -266,6 +267,18 @@ export function Toolbar({
           <div className="flex items-center gap-2">
             <IconPrinter className="h-4 w-4 text-slate-500" />
             <span>Tisk rozvrhu</span>
+          </div>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            printAgenda();
+            setMenuOpen(false);
+            setMobileMenuOpen(false);
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <IconPrinter className="h-4 w-4 text-slate-500" />
+            <span>Tisk agendy (souhrn kroužků)</span>
           </div>
         </MenuItem>
         <div className="my-1 border-t border-slate-100" />

@@ -5,9 +5,9 @@ import { test, expect } from '../helpers/profiles';
  * (design_review_86.md, CHANGE-93). Původně T-230–T-243 z auditu, přečíslováno
  * na T-244–T-257 kvůli kolizi se stávajícími T-230..233 (CHANGE-85/89/90).
  *
- * Stav: 12 zelených, 2 `test.fixme()` (BL-055 část M5, BL-056 M6) — viz spec.
- * Ostatní byly buď opraveny, nebo naměřením vyvráceny (M3, M10 jsou falešné
- * nálezy auditu, ponechány jako regresní pojistka).
+ * Stav: 14 zelených (0 `test.fixme()`) — viz spec. M5 (BL-055) a M6 (BL-056)
+ * dodělány v CHANGE-94 (design_review_87.md). M3 a M10 jsou falešné nálezy
+ * auditu (naměřením nereprodukováno), ponechány jako regresní pojistka.
  *
  * Spuštění jen této vrstvy:
  *   npx playwright test --config test/playwright.config.ts mobile-audit-v2
@@ -222,7 +222,6 @@ test.describe('M5 — přepínač pohledu a šířka mřížky na mobilu', () =>
   test('T-250 (M5): výchozí mobilní mřížka se vejde bez vodorovného scrollu', async ({
     page,
   }) => {
-    test.fixme(true, 'BL-055: změna VÝCHOZÍHO pohledu na mobilu (week→3day) zatím není implementována — audit sama tuto část řadí do "Potom", protože mění, které dny jsou výchozí vidět, a hrozí test-fallout napoříč stávající sadou (design_review_86.md).');
     await addCustomEntry(page, 'Cokoli', '16:00', '17:00');
     await openGrid(page);
 
@@ -251,7 +250,6 @@ test.describe('M6 — mrtvé zóny pro scroll', () => {
   test('T-251 (M6): dlouhá vlastní událost nesmí vypnout scroll na celé své ploše', async ({
     page,
   }) => {
-    test.fixme(true, 'BL-056: `touch-action:none` na celém bloku vlastní události zatím zůstává — oprava (long-press prodleva nebo malý úchyt) by mohla rozbit existující pointer drag&drop (FR-W3-1, CHANGE-90), potřebuje vlastní opatrnou implementaci (design_review_86.md).');
     // Škola 8:00–14:00 je typická první vlastní událost rodiče.
     await addCustomEntry(page, 'Škola', '08:00', '14:00');
     await openGrid(page);

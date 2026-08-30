@@ -26,6 +26,7 @@ import {
   isoDateOf,
   isoWeekdayOf,
   shiftAnchor,
+  startOfIsoWeek,
   topPx,
   visibleDates,
   type ViewMode,
@@ -106,6 +107,9 @@ export function ScheduleGrid({
   const focusNonce = usePlannerStore((s) => s.focusNonce);
 
   const [mode, setMode] = useState<ViewMode>('week');
+  // BL-055 (design_review_87.md): hlídá, aby se jednorázový mobilní výchozí
+  // pohled ('3day') nastavil jen JEDNOU, ne při každé změně `isMobile`.
+  const appliedMobileDefaultRef = useRef(false);
   const [mobileAgendaMode, setMobileAgendaMode] = useState<'agenda' | 'calendar'>('agenda');
   // FR-W3-3 (design_review_73.md): překryv rozvrhů více dětí v jedné mřížce, ať rodič vidí
   // najednou, jestli obě děti stihne odvézt. Vypnuto výchozí, ať mřížka jednoho dítěte
@@ -167,13 +171,18 @@ export function ScheduleGrid({
     return () => clearInterval(id);
   }, []);
 
-  // M5 (design_review_86.md): sedm sloupců na mobilu nikdy nejde vidět celé bez
-  // vodorovného scrollu — zpřístupnit přepínač je samo o sobě neriskantní krok.
-  // Změna VÝCHOZÍHO pohledu (audit navrhuje '3day') je záměrně NEIMPLEMENTOVÁNA
-  // tady: mění, které dny jsou viditelné bez doteku, a tedy i chování řady
-  // stávajících testů, které si přidají vlastní událost do konkrétního dne a
-  // spoléhají na výchozí 'week' — audit sám tuto změnu řadí do "Potom", ne
-  // "Hned", přesně proto. Uživatel si 3 dny může zvolit sám přes přepínač.
+  // M5 (design_review_86.md; BL-055 design_review_87.md): sedm sloupců na mobilu
+  // nikdy nejde vidět celé bez vodorovného scrollu — výchozí pohled na mobilu je
+  // '3day' od PONDĜLÍ aktuálního týdne (ne od dneška), ať nově přidaná událost
+  // (dialog výchozí na pondělí) nezmizela mimo výchozí okno beze změny navigace.
+  // Ref hlídá, ať se pozdější ruční volba uživatele (jiný režim/den) nepřepsála zpět.
+  useEffect(() => {
+    if (isMobile && !appliedMobileDefaultRef.current) {
+      appliedMobileDefaultRef.current = true;
+      setMode('3day');
+      setAnchorDate((prev) => startOfIsoWeek(prev));
+    }
+  }, [isMobile]);
 
   // Souhrn požádal o den (C8-B7): přepni na denní pohled zvoleného dne v týdnu.
   useEffect(() => {
@@ -279,10 +288,16 @@ export function ScheduleGrid({
    * detail). Cílový den/čas se čte z `data-weekday` nejbližší buňky pod ukazatelem —
    * odolnější vůči zaokrouhlování šířek sloupců než ruční výpočet z `clientX`. */
   const handleBlockPointerDown = (
-    e: React.PointerEvent<HTMLButtonElement>,
+    e: React.PointerEvent<HTMLElement>,
     item: Block,
   ) => {
     if (item.activityId !== undefined) return;
+    // M6 (design_review_87.md, BL-056): zachytit pointer HNED, ne až po překročení
+    // 6px prahu — úchyt je jen 16px vysoký/široký, takže tažení směrem od středu
+    // opustí jeho hranice DřÍV, než vzdálenost dosáhne 6px — bez okamžitého capture by
+    // další pointermove již cílil na element pod kurzorem, ne na úchyt, a tažení by
+    // se nikdy nepotvrdilo (`d.dragging` by zůstalo `false`).
+    e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = {
       pointerId: e.pointerId,
       entryId: item.ownerId,
@@ -294,7 +309,7 @@ export function ScheduleGrid({
     };
   };
 
-  const handleBlockPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handleBlockPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
     const dx = e.clientX - d.startClientX;
@@ -302,7 +317,6 @@ export function ScheduleGrid({
     if (!d.dragging && Math.hypot(dx, dy) < 6) return;
     if (!d.dragging) {
       d.dragging = true;
-      e.currentTarget.setPointerCapture(e.pointerId);
     }
     const under = document.elementFromPoint(e.clientX, e.clientY);
     const cell = under?.closest<HTMLElement>('[data-weekday]');
@@ -315,7 +329,7 @@ export function ScheduleGrid({
     setDragPreview({ sessionId: d.sessionId, weekday, startMinutes: clamped, duration: d.duration });
   };
 
-  const handleBlockPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handleBlockPointerUp = (e: React.PointerEvent<HTMLElement>) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
     dragRef.current = null;
@@ -613,7 +627,7 @@ export function ScheduleGrid({
                   </ul>
                 )}
               </div>
-              <div ref={scrollRef} className="flex flex-1 overflow-y-auto overflow-x-auto snap-x snap-mandatory">
+              <div ref={scrollRef} className="flex flex-1 overflow-y-auto overflow-x-auto">
                 {/* Časová osa 00:00–24:00. `sticky`, ať zůstává viditelná při vodorovném
                     scrollu pevně širokých sloupců dnů — mobil FR-W2-3, desktop/medium BL-053. */}
                 <div
@@ -694,7 +708,7 @@ export function ScheduleGrid({
                         onFocus={() => setFocusedCol(idx)}
                         data-weekday={weekday}
                         className={clsx(
-                          'relative snap-start border-r border-slate-100 last:border-r-0',
+                          'relative border-r border-slate-100 last:border-r-0',
                           holiday && 'bg-slate-50/60',
                         )}
                       >
@@ -780,17 +794,13 @@ export function ScheduleGrid({
                                   : selectCustomEntry(item.ownerId);
                               }}
                               onKeyDown={(e) => handleBlockKeyDown(e, item)}
-                              onPointerDown={(e) => handleBlockPointerDown(e, item)}
-                              onPointerMove={handleBlockPointerMove}
-                              onPointerUp={handleBlockPointerUp}
                               title={
                                 isDraggable
-                                  ? 'Vlastní událost — přetáhněte myší nebo šipkami změňte den/čas'
+                                  ? 'Vlastní událost — upravte šipkami nebo přetáhněte za úchyt ⠿'
                                   : undefined
                               }
                               className={clsx(
                                 'absolute overflow-hidden rounded-lg p-1.5 text-left text-[11px] leading-tight shadow-sm transition motion-safe:animate-[blockIn_180ms_ease-out]',
-                                isDraggable && 'cursor-grab touch-none active:cursor-grabbing',
                                 isSelected && 'ring-2 ring-blue-600 ring-offset-1 z-10 shadow-md',
                                 isBeingDragged && 'opacity-40',
                               )}
@@ -807,6 +817,26 @@ export function ScheduleGrid({
                               <div className="text-[10px] opacity-90 font-medium">
                                 {formatTime(item.startMinutes)}–{formatTime(item.endMinutes)}
                               </div>
+                              {isDraggable && (
+                                /* M6 (design_review_87.md, BL-056): tažení jde jen z malého úchytu, ne
+                                   z celé plochy bloku — `touch-action:none` na CELÉM bloku by prstem
+                                   vypnulo scroll mřížky kdekoli na dlouhé události (např. „Škola" 6 h).
+                                   Úchyt zůstává dost malý, aby většina plochy zůstala scrollovatelná. */
+                                <span
+                                  data-testid="drag-handle"
+                                  onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    handleBlockPointerDown(e, item);
+                                  }}
+                                  onPointerMove={handleBlockPointerMove}
+                                  onPointerUp={handleBlockPointerUp}
+                                  className="absolute bottom-0.5 left-0.5 flex h-4 w-4 cursor-grab touch-none items-center justify-center rounded text-[10px] leading-none opacity-70 active:cursor-grabbing"
+                                  title="Přetáhnout na jiný den/čas"
+                                  aria-hidden
+                                >
+                                  ⠿
+                                </span>
+                              )}
                               {item.hasHardConflict && (
                                 <span
                                   className="conflict-stripes pointer-events-none absolute inset-0 rounded-lg"

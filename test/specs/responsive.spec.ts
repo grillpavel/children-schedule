@@ -433,6 +433,10 @@ test('T-225: sloupce dnů mřížky na mobilu mají pevnou min. šířku a vodor
 
   await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
   await page.getByRole('tab', { name: 'Mřížka' }).click();
+  // BL-055 (design_review_87.md): výchozí mobilní pohled je teď '3 dny', ale tento
+  // test měří záchrannou síť pro VŠECH sedm sloupců týdne — přepínač je teď
+  // dostupný i na mobilu (M5).
+  await page.getByRole('button', { name: 'Týden', exact: true }).click();
 
   const row = page.getByRole('row');
   await expect(row).toBeVisible();

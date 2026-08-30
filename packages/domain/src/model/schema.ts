@@ -209,6 +209,11 @@ export const enrollmentSchema = z.object({
   sessionGroupId: z.string(),
   status: enrollmentStatusSchema,
   pinned: z.boolean(),
+  /** Podmnožina `SessionGroup.sessions[].id` — dítě chodí jen na NĚKTERÉ z termínů
+   * skupiny (např. skupina má pondělí+středu, dítě jen na pondělí). `undefined`
+   * (výchozí, zpětně kompatibilní) = všechny termíny skupiny, stejné chování jako
+   * před tímto polem. */
+  sessionIds: z.array(z.string()).optional(),
 });
 
 /** Session bez `groupId` — pro ručně zadané události mimo katalog. */
@@ -368,7 +373,7 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(8),
+  schemaVersion: z.literal(9),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),

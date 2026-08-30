@@ -125,11 +125,16 @@ export function HomeScreen({
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
             <span>Věk dítěte:</span>
             <input
+              key={child.id}
               type="number"
               min={3}
               max={19}
-              value={child.age}
-              onChange={(e) => setChildAge(child.id, Number(e.target.value))}
+              defaultValue={child.age}
+              onBlur={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n) && n >= 3 && n <= 19) setChildAge(child.id, n);
+                else e.target.value = String(child.age);
+              }}
               aria-label="Věk dítěte"
               className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />

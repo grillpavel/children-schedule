@@ -171,12 +171,42 @@ body {
     display: block !important;
   }
 
+  /* Kořen appky (`h-dvh`), <main> a sekce s mřížkou používají pevnou výšku +
+     `overflow-hidden`/skrytou mobilní záložku pro OBRAZOVKU — na tiskové stránce
+     nemá `dvh` smysl (může se vyhodnotit jako 0, „bílá stránka") a skrytá záložka
+     by mřížku vůbec nevytiskla, i kdyby uživatel byl zrovna na Katalogu/Domů. */
+  .print-shell,
+  .print-section {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Vnitřní scroll kontejner mřížky (čas. osa + dny) musí ukázat CELÝ den, ne jen
+     aktuálně odrolované okno — jinak se vytiskne jen viditelný výřez (dřív reálně
+     jen cca 00:00–14:00 podle toho, kam byl scroll zrovna vycentrovaný). */
+  .print-grid,
+  .print-grid > div {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
   .print-grid {
     width: 100% !important;
-    height: auto !important;
     border: 1px solid rgb(203 213 225) !important;
     background: #fff !important;
     break-inside: avoid;
+  }
+
+  /* „Now“ čára je stav obrazovky v okamžiku tisku, ne součást rozvrhu k uložení. */
+  [data-testid='now-line'] {
+    display: none !important;
+  }
+
+  /* Samostatný tisk/PDF jen agendy (souhrn kroužků, bez mřížky) — přepnuto
+     přes `printAgenda()` v exportClient.ts. */
+  [data-print-mode='agenda'] .print-grid {
+    display: none !important;
   }
 
   .print-summary {

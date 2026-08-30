@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { detectConflicts, previewGroupConflict, type CustomEntry, type Enrollment } from '../src/index.js';
+import {
+  buildCatalogIndex,
+  detectConflicts,
+  previewGroupConflict,
+  resolvePlacedSessions,
+  type CustomEntry,
+  type Enrollment,
+} from '../src/index.js';
 import {
   TEST_CATALOG,
   TEST_CHILD,
@@ -421,5 +428,23 @@ describe('previewGroupConflict (BL-039, design_review_67.md)', () => {
       'TEST_florbal_posT',
     );
     expect(preview.severity).toBeNull();
+  });
+});
+
+describe('resolvePlacedSessions — Enrollment.sessionIds (design_review_87.md, CHANGE-94)', () => {
+  const index = buildCatalogIndex(TEST_CATALOG);
+
+  it('bez sessionIds umístí VŠECHNY termíny skupiny (zpětná kompatibilita)', () => {
+    const schedule = makeSchedule({ enrollments: [enrollFlorbal] });
+    const placed = resolvePlacedSessions(schedule, index);
+    expect(placed.filter((p) => p.ownerId === enrollFlorbal.id)).toHaveLength(2);
+  });
+
+  it('se sessionIds umístí jen VYBRANÉ termíny skupiny (dítě chodí jen v pondělí)', () => {
+    const florbalPondeli: Enrollment = { ...enrollFlorbal, sessionIds: ['TEST_s_florbal_po'] };
+    const schedule = makeSchedule({ enrollments: [florbalPondeli] });
+    const placed = resolvePlacedSessions(schedule, index).filter((p) => p.ownerId === florbalPondeli.id);
+    expect(placed).toHaveLength(1);
+    expect(placed[0]!.weekday).toBe(1);
   });
 });

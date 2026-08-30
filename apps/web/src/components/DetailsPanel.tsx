@@ -128,6 +128,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const activeChildId = usePlannerStore((s) => s.activeChildId);
   const enrollGroup = usePlannerStore((s) => s.enrollGroup);
   const removeEnrollment = usePlannerStore((s) => s.removeEnrollment);
+  const setEnrollmentSessions = usePlannerStore((s) => s.setEnrollmentSessions);
   const clearCatalogSearch = usePlannerStore((s) => s.clearCatalogSearch);
   const setActivityOverride = usePlannerStore((s) => s.setActivityOverride);
   const clearActivityOverride = usePlannerStore((s) => s.clearActivityOverride);
@@ -311,25 +312,58 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
                       `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`,
                   )
                   .join(', ');
+              const groupEnrollment = enrolled.find((e) => e.sessionGroupId === g.id);
               return (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => enrollGroup(activity.id, g.id)}
-                  className={clsx(
-                    'w-full rounded-lg border p-2 text-left text-xs font-medium transition',
-                    selected
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                <div key={g.id}>
+                  <button
+                    type="button"
+                    onClick={() => enrollGroup(activity.id, g.id)}
+                    className={clsx(
+                      'w-full rounded-lg border p-2 text-left text-xs font-medium transition',
+                      selected
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx('h-3.5 w-3.5 rounded border flex items-center justify-center text-[10px]', selected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white')}>
+                        {selected && '✓'}
+                      </span>
+                      <span>{label}</span>
+                    </div>
+                  </button>
+                  {/* Částečná docházka (design_review_87.md): skupina se schází víckrát
+                      týdně (např. basketbal Po+St) — dítě může chodit jen na NĚKTERÉ z
+                      nich, ne jen na celou skupinu najednou. */}
+                  {selected && groupEnrollment && g.sessions.length > 1 && (
+                    <div className="ml-5 mt-1 space-y-1 border-l-2 border-emerald-200 pl-2">
+                      {g.sessions.map((s) => {
+                        const allIds = g.sessions.map((x) => x.id);
+                        const checked = groupEnrollment.sessionIds?.includes(s.id) ?? true;
+                        const dayLabel = `${WEEKDAYS[s.weekday - 1]?.long} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`;
+                        return (
+                          <label key={s.id} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const current = groupEnrollment.sessionIds ?? allIds;
+                                const next = e.target.checked
+                                  ? [...current, s.id]
+                                  : current.filter((id) => id !== s.id);
+                                setEnrollmentSessions(
+                                  groupEnrollment.id,
+                                  next.length === allIds.length ? undefined : next,
+                                );
+                              }}
+                            />
+                            <span>{dayLabel}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   )}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className={clsx('h-3.5 w-3.5 rounded border flex items-center justify-center text-[10px]', selected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white')}>
-                      {selected && '✓'}
-                    </span>
-                    <span>{label}</span>
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -996,11 +1030,16 @@ function ChildSettings() {
       <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
         <span>Věk:</span>
         <input
+          key={child.id}
           type="number"
           min={3}
           max={19}
-          value={child.age}
-          onChange={(e) => setChildAge(activeChildId, Number(e.target.value))}
+          defaultValue={child.age}
+          onBlur={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n) && n >= 3 && n <= 19) setChildAge(activeChildId, n);
+            else e.target.value = String(child.age);
+          }}
           aria-label="Věk dítěte"
           className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-900 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />

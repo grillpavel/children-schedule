@@ -174,8 +174,13 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
     const phone = override?.contactPhone ?? provider?.contact.phone;
     const price = override?.price ?? activity.price;
     const web = activity.sourceUrl ?? provider?.website;
+    // `sessionIds` (design_review_87.md): export jen termíny, na které dítě skutečně
+    // chodí — `undefined` = všechny termíny skupiny (zpětně kompatibilní).
+    const sessions = enrollment.sessionIds
+      ? group.sessions.filter((s) => enrollment.sessionIds!.includes(s.id))
+      : group.sessions;
 
-    for (const session of group.sessions) {
+    for (const session of sessions) {
       const address = session.locationOverride ?? baseAddress;
       const addressText = address ? formatAddress(address) : undefined;
       events.push({

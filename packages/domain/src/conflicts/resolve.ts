@@ -69,7 +69,13 @@ function placeEnrollment(
   if (!group) return [];
   const activity = index.activity.get(enrollment.activityId);
   const label = activity?.name ?? 'Neznámý kroužek';
-  return group.sessions.map((session) => ({
+  // `sessionIds` (design_review_87.md): dítě může chodit jen na PODMNOŽINU termínů
+  // skupiny (např. skupina má pondělí+středu, dítě jen na pondělí). `undefined` =
+  // všechny termíny skupiny, zpětně kompatibilní s enrollmenty bez tohoto pole.
+  const sessions = enrollment.sessionIds
+    ? group.sessions.filter((s) => enrollment.sessionIds!.includes(s.id))
+    : group.sessions;
+  return sessions.map((session) => ({
     ownerId: enrollment.id,
     ownerKind: 'enrollment' as const,
     sessionId: session.id,

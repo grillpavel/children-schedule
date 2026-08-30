@@ -93,3 +93,17 @@ export async function downloadPng(
 export function printSchedule(): void {
   window.print();
 }
+
+/** Tisk/uložení jen agendy (souhrn kroužků, `.print-summary`), bez mřížky —
+ * kratší, textový výstup pro babičku/žákovskou, ne vizuální rozvrh. Přepínač
+ * `data-print-mode` čte pravidlo `[data-print-mode='agenda'] .print-grid` v
+ * globals.css; `afterprint` ho po dialogu vždy uklidí, i když uživatel tisk zruší. */
+export function printAgenda(): void {
+  document.body.dataset.printMode = 'agenda';
+  const reset = () => {
+    delete document.body.dataset.printMode;
+    window.removeEventListener('afterprint', reset);
+  };
+  window.addEventListener('afterprint', reset);
+  window.print();
+}

@@ -177,56 +177,63 @@ test('T-610: export všech kalendářů stáhne samostatný soubor na každý ka
   expect(new Set(names).size, 'každý kalendář má vlastní soubor').toBe(2);
 });
 
-// --- Stažení .ics na iPhonu (design_review_93.md, CHANGE-100) ---------------
+// --- Stažení .ics na iPhonu (design_review_93.md/CHANGE-100, design_review_98.md) --
 //
-// Reálný nález: import kalendáře do Kalendáře fungoval na macOS, ale ne na
-// iPhonu. Příčina NENÍ v obsahu .ics (ten je RFC 5545 validní a testovaný výše)
-// — je v MECHANISMU stažení: `<a download>` na blob: URL je na iOS Safari
-// nespolehlivé (známý, dlouhodobý bug), zatímco přímá navigace na `data:` URI
-// se stejným MIME typem spolehlivě vyvolá nativní „Přidat do kalendáře".
-// Skutečnou navigaci na `data:` URI NELZE v Chromiu (na kterém Playwright
-// běží) ověřit — Chrome takové navigace z bezpečnostních důvodů blokuje bez
-// ohledu na to, jaký User-Agent hlásí (ověřeno ručně: click na exportní
-// tlačítko s iOS User-Agentem v Chromiu jen visí na "waiting for scheduled
-// navigations to finish", URL se nezmění, žádný download event nepřijde).
-// Proto testujeme jen NAŠI VLASTNÍ rozhodovací logiku: sledujeme, zda appka
-// vůbec zavolala `URL.createObjectURL` (blob cesta) — na iOS to musí být 0
-// volání (jde cestou `data:` URI), jinde beze změny (blob cesta zůstává).
+// Reálný nález (CHANGE-100): import kalendáře do Kalendáře fungoval na macOS, ale ne
+// na iPhonu. Příčina NENÍ v obsahu .ics (ten je RFC 5545 validní a testovaný výše) —
+// je v MECHANISMU stažení: `<a download>` na blob: URL je na iOS Safari nespolehlivé
+// (známý, dlouhodobý bug), zatímco přímá navigace na URL se stejným MIME typem
+// spolehlivě vyvolá nativní „Přidat do kalendáře".
+//
+// Druhý reálný nález (design_review_98.md): u dítěte s hodně kroužky (dlouhý obsah
+// .ics) tato navigace na `data:` URI na některých iPhonech tiše selhávala (žádná
+// chyba, žádná reakce) — `data:` URI nese celý obsah zakódovaný přímo v adrese a
+// naráží na limit délky URI, který se mezi verzemi iOS Safari liší. Fix: `blob:` URL
+// místo `data:` URI — adresa je vždy krátká (opaque odkaz na objekt) bez ohledu na
+// velikost obsahu.
+//
+// Skutečnou navigaci na iOS Safari NELZE v Chromiu (na kterém Playwright běží)
+// ověřit. Proto testujeme jen NAŠI VLASTNÍ rozhodovací logiku: appka na iOS NESMÍ
+// vytvořit a kliknout na skrytý `<a download>` element (to je JEN neiOS cesta) —
+// sledujeme počet volání `HTMLAnchorElement.prototype.click`, na iOS musí být 0.
+// `URL.createObjectURL` už NENÍ vhodný rozlišovací signál — obě cesty teď volají
+// blob API (jen iOS nenavíc nepoužije `<a>` element).
 const IOS_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
-test.describe('iOS export .ics (design_review_93.md)', () => {
+test.describe('iOS export .ics (design_review_93.md, design_review_98.md)', () => {
   const ONLY_ONCE = 'chování závisí na User-Agentu, ne na viewportu — testuje se jen jednou';
 
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', ONLY_ONCE);
   });
 
-  async function spyCreateObjectURL(page: import('@playwright/test').Page) {
+  async function spyAnchorClick(page: import('@playwright/test').Page) {
     await page.addInitScript(() => {
-      (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls = 0;
-      const orig = URL.createObjectURL.bind(URL);
-      URL.createObjectURL = (...args: Parameters<typeof URL.createObjectURL>) => {
-        (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls++;
-        return orig(...args);
+      (window as unknown as { __anchorClickCalls: number }).__anchorClickCalls = 0;
+      const orig = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+        (window as unknown as { __anchorClickCalls: number }).__anchorClickCalls++;
+        return orig.call(this);
       };
     });
   }
 
-  test('T-611: iPhone (User-Agent) exportuje .ics přes data: URI, ne blob: download', async ({ browser }) => {
+  test('T-611: iPhone (User-Agent) exportuje .ics přímou navigací, ne přes <a download>', async ({ browser }) => {
     const context = await browser.newContext({ userAgent: IOS_UA, viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     await page.clock.install({ time: new Date('2026-10-06T15:30:00+02:00') });
-    await spyCreateObjectURL(page);
+    await spyAnchorClick(page);
     await page.goto('/');
     await addCustom(page, 1440, { name: 'iOS export test' });
     await page.getByRole('button', { name: /Další ▾/ }).click();
+    const pending = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Kalendář (.ics)' }).click({ noWaitAfter: true });
-    await expect
-      .poll(() => page.evaluate(() => (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls))
-      .toBe(0);
+    await pending;
+    const calls = await page.evaluate(() => (window as unknown as { __anchorClickCalls: number }).__anchorClickCalls);
+    expect(calls, 'iOS nesmí jít cestou <a download>').toBe(0);
     await context.close();
   });
 
@@ -237,19 +244,20 @@ test.describe('iOS export .ics (design_review_93.md)', () => {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 });
     });
-    await spyCreateObjectURL(page);
+    await spyAnchorClick(page);
     await page.goto('/');
     await addCustom(page, 1440, { name: 'iPad export test' });
     await page.getByRole('button', { name: /Další ▾/ }).click();
+    const pending = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Kalendář (.ics)' }).click({ noWaitAfter: true });
-    await expect
-      .poll(() => page.evaluate(() => (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls))
-      .toBe(0);
+    await pending;
+    const calls = await page.evaluate(() => (window as unknown as { __anchorClickCalls: number }).__anchorClickCalls);
+    expect(calls, 'iPadOS nesmí jít cestou <a download>').toBe(0);
     await context.close();
   });
 
-  test('T-613: skutečný Mac (bez dotyku) i ostatní prohlížeče nadále stahují .ics přes blob: URL (regrese)', async ({ page }) => {
-    await spyCreateObjectURL(page);
+  test('T-613: skutečný Mac (bez dotyku) i ostatní prohlížeče nadále stahují .ics přes <a download> (regrese)', async ({ page }) => {
+    await spyAnchorClick(page);
     // Sdílená `page` z beforeEach už navigovala PŘED tímto testem — addInitScript
     // se projeví až po dalším loadu.
     await page.reload();
@@ -258,8 +266,38 @@ test.describe('iOS export .ics (design_review_93.md)', () => {
     const pending = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Kalendář (.ics)' }).click();
     await pending;
-    const calls = await page.evaluate(() => (window as unknown as { __blobUrlCalls: number }).__blobUrlCalls);
-    expect(calls, 'desktop/ostatní musí použít blob: URL (beze změny)').toBeGreaterThan(0);
+    const calls = await page.evaluate(() => (window as unknown as { __anchorClickCalls: number }).__anchorClickCalls);
+    expect(calls, 'desktop/ostatní musí nadále použít <a download> (beze změny)').toBeGreaterThan(0);
+  });
+
+  test('T-614: export více kalendářů na iOS nabídne ruční odkazy místo automatického stažení', async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: IOS_UA, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.clock.install({ time: new Date('2026-10-06T15:30:00+02:00') });
+    await page.goto('/');
+    await addCalendar(page, 1440, 'Druhé dítě');
+
+    const downloadsBeforeClick: import('@playwright/test').Download[] = [];
+    page.on('download', (d) => downloadsBeforeClick.push(d));
+
+    await page.getByRole('button', { name: /Další ▾/ }).click();
+    await page.getByRole('button', { name: /všechny děti/ }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Otevřít kalendáře' });
+    await expect(dialog).toBeVisible();
+    const links = dialog.getByTestId('ics-manual-link');
+    await expect(links).toHaveCount(2);
+    const hrefs = await links.evaluateAll((els) => els.map((el) => (el as HTMLAnchorElement).href));
+    for (const href of hrefs) expect(href.startsWith('blob:'), 'odkaz je blob: URL, ne data: URI').toBe(true);
+    expect(downloadsBeforeClick, 'jen otevření dialogu nic samo nestáhne').toHaveLength(0);
+
+    const pending = page.waitForEvent('download');
+    await links.first().click({ noWaitAfter: true });
+    await pending;
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await context.close();
   });
 });
 

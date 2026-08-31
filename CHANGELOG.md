@@ -6,6 +6,31 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Export kalendáře (.ics) na iOS tiše selhával u dětí s hodně kroužky (CHANGE-105)
+
+Trigger: uživatel nahlásil, že export kalendáře funguje na jednom iPhonu a na druhém ne — identický
+kalendář, žádná reakce, žádná chyba. Upřesnění: export jednoho aktivního kalendáře (`Kalendář (.ics)`),
+dítě s hodně kroužky.
+
+- **Root cause**: CHANGE-100 (design_review_93.md) opravil export na iOS přímou navigací na `data:`
+  URI (jediná spolehlivá cesta na iOS Safari, `<a download>` je tam nespolehlivé). `data:` URI ale nese
+  CELÝ obsah zakódovaný v samotné adrese — u dítěte s hodně kroužky (víc aktivit × týdenní opakování ×
+  plný popis) může URL dosáhnout desítek tisíc znaků a narazit na (mezi verzemi iOS Safari kolísající,
+  nikde nedokumentovaný) limit délky URI při navigaci. Nad limitem = tiché selhání, přesně jak uživatel
+  popsal; kratší kalendář zůstane pod limitem a funguje — proto „na jednom telefonu ano, na druhém ne".
+- **Fix**: `data:` URI nahrazena `blob:` URL — ta je vždy krátká (opaque odkaz na objekt v paměti
+  prohlížeče) bez ohledu na velikost obsahu, takže tento limit prakticky odpadá. Ověřeno diagnostickým
+  skriptem, že navigace na `blob:` URL s `text/calendar` typem vyvolá `download` event bez opuštění
+  stránky — stejné chování jako `data:` URI, jen bez délkového omezení.
+- **Vedlejší, nezávislé zjištění**: export více kalendářů najednou (`Kalendář — všechny děti (.ics)`)
+  spouští stažení pro každé dítě přes `setTimeout` odstup (CHANGE-80) — na iOS to znamená, že druhá a
+  další navigace běží mimo přímé „user gesture" prvního kliknutí a mohou být tiše zahozeny. Na iOS proto
+  místo automatického stažení nabízí dialog s ručním odkazem na dítě (klik = vlastní čerstvé gesto); na
+  ne-iOS beze změny (dál automatické sekvenční stažení).
+- Spec: `.github/specs/design_review_98.md`. Engine `@krouzky/domain` nedotčen (app-only). Ověřeno:
+  `tsc --noEmit` čisté (web), `test/specs/ics.spec.ts` 15/15 zelených (T-611–T-613 upraveny na nový
+  mechanismus, nový T-614 pro dialog s ručními odkazy).
+
 ### Detail existující položky na mobilu byl jiný typ okna než reference (CHANGE-104)
 
 Trigger: uživatel upřesnil, že Bug 2 z CHANGE-103 stále nebyl vyřešen — kliknutí na existující

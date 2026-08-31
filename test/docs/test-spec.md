@@ -218,13 +218,14 @@ T-502 a T-503 jsou levné statické kontroly nad výslednou stránkou a odchytí
 | T-608 | C6-A8 | Opakování | `RRULE` obsahuje `WKST=MO` a `UNTIL` na konci sezony |
 | T-609 | C6-C2 | Kalendář na dítě | Export s více dětmi vytvoří samostatný soubor na dítě s vlastním `X-WR-CALNAME` |
 | T-610 | C6-C2 | Export všech dětí | Jedním kliknutím se stáhne samostatný `.ics` na každé dítě (různé názvy souborů) |
-| T-611 | design_review_93.md | iPhone stažení | Na iOS (dle User-Agentu) export `.ics` NEVOLÁ `URL.createObjectURL` — jde cestou `data:` URI, ne blob `<a download>` |
+| T-611 | design_review_93.md, design_review_98.md | iPhone stažení | Na iOS (dle User-Agentu) export `.ics` jde přímou navigací na `blob:` URL, NE přes skrytý `<a download>` |
 | T-612 | design_review_93.md | iPad detekce | iPadOS (Mac User-Agent + `maxTouchPoints>1`) je detekován jako iOS stejně jako iPhone |
-| T-613 | design_review_93.md | Desktop regrese | Mac bez dotyku a ostatní prohlížeče nadále stahují `.ics` přes `blob:` URL a `download` event |
+| T-613 | design_review_93.md | Desktop regrese | Mac bez dotyku a ostatní prohlížeče nadále stahují `.ics` přes `<a download>` a `download` event |
+| T-614 | design_review_98.md | Export více na iOS | Export více kalendářů na iOS otevře dialog s ručními `blob:` odkazy (ne automatické stažení); klik na odkaz stáhne |
 
 **Zásadní upozornění k T-600 a T-601:** většina knihoven pro práci s ICS při parsování normalizuje konce řádků i zalomení. Pokud testuješ přes parser, chyby ve foldingu a v `CRLF` ti projdou. Tyto dva testy musí pracovat nad syrovým textem souboru, ostatní mohou přes parser.
 
-**Upozornění k T-611–T-613:** skutečnou navigaci na `data:` URI nelze v Chromiu (na kterém Playwright běží) ověřit — Chrome takové navigace z bezpečnostních důvodů blokuje bez ohledu na hlášený User-Agent. Testy proto ověřují jen vlastní rozhodovací logiku appky (zda se volá `URL.createObjectURL`), ne skutečné chování iOS Safari.
+**Upozornění k T-611–T-614:** skutečné chování iOS Safari (navigace na `blob:` URL s MIME `text/calendar`) nelze v Chromiu (na kterém Playwright běží) ověřit stejně, jako by ho viděl reálný iPhone. Testy proto ověřují jen vlastní rozhodovací logiku appky — zda se vytvoří a klikne skrytý `<a download>` element (jen neiOS cesta), a u T-614 že se místo automatického stažení zobrazí ruční odkazy.
 
 ---
 

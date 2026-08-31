@@ -15,6 +15,8 @@ import {
   downloadStateJson,
   printSchedule,
   printAgenda,
+  isIosDevice,
+  icsExportHref,
   type ExportHourRange,
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
@@ -35,6 +37,7 @@ import {
   IconCheck,
   IconShield,
   IconCopy,
+  IconClose,
 } from './Icons';
 
 export function Toolbar({
@@ -74,6 +77,12 @@ export function Toolbar({
   const [newCalName, setNewCalName] = useState('');
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  // Ruční odkazy pro export více kalendářů na iOS (design_review_98.md) — místo
+  // automatického stažení, viz komentář u `exportAllChildrenIcs`. Každé `href` je
+  // `blob:` URL, kterou je třeba při zavření/změně uvolnit (viz efekt níže).
+  const [iosExportLinks, setIosExportLinks] = useState<
+    { id: string; name: string; href: string }[] | null
+  >(null);
   // Nejprve vyber rozsah hodin, pak teprve vygeneruj tisk/obrázek (design_review_88.md).
   const [printRangeAction, setPrintRangeAction] = useState<'print' | 'png' | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -129,7 +138,17 @@ export function Toolbar({
     setMenuOpen(false);
     setMobileMenuOpen(false);
     setCalendarMenuOpen(false);
+    setIosExportLinks(null);
   });
+
+  // `icsExportHref` vrací `blob:` URL — uvolnit při zavření dialogu i při
+  // odmountování komponenty, jinak uniká paměť (design_review_98.md).
+  useEffect(() => {
+    if (!iosExportLinks) return;
+    return () => {
+      iosExportLinks.forEach((l) => URL.revokeObjectURL(l.href));
+    };
+  }, [iosExportLinks]);
 
   if (!child) return null;
 
@@ -154,7 +173,35 @@ export function Toolbar({
   // C6-C2: každé dítě do vlastního souboru jedním kliknutím (samostatný kalendář).
   // Sekvenčně s odstupem (audit after_review_71 §1) — prohlížeče bez pauzy mezi
   // programovými stahováními blokují druhý a další soubor beze zprávy.
+  //
+  // Na iOS Safari `setTimeout` odstup u VÍCE kalendářů ztrácí "user gesture" —
+  // jediný přímý klik pak spouští N odložených navigací a druhá a další se na
+  // iPhonu tiše zahodí, beze zprávy. Na iOS proto místo automatického stažení
+  // nabídneme odkazy — klepnutí na KAŽDÝ z nich je vlastní, čerstvé gesto.
   const exportAllChildrenIcs = () => {
+    if (isIosDevice()) {
+      const schedule = activeSchedule(state);
+      setIosExportLinks(
+        state.children.map((c) => {
+          const { href } = icsExportHref({
+            child: c,
+            schedule,
+            catalog,
+            schoolYear: state.schoolYear,
+            exceptions,
+            districtCode: state.districtCode,
+            colorMode,
+            overrides: state.overrides,
+            sequence: editCount,
+            sessionOverrides: state.sessionOverrides,
+          });
+          return { id: c.id, name: c.name, href };
+        }),
+      );
+      setMenuOpen(false);
+      setMobileMenuOpen(false);
+      return;
+    }
     const schedule = activeSchedule(state);
     const children = state.children;
     children.forEach((c, i) => {
@@ -673,6 +720,49 @@ export function Toolbar({
         </div>
       </div>
       {privacyOpen && <PrivacyDialog onClose={() => setPrivacyOpen(false)} />}
+      {iosExportLinks && (
+        <div
+          className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+          onClick={() => setIosExportLinks(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Otevřít kalendáře"
+            onClick={(e) => e.stopPropagation()}
+            className="glass flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between px-4 pt-4">
+              <h2 className="text-sm font-semibold text-slate-800">Otevřít kalendáře</h2>
+              <button
+                type="button"
+                onClick={() => setIosExportLinks(null)}
+                aria-label="Zavřít"
+                className="flex h-8 w-8 items-center justify-center text-slate-400 hover:text-slate-700"
+              >
+                <IconClose className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="px-4 pb-3 text-xs text-slate-500">
+              Na iPhonu/iPadu se každý kalendář otevírá zvlášť — klepněte postupně na
+              každý název, systém pak nabídne „Přidat do kalendáře".
+            </p>
+            <div className="flex-1 space-y-2 overflow-y-auto px-4 pb-4">
+              {iosExportLinks.map((l) => (
+                <a
+                  key={l.id}
+                  href={l.href}
+                  data-testid="ics-manual-link"
+                  onClick={() => announce(`Kalendář „${l.name}“ otevřen`)}
+                  className="block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-blue-700 shadow-2xs hover:bg-blue-50"
+                >
+                  Otevřít „{l.name}“ v Kalendáři
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {printRangeAction && (
         <PrintRangeDialog
           title={printRangeAction === 'print' ? 'Tisk rozvrhu' : 'Obrázek rozvrhu (.png)'}

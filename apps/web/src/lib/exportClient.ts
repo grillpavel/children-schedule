@@ -33,19 +33,27 @@ export function isIosDevice(): boolean {
   return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 }
 
-/** Přímý `data:` URI je jediná spolehlivá cesta pro `.ics` na iOS Safari — viz `download()`. */
-export function icsDataUri(content: string, mime: string): string {
-  return `data:${mime},${encodeURIComponent(content)}`;
+/** `blob:` URL má vždy krátkou adresu (opaque odkaz na objekt) bez ohledu na
+ * velikost obsahu — na rozdíl od dřívějšího `data:` URI proto nenaráží na
+ * (mezi verzemi iOS Safari kolísající, nedokumentovaný) limit délky URI při
+ * navigaci. Kalendář s hodně kroužky = dlouhý obsah, který přes `data:` URI na
+ * některých telefonech tiše selhal (žádná chyba, žádná reakce) — design_review_98.md. */
+function icsBlobUrl(content: string, mime: string): string {
+  return URL.createObjectURL(new Blob([content], { type: mime }));
 }
 
 function download(filename: string, content: string, mime: string): void {
   // iOS Safari `<a download>` u blob: URL pro .ics nespolehlivě funguje (běžně
-  // se buď otevře syrový text, nebo se nestane nic) — přímá navigace na
-  // `data:` URI se stejným MIME typem naopak spolehlivě vyvolá nativní
-  // "Přidat do kalendáře" (design_review_93.md). Mac Safari/Chrome i Android
-  // zvládají obojí stejně, proto se přepínáme jen na iOS a jen pro .ics.
+  // se buď otevře syrový text, nebo se nestane nic) — přímá navigace na URL se
+  // stejným MIME typem naopak spolehlivě vyvolá nativní "Přidat do kalendáře"
+  // (design_review_93.md). Mac Safari/Chrome i Android zvládají obojí stejně,
+  // proto se přepínáme jen na iOS a jen pro .ics.
   if (mime.startsWith('text/calendar') && isIosDevice()) {
-    window.location.href = icsDataUri(content, mime);
+    const blobUrl = icsBlobUrl(content, mime);
+    window.location.href = blobUrl;
+    // Zachycení kalendáře na iOS je asynchronní — neuvolňovat hned po nastavení
+    // navigace, jinak riziko, že se objekt zruší dřív, než se stihne načíst.
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     return;
   }
   const blob = new Blob([content], { type: mime });
@@ -73,8 +81,8 @@ export interface IcsDownloadInput {
   sessionOverrides?: readonly SessionOverride[];
 }
 
-export function downloadIcs(input: IcsDownloadInput): void {
-  const ics = generateIcs({
+function buildIcsExport(input: IcsDownloadInput): { content: string; filename: string } {
+  const content = generateIcs({
     child: input.child,
     schedule: input.schedule,
     catalog: input.catalog,
@@ -89,11 +97,23 @@ export function downloadIcs(input: IcsDownloadInput): void {
     ...(input.sequence !== undefined ? { sequence: input.sequence } : {}),
     ...(input.sessionOverrides ? { sessionOverrides: input.sessionOverrides } : {}),
   });
-  download(
-    icsFileName(input.child, input.calendarTitle),
-    ics,
-    'text/calendar;charset=utf-8',
-  );
+  return { content, filename: icsFileName(input.child, input.calendarTitle) };
+}
+
+export function downloadIcs(input: IcsDownloadInput): void {
+  const { content, filename } = buildIcsExport(input);
+  download(filename, content, 'text/calendar;charset=utf-8');
+}
+
+/** Čistá-ish verze pro skutečný `<a href>`, na který uživatel klepne sám
+ * (design_review_98.md) — opakované automatické navigace ve smyčce/`setTimeout`
+ * na iOS Safari ztrácejí "user gesture" a bez varování se zahodí, proto u
+ * exportu VÍCE kalendářů najednou nabízíme odkazy místo automatického stažení.
+ * Vrácená `blob:` URL zůstává platná, dokud volající nezavolá
+ * `URL.revokeObjectURL(href)` (typicky při zavření dialogu s odkazy). */
+export function icsExportHref(input: IcsDownloadInput): { href: string; filename: string } {
+  const { content, filename } = buildIcsExport(input);
+  return { href: icsBlobUrl(content, 'text/calendar;charset=utf-8'), filename };
 }
 
 export function downloadStateJson(state: PlannerState, child: Child): void {

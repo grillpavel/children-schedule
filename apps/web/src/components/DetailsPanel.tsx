@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   colorForActivity,
+  effectiveSessionForChild,
   suggestVariantSwitches,
   type Activity,
   type ActivityCategory,
@@ -133,6 +134,29 @@ function groupDisplayLabel(g: SessionGroup, sessionOverrides: SessionOverride[])
   return hasOverride ? computed : (g.label ?? computed);
 }
 
+/** Jen přepisy relevantní pro TOTO dítě (design_review_96.md, CHANGE-103) — vlastní
+ * přepis (`childId` shodný) nebo starší globální (bez `childId`, zpětně kompatibilní).
+ * Cizí přepisy jiného dítěte na stejné sdílené položce se sem NESMÍ dostat. */
+function overridesForChild(
+  sessionOverrides: SessionOverride[],
+  childId: string,
+): SessionOverride[] {
+  return sessionOverrides.filter((o) => o.childId === undefined || o.childId === childId);
+}
+
+/** Skupiny se session časy přepočtenými pro TOTO dítě — sdílená katalogová položka
+ * (např. ZŠ „Výuka") může mít pro každé dítě jiný skutečný čas. */
+function effectiveGroupsForChild(
+  groups: SessionGroup[],
+  sessionOverrides: SessionOverride[],
+  childId: string,
+): SessionGroup[] {
+  return groups.map((g) => ({
+    ...g,
+    sessions: g.sessions.map((s) => effectiveSessionForChild(s, sessionOverrides, childId)),
+  }));
+}
+
 /** `onEnrolled` zavírá mobilní sheet po úspěšném přidání (CHANGE-55); jen primární CTA, ne varianty/odebrání. */
 function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const catalog = usePlannerStore((s) => s.catalog);
@@ -160,6 +184,12 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const groups = catalog.sessionGroups.filter(
     (g) => g.activityId === activity.id,
   );
+  // Per-dítě přepis (design_review_96.md, CHANGE-103) — sdílená katalogová položka
+  // (např. ZŠ „Výuka") může mít pro každé zapsané dítě jiný skutečný čas.
+  // `childSessionOverrides` je jen pro detekci "má TOTO dítě přepis" (odznak/label),
+  // `effectiveGroups` nese skutečně zobrazované/editované časy pro aktivní dítě.
+  const childSessionOverrides = overridesForChild(state.sessionOverrides, activeChildId);
+  const effectiveGroups = effectiveGroupsForChild(groups, state.sessionOverrides, activeChildId);
   const schedule = activeSchedule(state);
   const enrolled = schedule.enrollments.filter(
     (e) => e.childId === activeChildId && e.activityId === activity.id,
@@ -256,7 +286,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             </>
           ) : (
             <>
-              {groups.length > 1 && (
+              {effectiveGroups.length > 1 && (
                 <label className="block text-xs font-medium text-slate-600">
                   Vyberte termín
                   <select
@@ -264,9 +294,9 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
                     onChange={(e) => setVariantChoice(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   >
-                    {groups.map((g) => (
+                    {effectiveGroups.map((g) => (
                       <option key={g.id} value={g.id}>
-                        {groupDisplayLabel(g, state.sessionOverrides)}
+                        {groupDisplayLabel(g, childSessionOverrides)}
                       </option>
                     ))}
                   </select>
@@ -310,9 +340,9 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             Můžete vybrat i víc termínů najednou.
           </p>
           <div className="space-y-1">
-            {groups.map((g) => {
+            {effectiveGroups.map((g) => {
               const selected = enrolledGroupIds.has(g.id);
-              const label = groupDisplayLabel(g, state.sessionOverrides);
+              const label = groupDisplayLabel(g, childSessionOverrides);
               const groupEnrollment = enrolled.find((e) => e.sessionGroupId === g.id);
               return (
                 <div key={g.id}>
@@ -410,8 +440,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
 
         <SessionTimeEditor
           key={`times-${activity.id}`}
-          groups={groups}
-          sessionOverrides={state.sessionOverrides}
+          groups={effectiveGroups}
+          sessionOverrides={childSessionOverrides}
           onChange={(sessionId, patch) => setSessionOverride(sessionId, patch)}
           onReset={(sessionId) => clearSessionOverride(sessionId)}
         />

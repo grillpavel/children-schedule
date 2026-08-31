@@ -224,7 +224,10 @@ export default function Page() {
   // se ale žádný panel níže nestaral (všechny byly gated jen na `isMobile`). Jeden
   // společný přepínač pro VŠECHNY jednopanelové/tabové větve layoutu.
   const isMobileLayout = isMobile || isLandscapeCompact;
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  // Sheet detailu se vždy otevírá plně rozbalený (design_review_96.md, CHANGE-103)
+  // — stejné chování jako referenční CustomEntryDialog, žádný "peek" mezikrok.
+  // Ruční zmenšení (ikona ⤡) zůstává dostupné, jen už není výchozí.
+  const [sheetExpanded, setSheetExpanded] = useState(true);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
   // Tabletové/střední šířky (design_review_88.md) mají DRUHý sheet — „Domů“
   // (HomeScreen) vedle „Děti“ (dřív „Souhrn“, nyní vedle DetailsPanel i skutečná
@@ -330,7 +333,7 @@ export default function Page() {
   const closeMobileSheet = () => {
     selectActivity(null);
     selectCustomEntry(null);
-    setSheetExpanded(false);
+    setSheetExpanded(true);
   };
 
   useEffect(() => {

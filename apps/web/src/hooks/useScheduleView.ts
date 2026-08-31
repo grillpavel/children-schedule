@@ -72,7 +72,9 @@ export function useScheduleView(): ScheduleView {
     const child = state.children.find((c) => c.id === activeChildId);
     const index = buildCatalogIndex(catalog);
     // Beze childId filtru: vrátí termíny VŠECH dětí (FR-W3-3) — filtrujeme dole podle potřeby.
-    const allPlaced = resolvePlacedSessions(schedule, index);
+    // `state.sessionOverrides` (design_review_96.md, CHANGE-103): sdílená katalogová
+    // položka (např. ZŠ „Výuka") může mít pro každé dítě jiný skutečný čas.
+    const allPlaced = resolvePlacedSessions(schedule, index, undefined, state.sessionOverrides);
     const placed = allPlaced.filter((p) => p.childId === activeChildId);
 
     const report = detectConflicts({
@@ -80,6 +82,7 @@ export function useScheduleView(): ScheduleView {
       catalog,
       children: state.children,
       schoolYear: state.schoolYear,
+      sessionOverrides: state.sessionOverrides,
     });
 
     const hardByOwner = new Set<string>();
@@ -154,7 +157,7 @@ export function useScheduleView(): ScheduleView {
         check: s.check,
         reason: s.reason,
       })),
-      summary: scheduleSummary(schedule, catalog, activeChildId),
+      summary: scheduleSummary(schedule, catalog, activeChildId, state.sessionOverrides),
     };
   }, [state, catalog, activeChildId]);
 }

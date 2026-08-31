@@ -93,10 +93,12 @@ interface PlannerStore {
   clearActivityOverride(activityId: string): void;
 
   /** Přepis času katalogové Session (design_review_69.md) — katalog nemusí odrážet
-   * aktuální stav; efektivní hodnota = `override ?? katalog`. */
+   * aktuální stav; efektivní hodnota = `override ?? katalog`. Zapisuje se vždy pod
+   * aktivní dítě (design_review_96.md, CHANGE-103) — sdílená katalogová položka
+   * (např. ZŠ „Výuka") tak může mít pro každé dítě jiný skutečný čas. */
   setSessionOverride(
     sessionId: string,
-    patch: Partial<Omit<SessionOverride, 'sessionId'>>,
+    patch: Partial<Omit<SessionOverride, 'sessionId' | 'childId'>>,
   ): void;
   clearSessionOverride(sessionId: string): void;
 
@@ -419,12 +421,19 @@ export const usePlannerStore = create<PlannerStore>()(
           );
         }),
 
-      setSessionOverride: (sessionId, patch) =>
+      setSessionOverride: (sessionId, patch) => {
+        const childId = get().activeChildId;
         commit(
           (draft) => {
-            let override = draft.sessionOverrides.find((o) => o.sessionId === sessionId);
+            // Přepis je vždy vlastní TOMUTO dítěti (design_review_96.md) — i když
+            // pro stejnou session existuje starší GLOBÁLNÍ přepis (bez childId,
+            // zpětně kompatibilní), ten zůstává nedotčený a dál platí pro děti bez
+            // vlastního přepisu; tenhle zápis vytvoří/aktualizuje jen ten aktivního dítěte.
+            let override = draft.sessionOverrides.find(
+              (o) => o.sessionId === sessionId && o.childId === childId,
+            );
             if (!override) {
-              override = { sessionId };
+              override = { sessionId, childId };
               draft.sessionOverrides.push(override);
             }
             // undefined v patchi ruší dané pole (návrat na katalogový čas).
@@ -435,40 +444,47 @@ export const usePlannerStore = create<PlannerStore>()(
                 (override as Record<string, unknown>)[key] = value;
               }
             }
-            // Prázdný přepis (jen sessionId) se odstraní.
-            const hasRealOverride = Object.keys(override).some((k) => k !== 'sessionId');
+            // Prázdný přepis (jen sessionId+childId) se odstraní.
+            const hasRealOverride = Object.keys(override).some(
+              (k) => k !== 'sessionId' && k !== 'childId',
+            );
             if (!hasRealOverride) {
               draft.sessionOverrides = draft.sessionOverrides.filter(
-                (o) => o.sessionId !== sessionId,
+                (o) => !(o.sessionId === sessionId && o.childId === childId),
               );
               return;
             }
             // Kanonické pořadí klíčů (dle schématu) → stabilní round-trip (viz BL-021/CHANGE-73).
             const src = override as Record<string, unknown>;
-            const canonical: Record<string, unknown> = { sessionId };
+            const canonical: Record<string, unknown> = { sessionId, childId };
             for (const k of ['weekday', 'startMinutes', 'endMinutes']) {
               if (src[k] !== undefined) canonical[k] = src[k];
             }
             draft.sessionOverrides = draft.sessionOverrides.map((o) =>
-              o.sessionId === sessionId ? (canonical as typeof o) : o,
+              o.sessionId === sessionId && o.childId === childId ? (canonical as typeof o) : o,
             );
           },
           (store) => {
             store.catalog = applySessionOverrides(NOVE_STRASECI_CATALOG, store.state.sessionOverrides);
           },
-        ),
+        );
+      },
 
-      clearSessionOverride: (sessionId) =>
+      clearSessionOverride: (sessionId) => {
+        const childId = get().activeChildId;
         commit(
           (draft) => {
+            // Zruší přepis aktivního dítěte; jinak (žádný vlastní přepis) zruší
+            // starší GLOBÁLNÍ přepis beze childId (zpětná kompatibilita).
             draft.sessionOverrides = draft.sessionOverrides.filter(
-              (o) => o.sessionId !== sessionId,
+              (o) => !(o.sessionId === sessionId && (o.childId === childId || o.childId === undefined)),
             );
           },
           (store) => {
             store.catalog = applySessionOverrides(NOVE_STRASECI_CATALOG, store.state.sessionOverrides);
           },
-        ),
+        );
+      },
 
       setActiveSchedule: (scheduleId) =>
         set((s) => {

@@ -4,6 +4,7 @@ import type {
   Conflict,
   Enrollment,
   NamedSchedule,
+  SessionOverride,
   SkippedCheck,
   Weekday,
 } from '../model/types.js';
@@ -41,6 +42,10 @@ export interface ConflictInput {
   children: readonly Child[];
   schoolYear: { start: string; end: string };
   options?: DetectOptions;
+  /** Per-dítě přepisy termínů (design_review_96.md, CHANGE-103) — nutné, aby
+   * konflikt reflektoval SKUTEČNÝ čas každého dítěte u sdílených katalogových
+   * položek (např. ZŠ „Výuka"), ne jen globálně opravený katalog. */
+  sessionOverrides?: readonly SessionOverride[];
 }
 
 export interface ConflictReport {
@@ -339,7 +344,7 @@ function detectFamilyConflicts(
  */
 export function detectConflicts(input: ConflictInput): ConflictReport {
   const index = buildCatalogIndex(input.catalog);
-  const placed = resolvePlacedSessions(input.schedule, index);
+  const placed = resolvePlacedSessions(input.schedule, index, undefined, input.sessionOverrides);
 
   const childSettings = new Map<string, { bufferMinutes?: number; mode?: TravelMode }>(
     input.children.map((c) => [c.id, { bufferMinutes: c.travelBufferMinutes, mode: c.travelMode }]),

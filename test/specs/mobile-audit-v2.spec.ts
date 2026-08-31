@@ -296,7 +296,7 @@ test.describe('M7 — výška mobilního sheetu', () => {
     const sheet = page.locator('.fixed.inset-x-0.bottom-12:not([aria-hidden="true"])');
     await expect(sheet).toBeVisible();
 
-    await page.getByRole('button', { name: 'Zvětšit detail' }).click();
+    // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
     await page.waitForTimeout(300);
 
     const fits = await sheet.evaluate((el) => {

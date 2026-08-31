@@ -8,10 +8,12 @@ import type {
   NamedSchedule,
   PricePeriod,
   ProviderKind,
+  SessionOverride,
   Weekday,
 } from '../model/types.js';
 import { relevantExceptionDates, weeklyOccurrences } from '../calendar/index.js';
 import { colorForActivity, colorForChild } from '../model/palette.js';
+import { effectiveSessionForChild } from '../model/session-override.js';
 import { escapeText, joinIcsLines } from './escape.js';
 import { VTIMEZONE_EUROPE_PRAGUE } from './vtimezone.js';
 import { BYDAY, compactDate, formatPrice, localDateTime, slugify } from './format.js';
@@ -44,6 +46,9 @@ export interface IcsExportOptions {
   overrides?: readonly ActivityOverride[];
   /** Číslo revize kalendáře (RFC 5545 SEQUENCE); roste s počtem úprav. Výchozí 0. */
   sequence?: number;
+  /** Per-dítě přepisy termínů (design_review_96.md, CHANGE-103) — export musí nést
+   * SKUTEČNÝ čas TOHOTO dítěte u sdílených katalogových položek (např. ZŠ „Výuka"). */
+  sessionOverrides?: readonly SessionOverride[];
 }
 
 /** Vnitřní tvar jedné události připravené k zápisu do ICS. */
@@ -181,8 +186,9 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
       ? group.sessions.filter((s) => enrollment.sessionIds!.includes(s.id))
       : group.sessions;
 
-    for (const session of sessions) {
-      const address = session.locationOverride ?? baseAddress;
+    for (const rawSession of sessions) {
+      const session = effectiveSessionForChild(rawSession, options.sessionOverrides ?? [], child.id);
+      const address = rawSession.locationOverride ?? baseAddress;
       const addressText = address ? formatAddress(address) : undefined;
       events.push({
         sessionId: session.id,

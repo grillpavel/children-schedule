@@ -14,6 +14,7 @@ import {
   type IcsExportMode,
   type NamedSchedule,
   type PlannerState,
+  type SessionOverride,
 } from '@krouzky/domain';
 
 /** Aktuální čas v UTC jako DTSTAMP `YYYYMMDDTHHMMSSZ`. */
@@ -68,6 +69,8 @@ export interface IcsDownloadInput {
   colorMode?: IcsColorMode;
   overrides?: readonly ActivityOverride[];
   sequence?: number;
+  /** Per-dítě přepisy termínů (design_review_96.md, CHANGE-103). */
+  sessionOverrides?: readonly SessionOverride[];
 }
 
 export function downloadIcs(input: IcsDownloadInput): void {
@@ -84,6 +87,7 @@ export function downloadIcs(input: IcsDownloadInput): void {
     ...(input.colorMode ? { colorMode: input.colorMode } : {}),
     ...(input.overrides ? { overrides: input.overrides } : {}),
     ...(input.sequence !== undefined ? { sequence: input.sequence } : {}),
+    ...(input.sessionOverrides ? { sessionOverrides: input.sessionOverrides } : {}),
   });
   download(
     icsFileName(input.child, input.calendarTitle),

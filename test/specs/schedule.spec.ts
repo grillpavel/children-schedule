@@ -58,7 +58,7 @@ test('T-131: v detailu lze zvolit variantu před potvrzením', async ({ page }, 
     : !isThreeColumn(width)
       ? page.getByTestId('info-drawer')
       : page.getByRole('main');
-  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
   await expect(detail.getByText('Varianty docházky')).toBeVisible();
   await expect(
     detail.getByRole('button', { name: /(Po|Út|St|Čt|Pá|So|Ne)\s+\d{1,2}:\d{2}/ }).first(),
@@ -321,7 +321,7 @@ test('T-176: kroužek se v den školních prázdnin nevykreslí v mřížce, po 
     await cards(page).first().click();
   }
   const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
-  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
   await detail.getByRole('checkbox', { name: 'Povolit i o prázdninách a státních svátcích' }).check();
 
   if (isCompact(width)) {
@@ -375,7 +375,7 @@ test('T-178: čas katalogové aktivity lze upravit — katalog nemusí odrážet
     await cards(page).first().click();
   }
   const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
-  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
   // Fotbal — mini přípravka má termín v úterý (16:00–17:00) — posuneme na 18:30–19:30.
@@ -411,7 +411,7 @@ test('T-179: editace času odmítne neplatný rozsah (začátek po konci) beze z
     await cards(page).first().click();
   }
   const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
-  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
   // Začátek (18:30) po dosavadním konci (17:00, nezměněn) — neplatné, nesmí se zapsat.

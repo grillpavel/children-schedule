@@ -68,11 +68,9 @@ test('T-152: export → import → export dá bajtově shodný JSON včetně ove
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
 
   // Vybereme kartu, obarvíme (overrides) a teprve pak zapíšeme (vybraný termín).
+  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103) — swatch
+  // je hned dostupný, žádné ruční rozbalení už není potřeba.
   await cards(page).first().click();
-  // Na mobilu je barva jen v detailu (sheet) — rozbalit, ať je swatch dostupný.
-  if (isCompact(width)) {
-    await page.locator('.fixed.inset-x-0.bottom-12').getByRole('button', { name: 'Zvětšit detail' }).click();
-  }
   await page.getByRole('button', { name: /^Barva / }).first().click();
   await page.getByRole('button', { name: 'Přidat do rozvrhu' }).click();
 

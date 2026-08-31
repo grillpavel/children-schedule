@@ -6,6 +6,33 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Přepis termínu „Škola" se propisoval mezi dětmi + sheet detailu se otevíral minimalizovaný (CHANGE-103)
+
+Trigger: dvě přímo nahlášené chyby — (1) „Kroužek 'Škola' se při vložení do kalendáře jednoho
+dítěte automaticky propíše i pro druhé dítě.", (2) `.github/audit/after_review_95/
+spec_modal_otevirani_detailu.md` (design_review_96.md).
+
+- **Root cause 1**: `SessionOverride` (úprava termínu přes „Upravit časy") byl klíčovaný jen
+  `sessionId`, bez `childId` — store si přepočítával CELÝ sdílený katalog jednorázově, takže úprava
+  termínu se promítla úplně všem dětem zapsaným do stejné katalogové položky. U kroužku vedeného
+  jedním poskytovatelem to je správně (všichni chodí na stejný čas), ale rozbíjelo se to přesně u
+  ZŠ „Výuka" (CHANGE-98 placeholder) — jedna sdílená katalogová položka, ale každé dítě má ve
+  skutečnosti svůj vlastní rozvrh.
+- **Fix**: `SessionOverride` dostal volitelný `childId` (bez něj = globální, zpětně kompatibilní).
+  Nové úpravy přes „Upravit časy" od teď vždy zapisují pod aktivní dítě. Přepis se aplikuje až při
+  skládání konkrétního zápisu (`resolvePlacedSessions`), ne na sdílený katalog — opraveno napříč
+  mřížkou, detekcí konfliktů, souhrnem týdne i exportem .ics.
+- **Root cause 2**: mobilní spodní sheet detailu (`sheetExpanded` v `page.tsx`) se vždy otevíral
+  minimalizovaný („peek", jen název + „Přidat do rozvrhu") — teprve klik na ikonu ⤢ ukázal celý
+  obsah (Varianty docházky, Upravit časy, Popis kroužku…). Referenční „+ Vlastní událost" žádný
+  takový mezikrok nemá.
+- **Fix**: sheet se od teď vždy otevírá rovnou plně rozbalený; ruční zmenšení (ikona ⤡) zůstává
+  dostupné, jen už není výchozí.
+- Spec: `.github/specs/design_review_96.md`. Ověřeno: `tsc --noEmit` čisté (domain + web), domain
+  vitest 135/135 (zpětná kompatibilita), plná 6profilová E2E sada = **743 passed / 247 skipped / 0
+  failed** (shodné s CHANGE-102 baseline). Engine `@krouzky/domain` 0.10.0 → 0.11.0 (aditivní
+  schéma, žádný `schemaVersion` bump).
+
 ### Sjednocené modální chování všech vyskakovacích oken (CHANGE-102)
 
 Trigger: „Stále setrvává problém s 'vyskakovacími okny'. Všechna vyskakovací okna musí fungovat

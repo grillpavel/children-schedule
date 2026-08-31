@@ -2,6 +2,7 @@ import type {
   Catalog,
   NamedSchedule,
   PricePeriod,
+  SessionOverride,
   Weekday,
 } from '../model/types.js';
 import { buildCatalogIndex, resolvePlacedSessions } from '../conflicts/resolve.js';
@@ -38,9 +39,10 @@ export function scheduleSummary(
   schedule: NamedSchedule,
   catalog: Catalog,
   childId: string,
+  sessionOverrides?: readonly SessionOverride[],
 ): ScheduleSummary {
   const index = buildCatalogIndex(catalog);
-  const placed = resolvePlacedSessions(schedule, index, childId);
+  const placed = resolvePlacedSessions(schedule, index, childId, sessionOverrides);
 
   const activityCount =
     schedule.enrollments.filter((e) => e.childId === childId).length +

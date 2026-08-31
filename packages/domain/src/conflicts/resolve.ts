@@ -8,9 +8,11 @@ import type {
   NamedSchedule,
   Provider,
   SessionGroup,
+  SessionOverride,
   Venue,
   Weekday,
 } from '../model/types.js';
+import { effectiveSessionForChild } from '../model/session-override.js';
 
 /** Jedna umístěná Session v konkrétním rozvrhu — společný tvar pro detekci kolizí. */
 export interface PlacedSession {
@@ -64,6 +66,7 @@ function sessionAddress(
 function placeEnrollment(
   enrollment: Enrollment,
   index: CatalogIndex,
+  sessionOverrides: readonly SessionOverride[],
 ): PlacedSession[] {
   const group = index.group.get(enrollment.sessionGroupId);
   if (!group) return [];
@@ -75,21 +78,26 @@ function placeEnrollment(
   const sessions = enrollment.sessionIds
     ? group.sessions.filter((s) => enrollment.sessionIds!.includes(s.id))
     : group.sessions;
-  return sessions.map((session) => ({
-    ownerId: enrollment.id,
-    ownerKind: 'enrollment' as const,
-    sessionId: session.id,
-    childId: enrollment.childId,
-    activityId: enrollment.activityId,
-    label,
-    weekday: session.weekday,
-    startMinutes: session.startMinutes,
-    endMinutes: session.endMinutes,
-    everyWeeks: session.everyWeeks,
-    address: sessionAddress(session.locationOverride, group, activity, index),
-    validFrom: session.validFrom,
-    validTo: session.validTo,
-  }));
+  return sessions.map((rawSession) => {
+    // Per-dítě přepis (design_review_96.md, CHANGE-103) — sdílená katalogová
+    // položka (např. ZŠ „Výuka") může mít pro KAŽDÉ zapsané dítě jiný skutečný čas.
+    const session = effectiveSessionForChild(rawSession, sessionOverrides, enrollment.childId);
+    return {
+      ownerId: enrollment.id,
+      ownerKind: 'enrollment' as const,
+      sessionId: session.id,
+      childId: enrollment.childId,
+      activityId: enrollment.activityId,
+      label,
+      weekday: session.weekday,
+      startMinutes: session.startMinutes,
+      endMinutes: session.endMinutes,
+      everyWeeks: session.everyWeeks,
+      address: sessionAddress(rawSession.locationOverride, group, activity, index),
+      validFrom: session.validFrom,
+      validTo: session.validTo,
+    };
+  });
 }
 
 function placeCustomEntry(entry: CustomEntry): PlacedSession[] {
@@ -110,16 +118,20 @@ function placeCustomEntry(entry: CustomEntry): PlacedSession[] {
   }));
 }
 
-/** Rozloží rozvrh na plochý seznam umístěných Sessions, volitelně pro jedno dítě. */
+/** Rozloží rozvrh na plochý seznam umístěných Sessions, volitelně pro jedno dítě.
+ * `sessionOverrides` (design_review_96.md): plné pole i s per-dítě přepisy — jen
+ * globální (bez `childId`) jsou už zapečené v `index` (viz `applySessionOverrides`),
+ * per-dítě se aplikují až tady podle `enrollment.childId`. */
 export function resolvePlacedSessions(
   schedule: NamedSchedule,
   index: CatalogIndex,
   childId?: string,
+  sessionOverrides: readonly SessionOverride[] = [],
 ): PlacedSession[] {
   const placed: PlacedSession[] = [];
   for (const enrollment of schedule.enrollments) {
     if (childId && enrollment.childId !== childId) continue;
-    placed.push(...placeEnrollment(enrollment, index));
+    placed.push(...placeEnrollment(enrollment, index, sessionOverrides));
   }
   for (const entry of schedule.customEntries) {
     if (childId && entry.childId !== childId) continue;

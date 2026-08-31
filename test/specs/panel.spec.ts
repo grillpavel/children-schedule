@@ -26,10 +26,10 @@ async function openCatalog(page: import('@playwright/test').Page, width: number)
   if (isCompact(width)) await page.getByRole('button', { name: 'Katalog', exact: true }).click();
 }
 
-async function expandSheetIfCompact(page: import('@playwright/test').Page, width: number) {
-  if (isCompact(width)) {
-    await detailScope(page, width).getByRole('button', { name: 'Zvětšit detail' }).click();
-  }
+/** Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103) — no-op,
+ * ponecháno kvůli stabilním voláním na všech stávajících místech. */
+async function expandSheetIfCompact(_page: import('@playwright/test').Page, _width: number) {
+  // no-op
 }
 
 async function selectFirstCard(page: import('@playwright/test').Page, width: number) {

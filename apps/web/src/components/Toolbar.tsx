@@ -144,6 +144,7 @@ export function Toolbar({
       colorMode,
       overrides: state.overrides,
       sequence: editCount,
+      sessionOverrides: state.sessionOverrides,
       ...(mode ? { mode } : {}),
     });
     setMenuOpen(false);
@@ -168,6 +169,7 @@ export function Toolbar({
           colorMode,
           overrides: state.overrides,
           sequence: editCount,
+          sessionOverrides: state.sessionOverrides,
         });
         if (i === children.length - 1) announce(`Staženo ${children.length} kalendářů`);
       }, i * 400);

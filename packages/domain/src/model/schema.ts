@@ -153,10 +153,17 @@ export const sessionGroupSchema = z.object({
  * Uživatelský přepis času jedné katalogové Session (design_review_69.md) — katalog
  * nemusí odrážet aktuální stav (změna tréninkového času apod.), klíčem je `sessionId`.
  * Efektivní hodnota = `override ?? katalog` (viz `effectiveSession()`).
+ *
+ * `childId` (design_review_96.md, CHANGE-103): chybí-li, přepis platí GLOBÁLNĚ pro
+ * všechny zapsané děti (zpětně kompatibilní, hodí se pro kroužek vedený jedním
+ * poskytovatelem, kde všichni přihlášení chodí na stejný opravený čas). Je-li
+ * vyplněný, platí jen pro TOTO dítě — nutné pro sdílené katalogové položky typu
+ * ZŠ „Výuka" (CHANGE-98), kde každé dítě má ve skutečnosti svůj vlastní rozvrh.
  */
 export const sessionOverrideSchema = z
   .object({
     sessionId: z.string(),
+    childId: z.string().optional(),
     weekday: weekdaySchema.optional(),
     startMinutes: minutesOfDay.optional(),
     endMinutes: minutesOfDay.optional(),

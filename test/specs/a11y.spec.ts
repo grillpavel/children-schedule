@@ -329,7 +329,7 @@ test('T-230: kolizní sekce (FR-W3-2) v dark módu projde axe (design_review_81.
   await page.getByRole('searchbox').fill('Atletická školička');
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
   await cards(page).first().click();
-  if (isCompact(width)) await detail.getByRole('button', { name: 'Zvětšit detail' }).click();
+  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
   await detail.getByRole('button', { name: 'Pondělí 16:00', exact: true }).click();
   await expect(detail.getByText('Kolize s jiným kroužkem')).toBeVisible();
 

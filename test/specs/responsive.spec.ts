@@ -176,6 +176,10 @@ test('T-167: mobilní horní lišta sbaluje správu kalendářů za tlačítko �
   await expect(page.getByRole('banner').getByRole('button', { name: /Přidat kalendář/ })).toBeVisible();
   await expect(page.getByRole('banner').getByRole('textbox', { name: 'Název kalendáře' })).toBeVisible();
 
+  // Sheet je od design_review_95.md modální — zavřít Escape (přepínač je teď
+  // vizuálně pod vlastním backdropem), než klikneme na jinou záložku.
+  await page.keyboard.press('Escape');
+
   // Záložka „Děti" nadále nese editovatelný věk a přesun.
   await page.getByRole('button', { name: 'Děti', exact: true }).click();
   const childrenSection = page.getByRole('main').locator('section[aria-label="Děti"]');

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { IconClose } from './Icons';
+import { useEscapeToClose } from '@/hooks/useEscapeToClose';
 import { DEFAULT_EXPORT_RANGE, type ExportHourRange } from '@/lib/exportClient';
 
 function toHHMM(minutes: number): string {
@@ -40,6 +41,7 @@ export function PrintRangeDialog({
 }) {
   const [start, setStart] = useState(toHHMM(DEFAULT_EXPORT_RANGE.startMinutes));
   const [end, setEnd] = useState(toHHMM(DEFAULT_EXPORT_RANGE.endMinutes));
+  useEscapeToClose(onClose);
 
   const startMinutes = fromHHMM(start);
   const endMinutes = fromHHMM(end);

@@ -1,4 +1,4 @@
-import { test, expect, isCompact, openCalendarMenuIfCompact } from '../helpers/profiles';
+import { test, expect, isCompact, openCalendarMenuIfCompact, closeCalendarMenuIfCompact } from '../helpers/profiles';
 import { assertCRLF, assertFolding, unfold, getProperty } from '../helpers/ics-raw';
 import { readFileSync } from 'node:fs';
 
@@ -21,6 +21,9 @@ async function addCalendar(page: import('@playwright/test').Page, width: number,
     await page.getByRole('banner').getByRole('textbox', { name: 'Název nového kalendáře' }).fill(name);
   }
   await page.getByRole('banner').getByRole('button', { name: 'Přidat', exact: true }).click();
+  // Sheet „Správa kalendářů" je od design_review_95.md modální — zavřít, než se
+  // klikne mimo něj (jinak backdrop blokuje navazující interakce).
+  await closeCalendarMenuIfCompact(page, width);
 }
 
 async function addCustom(

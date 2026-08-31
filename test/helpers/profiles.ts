@@ -26,6 +26,19 @@ export async function openCalendarMenuIfCompact(
   await page.getByRole('banner').getByRole('button', { name: /Správa kalendářů/ }).click();
 }
 
+/** Sheet „Správa kalendářů" je od design_review_95.md modální (plnoobrazovkový
+ * backdrop jako referenční CustomEntryDialog) — musí se zavřít, než test klikne
+ * na cokoliv mimo něj (jinou záložku, „Další ▾" apod.), jinak backdrop klik
+ * zablokuje. Zavírá se Escape (ne opětovným kliknutím na přepínač — ten je teď
+ * vizuálně pod vlastním backdropem, takže by ho Playwright odmítl jako cíl). */
+export async function closeCalendarMenuIfCompact(
+  page: import('@playwright/test').Page,
+  width: number,
+): Promise<void> {
+  if (!isCompact(width)) return;
+  await page.keyboard.press('Escape');
+}
+
 /** Zmrazí čas, aby now-line nerozbíjela vizuální snímky (Z-07). */
 export const test = base.extend<{ frozenClock: void }>({
   frozenClock: [

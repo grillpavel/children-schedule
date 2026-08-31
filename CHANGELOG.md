@@ -6,6 +6,36 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Sjednocené modální chování všech vyskakovacích oken (CHANGE-102)
+
+Trigger: „Stále setrvává problém s 'vyskakovacími okny'. Všechna vyskakovací okna musí fungovat
+stejně jako pro '+ Vlastní událost' -> po kliknutí se otevře nové okno a zbytek ztmavne. Otestuj
+všechno." (design_review_95.md).
+
+- **Root cause**: read-only inventář (Explore subagent) našel 5 popup/menu prvků BEZ ztmavujícího
+  podkladu (na rozdíl od referenčního `CustomEntryDialog`): desktopové i mobilní menu „Další ▾"
+  (Toolbar), sheet „Správa kalendářů" (Toolbar — navíc měl latentní bug: šel zavřít jen re-kliknutím
+  na spouštěcí tlačítko, `setCalendarMenuOpen(false)` se jinde nevolalo), a mobilní spodní sheet
+  detailu kroužku. Dva další prvky (`PrivacyDialog`, `PrintRangeDialog`) měly podklad, ale chyběl
+  jim Escape.
+- **Fix**: nové sdílené `apps/web/src/hooks/useEscapeToClose.ts` (hook) a
+  `apps/web/src/components/PopoverBackdrop.tsx` (komponenta, stejný vizuál jako referenční dialog:
+  `bg-slate-900/50 backdrop-blur-xs`, klik zavírá) — aplikovány na všech 5 nekonformních prvků;
+  Escape doplněn i do zbylých 2 dialogů. Vedlejší efekt: oprava latentního bugu „Správa kalendářů
+  nešla zavřít jinak než re-kliknutím na tlačítko".
+- **Záměrná výjimka**: mobilní spodní sheet detailu byl CHANGE-27/54 navržen jako neblokující
+  „peek" (zůstává vidět i po přepnutí záložky Domů/Katalog/Rozvrh/Děti — T-211/T-218/T-219).
+  Plnoobrazovkový podklad by tuto funkci zrušil. Po konzultaci s uživatelem `PopoverBackdrop`
+  dostal volitelný `inset` prop — u sheetu ztmaví jen obsah NAD spodní navigací, lišta samotná
+  zůstává klikatelná a nezatmavená; CHANGE-55 zůstává beze změny.
+- Spec: `.github/specs/design_review_95.md`. Ověřeno: `tsc --noEmit` čisté (web), domain vitest
+  135/135 (engine nedotčen), plná 6profilová E2E sada = **743 passed / 247 skipped / 0 failed**
+  (shodné s CHANGE-101 baseline). Test fallout: `test/helpers/profiles.ts` získal
+  `closeCalendarMenuIfCompact()` (zavírá Escape, ne re-kliknutím — spouštěcí tlačítko je teď
+  vizuálně pod vlastním backdropem) použitý ve 4 testech (T-610, T-158, T-167, T-180), které dřív
+  klikaly mimo sheet bez jeho zavření; `mobile-audit-v2.spec.ts`'s T-252 CSS-třídní locator upraven
+  (`:not([aria-hidden="true"])`), protože nový backdrop náhodou sdílel stejné třídy jako sheet.
+
 ### Popisek termínu zůstával „Termín upřesní rodič" i po úpravě (CHANGE-101)
 
 Trigger: kompletní manuální průzkumné testování všech funkcí po CHANGE-98/99/100 (design_review_94.md).

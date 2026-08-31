@@ -1,4 +1,4 @@
-import { test, expect, isCompact, openCalendarMenuIfCompact } from '../helpers/profiles';
+import { test, expect, isCompact, openCalendarMenuIfCompact, closeCalendarMenuIfCompact } from '../helpers/profiles';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -155,6 +155,9 @@ test('T-158: na mobilu jsou Otevřít/Uložit v menu „Další ▾", název kal
   // V zavřené liště nejsou ostatní akce přímo dostupné.
   await expect(page.getByRole('button', { name: 'Uložit', exact: true })).toBeHidden();
 
+  // Sheet je od design_review_95.md modální — zavřít, než klikneme na „Další ▾"
+  // (jinak backdrop klik zablokuje).
+  await closeCalendarMenuIfCompact(page, testInfo.project.use.viewport!.width);
   await page.getByRole('button', { name: /Další ▾/ }).click();
   // Mobilní menu je od design_review_71.md `fixed` (dopočtená pozice, aby nepřetékalo
   // mimo viewport), ne `absolute` jako desktopové — proto jiný lokátor než T-150.

@@ -13,6 +13,7 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
+import { PopoverBackdrop } from '@/components/PopoverBackdrop';
 import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize, IconPlus } from '@/components/Icons';
 import { useIsMobile, useIsWide, useIsLandscapeCompact } from '@/hooks/useBreakpoint';
 
@@ -560,21 +561,32 @@ export default function Page() {
           CSS selektor `.fixed.inset-x-0.bottom-12` používaný napříč testy. V
           landscape-compact (FR-W2-1) není spodní nav, sheet jde až k okraji. */}
       {isMobileLayout && hasSelection && mobileTab !== 'details' && (
-        <div
-          className={clsx(
-            'no-print fixed inset-x-0 mb-[env(safe-area-inset-bottom,0px)] z-40',
-            isLandscapeCompact ? 'bottom-0' : 'bottom-12',
-          )}
-        >
+        <>
+          {/* Ztmaví obsah nad navigací, ale ne navigaci samotnou — sheet dál
+              umožňuje přepínání záložek Domů/Katalog/Rozvrh/Děti (CHANGE-55),
+              backdrop jen odpovídá vizuálu referenčního CustomEntryDialog. */}
+          <PopoverBackdrop
+            onClose={closeMobileSheet}
+            inset={isLandscapeCompact ? 'inset-y-0 left-14 right-0' : 'inset-x-0 top-0 bottom-12'}
+          />
           <div
             className={clsx(
-              'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
-              // M7 (design_review_86.md): `vh` je na mobilním Safari počítané k největšímu
-              // viewportu (bez adresního řádku) — rozbalený sheet pak přeteče nahoře přes
-              // hranu. `dvh` sleduje SKUTEČNOU dostupnou výšku, stejně jako kořen v `h-dvh`.
-              sheetExpanded ? 'h-[70dvh]' : 'h-60',
+              'no-print fixed inset-x-0 mb-[env(safe-area-inset-bottom,0px)] z-50',
+              isLandscapeCompact ? 'bottom-0' : 'bottom-12',
             )}
           >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Detail kroužku"
+              className={clsx(
+                'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
+                // M7 (design_review_86.md): `vh` je na mobilním Safari počítané k největšímu
+                // viewportu (bez adresního řádku) — rozbalený sheet pak přeteče nahoře přes
+                // hranu. `dvh` sleduje SKUTEČNOU dostupnou výšku, stejně jako kořen v `h-dvh`.
+                sheetExpanded ? 'h-[70dvh]' : 'h-60',
+              )}
+            >
             <div className="flex items-center justify-between px-3">
               <button
                 type="button"
@@ -598,6 +610,7 @@ export default function Page() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* Spodní navigace (nav, `desk:hidden`) rezervuje safe-area-inset-bottom navíc

@@ -1,11 +1,13 @@
 'use client';
 
 import { IconClose } from './Icons';
+import { useEscapeToClose } from '@/hooks/useEscapeToClose';
 
 /** Souhrn ochrany soukromí (design_review_71.md) — dostupný z Toolbaru „Další ▾“.
  * Aplikace nemá backend ani účty; jediný reálný odtok dat je geokódování adresy
  * na Nominatim (OpenStreetMap) při uložení adresy v CustomEntryDialog/DetailsPanel. */
 export function PrivacyDialog({ onClose }: { onClose: () => void }) {
+  useEscapeToClose(onClose);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"

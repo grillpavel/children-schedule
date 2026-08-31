@@ -1,4 +1,4 @@
-import { test, expect, isCompact, isThreeColumn, openCalendarMenuIfCompact } from '../helpers/profiles';
+import { test, expect, isCompact, isThreeColumn, openCalendarMenuIfCompact, closeCalendarMenuIfCompact } from '../helpers/profiles';
 import { readFileSync } from 'node:fs';
 
 test.beforeEach(async ({ page }) => {
@@ -448,6 +448,10 @@ test('T-180: kalendář lze přejmenovat, přidat další s vlastním názvem a 
   await expect(switcher.locator('option')).toHaveCount(2);
   await expect(nameInput, 'přidání aktivuje nově přidaný kalendář').toHaveValue('Bedřich');
 
+  // Sheet je od design_review_95.md modální — zavřít, než klikneme mimo něj
+  // (jinak backdrop klik na navigaci zablokuje).
+  await closeCalendarMenuIfCompact(page, width);
+
   // Vlastní událost na novém kalendáři — po odebrání musí zmizet i ona (kaskádové smazání).
   await openCatalog(page, width);
   await page.getByRole('button', { name: /Vlastní událost/ }).click();
@@ -458,11 +462,16 @@ test('T-180: kalendář lze přejmenovat, přidat další s vlastním názvem a 
   await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();
 
   page.once('dialog', (d) => d.accept());
+  // Sheet je od design_review_95.md modální — znovu otevřít, „Odebrat kalendář"
+  // žije uvnitř něj (na mobilu se zavřel kliknutím na Katalog výše).
+  await openCalendarMenuIfCompact(page, width);
   await banner.getByRole('button', { name: 'Odebrat kalendář Bedřich' }).click();
 
   await expect(switcher).toHaveCount(0);
   await expect(nameInput, 'po odebrání aktivního kalendáře se aktivuje zbývající').toHaveValue('Anežka');
 
+  // Zavřít sheet, než klikneme na „Další ▾" (jinak backdrop klik zablokuje).
+  await closeCalendarMenuIfCompact(page, width);
   if (isCompact(width)) await banner.getByRole('button', { name: /Další ▾/ }).click();
   const pending = page.waitForEvent('download');
   await banner.getByRole('button', { name: 'Uložit', exact: true }).click();

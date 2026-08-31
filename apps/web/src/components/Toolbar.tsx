@@ -19,6 +19,8 @@ import {
 } from '@/lib/exportClient';
 import { newId } from '@/lib/ids';
 import { encodeStateToShareUrl } from '@/lib/shareLink';
+import { useEscapeToClose } from '@/hooks/useEscapeToClose';
+import { PopoverBackdrop } from './PopoverBackdrop';
 import { PrivacyDialog } from './PrivacyDialog';
 import { PrintRangeDialog } from './PrintRangeDialog';
 import {
@@ -120,6 +122,14 @@ export function Toolbar({
     );
     setCalendarMenuPos({ top: rect.bottom + 4, left });
   }, [calendarMenuOpen]);
+
+  // Všechna tři menu (desktop/mobil „Další ▾“, „Správa kalendářů“) zavírá Escape
+  // stejně jako referenční CustomEntryDialog (design_review_95.md).
+  useEscapeToClose(() => {
+    setMenuOpen(false);
+    setMobileMenuOpen(false);
+    setCalendarMenuOpen(false);
+  });
 
   if (!child) return null;
 
@@ -477,14 +487,20 @@ export function Toolbar({
           <span aria-hidden className="text-slate-400">▾</span>
         </button>
         {calendarMenuOpen && calendarMenuPos && (
-          <div
-            style={{ top: calendarMenuPos.top, left: calendarMenuPos.left }}
-            className="fixed z-50 max-h-[calc(100vh-5rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-2xl"
-          >
-            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto text-sm">
-              {calendarControls}
+          <>
+            <PopoverBackdrop onClose={() => setCalendarMenuOpen(false)} />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Správa kalendářů (aktivní: ${child.name})`}
+              style={{ top: calendarMenuPos.top, left: calendarMenuPos.left }}
+              className="fixed z-50 max-h-[calc(100vh-5rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-2xl"
+            >
+              <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto text-sm">
+                {calendarControls}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -587,9 +603,17 @@ export function Toolbar({
               Další ▾
             </button>
             {menuOpen && (
-              <div className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-slate-200/90 bg-white shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95">
-                {exportItems}
-              </div>
+              <>
+                <PopoverBackdrop onClose={() => setMenuOpen(false)} />
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Další akce"
+                  className="absolute right-0 z-50 mt-1 w-64 rounded-xl border border-slate-200/90 bg-white shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95"
+                >
+                  {exportItems}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -605,38 +629,44 @@ export function Toolbar({
             Další ▾
           </button>
           {mobileMenuOpen && mobileMenuPos && (
-            <div
-              style={{ top: mobileMenuPos.top, right: mobileMenuPos.right }}
-              className="fixed z-50 max-h-[calc(100vh-5rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl"
-            >
-              <div className="py-1">
-                <MenuItem
-                  onClick={() => {
-                    fileInput.current?.click();
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <IconFolderOpen className="h-4 w-4 text-slate-500" />
-                    <span>Otevřít</span>
-                  </div>
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    downloadStateJson(state, child);
-                    onMarkSaved();
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <IconDownload className="h-4 w-4 text-slate-500" />
-                    <span>Uložit</span>
-                  </div>
-                </MenuItem>
+            <>
+              <PopoverBackdrop onClose={() => setMobileMenuOpen(false)} />
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Další akce"
+                style={{ top: mobileMenuPos.top, right: mobileMenuPos.right }}
+                className="fixed z-50 max-h-[calc(100vh-5rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl"
+              >
+                <div className="py-1">
+                  <MenuItem
+                    onClick={() => {
+                      fileInput.current?.click();
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <IconFolderOpen className="h-4 w-4 text-slate-500" />
+                      <span>Otevřít</span>
+                    </div>
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      downloadStateJson(state, child);
+                      onMarkSaved();
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <IconDownload className="h-4 w-4 text-slate-500" />
+                      <span>Uložit</span>
+                    </div>
+                  </MenuItem>
+                </div>
+                <div className="border-t border-slate-100" />
+                {exportItems}
               </div>
-              <div className="border-t border-slate-100" />
-              {exportItems}
-            </div>
+            </>
           )}
         </div>
       </div>

@@ -291,7 +291,9 @@ test.describe('M7 — výška mobilního sheetu', () => {
     await page.getByRole('button', { name: 'Rozbalit vše' }).click();
     await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
 
-    const sheet = page.locator('.fixed.inset-x-0.bottom-12');
+    // Backdrop (design_review_95.md) teď sdílí stejné třídy `fixed inset-x-0
+    // bottom-12` jako sheet samotný — vyloučit ho přes aria-hidden.
+    const sheet = page.locator('.fixed.inset-x-0.bottom-12:not([aria-hidden="true"])');
     await expect(sheet).toBeVisible();
 
     await page.getByRole('button', { name: 'Zvětšit detail' }).click();

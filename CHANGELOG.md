@@ -6,6 +6,28 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Popisek termínu zůstával „Termín upřesní rodič" i po úpravě (CHANGE-101)
+
+Trigger: kompletní manuální průzkumné testování všech funkcí po CHANGE-98/99/100 (design_review_94.md).
+
+- **Root cause**: `SessionGroup.label` (CHANGE-98, ZŠ/ZUŠ předpřipravené termíny) je statický text
+  „Termín upřesní rodič" — `DetailsPanel.tsx` ho zobrazoval jako `g.label ?? vypočtený čas`, takže
+  se NIKDY nepřepnul na vypočtený čas, ani když rodič úspěšně upravil den/čas přes existující
+  „Upravit časy" (podkladová data se měnila správně — mřížka i `sessionOverrides` v `localStorage`
+  odpovídaly novému času — jen popisek zůstal navždy stejný).
+- **Fix**: nová `groupDisplayLabel()` — jakmile má skupina AKTIVNÍ přepis (`SessionOverride` na
+  některé ze svých sessions), popisek vždy ukáže aktuální vypočtený čas, i přes statický `label`.
+  Bez přepisu se chování nemění. Vedlejší efekt: stejná oprava platí i pro stávající katalogové
+  skupiny s vlastním labelem (např. SCNS alternativy), pokud by si je rodič taky přesunul.
+- Spec: `.github/specs/design_review_94.md`. Beze změny testů/baselines — ověřeno diagnostickými
+  skripty (headless Chromium), plná 6profilová E2E sada = **743 passed / 247 skipped / 0 failed**
+  (beze změny oproti CHANGE-100), `tsc --noEmit` čisté (web), domain vitest 135/135.
+- **Kompletní manuální test po CHANGE-98/99/100 bez dalšího nálezu**: rozdělení sloupce pro 3
+  sourozence (třetiny), konflikt dvou ZUŠ položek ve stejný placeholder čas, JSON export/import
+  bajtová shoda, ICS export ZŠ „Výuka" (5 VEVENT), věkový filtr 3–19, validace neplatného věku,
+  mobilní drill-down „Škola"/"ZUŠ", odebrání kalendáře sourozence se zapnutým „Zobrazit i
+  sourozence".
+
 ### iOS export .ics selhával — mechanismus stažení, ne obsah (CHANGE-100)
 
 Trigger: uživatel nahlásil, že import kalendáře na iPhonu nefunguje, na Macu funguje bez problémů

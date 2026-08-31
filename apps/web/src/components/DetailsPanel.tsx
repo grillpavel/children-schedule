@@ -121,6 +121,18 @@ const CATEGORY_LABELS: Record<ActivityCategory, string> = {
   other: 'Ostatní',
 };
 
+/** Popisek termínu ve výběru variant. `g.label` (např. „Termín upřesní rodič",
+ * design_review_91.md) platí jen dokud session nemá vlastní přepis — jakmile
+ * rodič den/čas upraví, musí se ukázat SKUTEČNÝ aktuální čas, ne navždy zůstat
+ * u placeholderu (design_review_94.md). */
+function groupDisplayLabel(g: SessionGroup, sessionOverrides: SessionOverride[]): string {
+  const computed = g.sessions
+    .map((s) => `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`)
+    .join(', ');
+  const hasOverride = g.sessions.some((s) => sessionOverrides.some((o) => o.sessionId === s.id));
+  return hasOverride ? computed : (g.label ?? computed);
+}
+
 /** `onEnrolled` zavírá mobilní sheet po úspěšném přidání (CHANGE-55); jen primární CTA, ne varianty/odebrání. */
 function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const catalog = usePlannerStore((s) => s.catalog);
@@ -254,13 +266,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
                   >
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>
-                        {g.label ??
-                          g.sessions
-                            .map(
-                              (s) =>
-                                `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`,
-                            )
-                            .join(', ')}
+                        {groupDisplayLabel(g, state.sessionOverrides)}
                       </option>
                     ))}
                   </select>
@@ -306,14 +312,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
           <div className="space-y-1">
             {groups.map((g) => {
               const selected = enrolledGroupIds.has(g.id);
-              const label =
-                g.label ??
-                g.sessions
-                  .map(
-                    (s) =>
-                      `${WEEKDAYS[s.weekday - 1]?.short} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`,
-                  )
-                  .join(', ');
+              const label = groupDisplayLabel(g, state.sessionOverrides);
               const groupEnrollment = enrolled.find((e) => e.sessionGroupId === g.id);
               return (
                 <div key={g.id}>

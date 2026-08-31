@@ -286,17 +286,15 @@ test.describe('M7 — výška mobilního sheetu', () => {
     await page.goto('/');
   });
 
-  test('T-252 (M7): rozbalený sheet se vejde do viewportu', async ({ page }) => {
+  test('T-252 (M7): detail se vejde do viewportu', async ({ page }) => {
     await page.getByRole('button', { name: 'Katalog', exact: true }).click();
     await page.getByRole('button', { name: 'Rozbalit vše' }).click();
     await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
 
-    // Backdrop (design_review_95.md) teď sdílí stejné třídy `fixed inset-x-0
-    // bottom-12` jako sheet samotný — vyloučit ho přes aria-hidden.
-    const sheet = page.locator('.fixed.inset-x-0.bottom-12:not([aria-hidden="true"])');
+    // Detail je od design_review_97.md (CHANGE-104) plný modál (jako referenční
+    // CustomEntryDialog), ne spodní sheet — `max-h-[92dvh]` mu brání přetéct.
+    const sheet = page.getByRole('dialog', { name: 'Detail kroužku' });
     await expect(sheet).toBeVisible();
-
-    // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
     await page.waitForTimeout(300);
 
     const fits = await sheet.evaluate((el) => {
@@ -304,10 +302,11 @@ test.describe('M7 — výška mobilního sheetu', () => {
       return { top: r.top, bottom: r.bottom, vh: window.innerHeight };
     });
 
+    expect(fits.top, `modál začíná na y=${Math.round(fits.top)} — přetéká nad viewport`).toBeGreaterThanOrEqual(-1);
     expect(
-      fits.top,
-      `rozbalený sheet začíná na y=${Math.round(fits.top)} — přetéká nad viewport (nález M7: vh místo dvh)`,
-    ).toBeGreaterThanOrEqual(-1);
+      fits.bottom,
+      `modál končí na y=${Math.round(fits.bottom)} — přetéká pod viewport (${fits.vh}px)`,
+    ).toBeLessThanOrEqual(fits.vh + 1);
   });
 });
 

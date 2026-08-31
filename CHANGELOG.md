@@ -6,6 +6,34 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Detail existující položky na mobilu byl jiný typ okna než reference (CHANGE-104)
+
+Trigger: uživatel upřesnil, že Bug 2 z CHANGE-103 stále nebyl vyřešen — kliknutí na existující
+položku v rozvrhu na mobilu neotevíralo stejný typ okna jako referenční „+ Vlastní událost"
+(design_review_97.md).
+
+- **Root cause**: detail existující položky byl na mobilu architektonicky JINÁ komponenta —
+  spodní „peek" sheet (`fixed inset-x-0 bottom-12`, jen ~70 % výšky obrazovky, CHANGE-27/54/55),
+  ne centrovaný modál jako `CustomEntryDialog` (`fixed inset-0`, celá obrazovka). Naměřeno živě:
+  horní lišta zůstávala viditelná a spodní navigace klikatelná, nadpis byl o 232px (~3,5–4 cm na
+  reálném displeji) níž než u reference.
+- **Fix**: mobilní detail nahrazen strukturou 1:1 podle `CustomEntryDialog` — jeden `fixed inset-0
+  z-50` div (backdrop + centrování), uvnitř `max-h-[92dvh] max-w-md` box. Odstraněn `sheetExpanded`
+  stav a tlačítko Zvětšit/Zmenšit (nemá smysl — modál nemá „peek"/"expanded" stav). Zavírání:
+  tlačítko „Zavřít", klik na podklad, Escape.
+- **Rozsah: jen mobil.** Tablet (900–1439px slide-over drawer) a desktop (stálý sloupec) beze
+  změny — mají odlišné, funkční zobrazení, které uživatel nechal mimo rozsah této opravy.
+- **Definitivně ruší** funkci CHANGE-55 „peek napříč záložkami" na mobilu (možnost přepnout
+  Domů/Katalog/Rozvrh/Děti se stále otevřeným detailem) — nahrazeno plně modálním chováním
+  shodným s referencí. T-211/T-218/T-219 přepsány na novou sémantiku.
+- Spec: `.github/specs/design_review_97.md`. Ověřeno: `tsc --noEmit` čisté (web), plná
+  6profilová E2E sada = **743 passed / 247 skipped / 0 failed** (shodné s CHANGE-103 baseline).
+  Vizuální baseline `sheet-glass-on/off` (mobile, mobile-small) regenerována (modál má jiné
+  rozměry než dřívější sheet). Test fallout: T-307 (a11y) potřeboval krátké počkání po vstupní
+  animaci modálu (`animate-in zoom-in-95 duration-150`, stejná jako reference), než šlo číst
+  přepočtený kontrast — jinak čistě lokátorové úpravy (`.fixed.inset-x-0.bottom-12` →
+  `getByRole('dialog', { name: 'Detail kroužku' })`).
+
 ### Přepis termínu „Škola" se propisoval mezi dětmi + sheet detailu se otevíral minimalizovaný (CHANGE-103)
 
 Trigger: dvě přímo nahlášené chyby — (1) „Kroužek 'Škola' se při vložení do kalendáře jednoho

@@ -205,15 +205,16 @@ test('T-184: druhý řádek mobilní lišty (Uloženo/Zpět-Vpřed/Další ▾) 
   for (const t of tops) expect(Math.abs(t - tops[0]), 'horní okraje obalů se musí shodovat').toBeLessThanOrEqual(1);
 });
 
-test('T-211: bottom sheet v peek ukáže název i primární akci', async ({ page }, testInfo) => {
+test('T-211: výběr položky rovnou ukáže název i primární akci (design_review_97.md, CHANGE-104)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(!isCompact(width), 'bottom sheet je jen na mobilu/tabletu');
+  test.skip(!isCompact(width), 'detail je plný modál jen na mobilu/tabletu');
   await page.getByRole('button', { name: 'Katalog', exact: true }).click();
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
   const card = page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first();
   const cardName = (await card.locator('*').first().innerText()).trim();
   await card.click();
-  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  // Detail je od design_review_97.md plný modál — obsah je vidět hned, žádné
+  // přepnutí záložky už není potřeba (a ani možné, modál blokuje navigaci).
   await expect(page.getByRole('heading', { name: cardName })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toBeVisible();
 });
@@ -314,30 +315,28 @@ test('T-217: onboarding se dá odbýt a přepne na katalog', async ({ page }, te
 
 // --- Mobilní safe-area a sheet lifecycle (CHANGE-55) ---
 
-test('T-218: mobilní sheet se po přidání do rozvrhu automaticky zavře', async ({ page }, testInfo) => {
+test('T-218: mobilní detail se po přidání do rozvrhu automaticky zavře', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(!isCompact(width), 'sheet je jen na mobilu/tabletu');
+  test.skip(!isCompact(width), 'detail je plný modál jen na mobilu/tabletu');
   await page.getByRole('button', { name: 'Katalog', exact: true }).click();
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
   await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
-  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
   const addBtn = page.getByRole('button', { name: 'Přidat do rozvrhu' });
   await expect(addBtn).toBeVisible();
   await addBtn.click();
   await expect(addBtn).toBeHidden();
   await expect(page.getByRole('button', { name: 'Zavřít detail' })).toHaveCount(0);
   // Spodní navigace je hned po zavření klikatelná (žádný residual overlay).
-  await page.getByRole('button', { name: 'Katalog', exact: true }).click();
-  await expect(page.getByRole('searchbox')).toBeVisible();
+  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Přidat do rozvrhu' })).toHaveCount(0);
 });
 
-test('T-219: mobilní sheet lze zavřít tlačítkem „Zavřít“ (≥44 px)', async ({ page }, testInfo) => {
+test('T-219: mobilní detail lze zavřít tlačítkem „Zavřít“ (≥44 px)', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
-  test.skip(!isCompact(width), 'sheet je jen na mobilu/tabletu');
+  test.skip(!isCompact(width), 'detail je plný modál jen na mobilu/tabletu');
   await page.getByRole('button', { name: 'Katalog', exact: true }).click();
   await page.getByRole('button', { name: 'Rozbalit vše' }).click();
   await page.getByRole('button', { name: /Kč|Cena neuvedena/ }).first().click();
-  await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
   const closeBtn = page.getByRole('button', { name: 'Zavřít detail' });
   await expect(closeBtn).toBeVisible();
   const box = await closeBtn.boundingBox();

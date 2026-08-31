@@ -239,10 +239,15 @@ test('T-307: vysoký kontrast vypne sklo', async ({ page }, testInfo) => {
 
   const glass = page.locator('.glass').first();
   await expect(glass).toBeVisible();
+  // Modál má vstupní animaci (design_review_97.md, CHANGE-104, `animate-in
+  // zoom-in-95 duration-150`, stejnou jako referenční CustomEntryDialog) —
+  // počkat, ať kontrastní přepočet níže neběží uprostřed přechodu.
+  await page.waitForTimeout(300);
 
   // Vysoký kontrast (prefers-contrast: more) je automatická cesta vypnutí skla
   // (ruční přepínač „Bez skla“ byl odstraněn CHANGE-58, matoucí dev žargon v UI).
   await page.emulateMedia({ contrast: 'more' });
+  await page.waitForTimeout(300);
   const filterContrast = await glass.evaluate((el) => getComputedStyle(el).backdropFilter);
   expect(filterContrast, 'vysoký kontrast vypne backdrop-filter').toBe('none');
 });
@@ -312,7 +317,7 @@ test('T-230: kolizní sekce (FR-W3-2) v dark módu projde axe (design_review_81.
   const width = testInfo.project.use.viewport!.width;
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   const detail = isCompact(width)
-    ? page.locator('.fixed.inset-x-0.bottom-12')
+    ? page.getByRole('dialog', { name: 'Detail kroužku' })
     : !isThreeColumn(width)
       ? page.getByTestId('info-drawer')
       : page.getByRole('main');

@@ -13,8 +13,7 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
-import { PopoverBackdrop } from '@/components/PopoverBackdrop';
-import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconMaximize, IconMinimize, IconPlus } from '@/components/Icons';
+import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconPlus } from '@/components/Icons';
 import { useIsMobile, useIsWide, useIsLandscapeCompact } from '@/hooks/useBreakpoint';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
@@ -224,10 +223,6 @@ export default function Page() {
   // se ale žádný panel níže nestaral (všechny byly gated jen na `isMobile`). Jeden
   // společný přepínač pro VŠECHNY jednopanelové/tabové větve layoutu.
   const isMobileLayout = isMobile || isLandscapeCompact;
-  // Sheet detailu se vždy otevírá plně rozbalený (design_review_96.md, CHANGE-103)
-  // — stejné chování jako referenční CustomEntryDialog, žádný "peek" mezikrok.
-  // Ruční zmenšení (ikona ⤡) zůstává dostupné, jen už není výchozí.
-  const [sheetExpanded, setSheetExpanded] = useState(true);
   const [mediumInfoOpen, setMediumInfoOpen] = useState(false);
   // Tabletové/střední šířky (design_review_88.md) mají DRUHý sheet — „Domů“
   // (HomeScreen) vedle „Děti“ (dřív „Souhrn“, nyní vedle DetailsPanel i skutečná
@@ -328,12 +323,11 @@ export default function Page() {
     setSavedSignature(signature ?? stateSignature);
   };
 
-  // Zavře mobilní spodní sheet (CHANGE-55, C-mobile-sheet-close): po úspěšném
-  // přidání i přes tlačítko „Zavřít“, aby nezakrýval spodní navigaci natrvalo.
+  // Zavře mobilní detail (CHANGE-55, C-mobile-sheet-close): po úspěšném přidání
+  // i přes tlačítko „Zavřít“.
   const closeMobileSheet = () => {
     selectActivity(null);
     selectCustomEntry(null);
-    setSheetExpanded(true);
   };
 
   useEffect(() => {
@@ -558,39 +552,24 @@ export default function Page() {
         </div>
       )}
 
-      {/* Mobilní spodní sheet detailu (C8-F7): při výběru nad mřížkou. Odsazení
-          zdola počítá s home indikátorem, aby sheet nezmizel pod nav (CHANGE-55).
-          `bottom-12 mb-[env(...)]` (ne přepočtený `bottom`), ať zůstane stabilní
-          CSS selektor `.fixed.inset-x-0.bottom-12` používaný napříč testy. V
-          landscape-compact (FR-W2-1) není spodní nav, sheet jde až k okraji. */}
+      {/* Mobilní detail existující položky (design_review_97.md, CHANGE-104): stejný
+          typ zobrazení jako referenční CustomEntryDialog — plná obrazovka, zbytek
+          needitovatelný, dokud se nezavře. Nahrazuje dřívější "peek" spodní sheet
+          (CHANGE-27/54/55/102/103) — na mobilu se s ním nekonzistentně otevíral jinde
+          a nechal ovladatelnou horní i spodní lištu. Tablet/desktop nedotčeny. */}
       {isMobileLayout && hasSelection && mobileTab !== 'details' && (
-        <>
-          {/* Ztmaví obsah nad navigací, ale ne navigaci samotnou — sheet dál
-              umožňuje přepínání záložek Domů/Katalog/Rozvrh/Děti (CHANGE-55),
-              backdrop jen odpovídá vizuálu referenčního CustomEntryDialog. */}
-          <PopoverBackdrop
-            onClose={closeMobileSheet}
-            inset={isLandscapeCompact ? 'inset-y-0 left-14 right-0' : 'inset-x-0 top-0 bottom-12'}
-          />
+        <div
+          className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+          onClick={closeMobileSheet}
+        >
           <div
-            className={clsx(
-              'no-print fixed inset-x-0 mb-[env(safe-area-inset-bottom,0px)] z-50',
-              isLandscapeCompact ? 'bottom-0' : 'bottom-12',
-            )}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detail kroužku"
+            onClick={(e) => e.stopPropagation()}
+            className="glass flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl animate-in zoom-in-95 duration-150"
           >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Detail kroužku"
-              className={clsx(
-                'glass flex flex-col rounded-t-2xl border border-slate-200/90 shadow-2xl transition-[height] motion-safe:duration-200',
-                // M7 (design_review_86.md): `vh` je na mobilním Safari počítané k největšímu
-                // viewportu (bez adresního řádku) — rozbalený sheet pak přeteče nahoře přes
-                // hranu. `dvh` sleduje SKUTEČNOU dostupnou výšku, stejně jako kořen v `h-dvh`.
-                sheetExpanded ? 'h-[70dvh]' : 'h-60',
-              )}
-            >
-            <div className="flex items-center justify-between px-3">
+            <div className="flex items-center justify-end px-3 pt-2">
               <button
                 type="button"
                 onClick={closeMobileSheet}
@@ -599,21 +578,12 @@ export default function Page() {
               >
                 <IconClose className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => setSheetExpanded((v) => !v)}
-                className="flex h-11 w-11 items-center justify-center text-slate-400 hover:text-slate-700"
-                aria-label={sheetExpanded ? 'Zmenšit detail' : 'Zvětšit detail'}
-              >
-                {sheetExpanded ? <IconMinimize className="h-4 w-4" /> : <IconMaximize className="h-4 w-4" />}
-              </button>
             </div>
             <div className="flex-1 overflow-y-auto bg-white">
               <DetailsPanel onEnrolled={closeMobileSheet} />
             </div>
           </div>
         </div>
-        </>
       )}
 
       {/* Spodní navigace (nav, `desk:hidden`) rezervuje safe-area-inset-bottom navíc

@@ -52,13 +52,13 @@ test('T-130: klik na kartu otevře detail a kroužek nepřidá', async ({ page }
 test('T-131: v detailu lze zvolit variantu před potvrzením', async ({ page }, testInfo) => {
   const width = testInfo.project.use.viewport!.width;
   await selectFirstCard(page, width);
-  // Na mobilu je detail v peek sheetu, na středních šířkách ve slide-over draweru.
+  // Na mobilu je detail plný modál (design_review_97.md, CHANGE-104), na
+  // středních šířkách ve slide-over draweru.
   const detail = isCompact(width)
-    ? page.locator('.fixed.inset-x-0.bottom-12')
+    ? page.getByRole('dialog', { name: 'Detail kroužku' })
     : !isThreeColumn(width)
       ? page.getByTestId('info-drawer')
       : page.getByRole('main');
-  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
   await expect(detail.getByText('Varianty docházky')).toBeVisible();
   await expect(
     detail.getByRole('button', { name: /(Po|Út|St|Čt|Pá|So|Ne)\s+\d{1,2}:\d{2}/ }).first(),
@@ -170,7 +170,7 @@ test('T-161: vlastní událost typu Škola nese typový štítek v detailu', asy
 
   if (isCompact(width)) await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
   await page.getByRole('main').getByRole('button', { name: /Škola doučování/ }).first().click();
-  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
+  const detail = isCompact(width) ? page.getByRole('dialog', { name: 'Detail kroužku' }) : page.getByRole('main');
   await expect(detail.getByText('🏫').first()).toBeVisible();
   await expect(detail.getByText('Škola', { exact: true }).first()).toBeVisible();
 });
@@ -313,20 +313,20 @@ test('T-176: kroužek se v den školních prázdnin nevykreslí v mřížce, po 
   await expect(tuesday.getByRole('button', { name: /Fotbal/ })).toBeVisible();
   await expect(thursday.getByRole('button', { name: /Fotbal/ })).toHaveCount(0);
 
-  // Mobilní peek sheet se po přidání zavírá (CHANGE-55) — je třeba kartu znovu otevřít;
-  // na širších profilech zůstává výběr aktivity zachovaný (klik na už vybranou kartu by ji
-  // naopak odznačil, viz `handleCardClick` v CatalogPanel.tsx).
+  // Mobilní detail (design_review_97.md, CHANGE-104) se po přidání zavírá (CHANGE-55)
+  // — je třeba kartu znovu otevřít; na širších profilech zůstává výběr aktivity
+  // zachovaný (klik na už vybranou kartu by ji naopak odznačil, viz `handleCardClick`
+  // v CatalogPanel.tsx).
   if (isCompact(width)) {
     await openCatalog(page, width);
     await cards(page).first().click();
   }
-  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
-  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
+  const detail = isCompact(width) ? page.getByRole('dialog', { name: 'Detail kroužku' }) : page.getByRole('main');
   await detail.getByRole('checkbox', { name: 'Povolit i o prázdninách a státních svátcích' }).check();
 
   if (isCompact(width)) {
-    // Peek sheet zůstává otevřený, dokud je aktivita vybraná (`hasSelection`) — zavřít ho,
-    // ať nepřekrývá spodní navigaci/záložku Mřížka.
+    // Mobilní detail je od CHANGE-104 plný modál — musí se explicitně zavřít,
+    // než se přepne záložka (blokuje i navigaci, ne jen obsah).
     await page.getByRole('button', { name: 'Zavřít detail' }).click();
     await page.getByRole('button', { name: 'Rozvrh', exact: true }).click();
     await page.getByRole('tab', { name: 'Mřížka' }).click();
@@ -374,8 +374,7 @@ test('T-178: čas katalogové aktivity lze upravit — katalog nemusí odrážet
     await openCatalog(page, width);
     await cards(page).first().click();
   }
-  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
-  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
+  const detail = isCompact(width) ? page.getByRole('dialog', { name: 'Detail kroužku' }) : page.getByRole('main');
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
   // Fotbal — mini přípravka má termín v úterý (16:00–17:00) — posuneme na 18:30–19:30.
@@ -410,8 +409,7 @@ test('T-179: editace času odmítne neplatný rozsah (začátek po konci) beze z
     await openCatalog(page, width);
     await cards(page).first().click();
   }
-  const detail = isCompact(width) ? page.locator('.fixed.inset-x-0.bottom-12') : page.getByRole('main');
-  // Sheet se od design_review_96.md vždy otevírá rozbalený (CHANGE-103).
+  const detail = isCompact(width) ? page.getByRole('dialog', { name: 'Detail kroužku' }) : page.getByRole('main');
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
   // Začátek (18:30) po dosavadním konci (17:00, nezměněn) — neplatné, nesmí se zapsat.

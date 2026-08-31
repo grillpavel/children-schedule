@@ -9,7 +9,8 @@ function cards(page: import('@playwright/test').Page) {
 }
 
 function detailScope(page: import('@playwright/test').Page, width: number) {
-  if (isCompact(width)) return page.locator('.fixed.inset-x-0.bottom-12');
+  // Mobil (design_review_97.md, CHANGE-104): detail je plný modál, ne spodní sheet.
+  if (isCompact(width)) return page.getByRole('dialog', { name: 'Detail kroužku' });
   // Střední šířky (900–1440): Info je slide-over drawer mimo <main> (C9-L1).
   if (!isThreeColumn(width)) return page.getByTestId('info-drawer');
   return page.getByRole('main');

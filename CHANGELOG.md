@@ -6,6 +6,29 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Mobilní detail kroužku a vlastní události měly různě velké okno (CHANGE-108)
+
+Trigger: uživatel upřesnil, že CHANGE-107 problém nevyřešilo — na mobilu kroužek
+z katalogu (např. „Atletika — přípravka") otevře velké okno s informacemi, zatímco
+vlastní událost (např. „Volejbal") otevře jen poloviční okno.
+
+- **Potvrzeno empiricky** (diagnostický skript, reálný headless Chromium 390×844):
+  jde o DRUHOU, nezávislou příčinu, ne o to, co opravilo CHANGE-107 (to opravilo
+  vnořené „Upravit“ dialogy, ne vnější detail samotný). Vnější mobilní modál
+  (`page.tsx`, `role="dialog" aria-label="Detail kroužku"`) měl `max-h-[92dvh]`
+  (jen horní limit) + vertikální centrování — box se tak vždy zmenšil přesně na
+  výšku SVÉHO obsahu: kroužek s variantami/popisem/mapou/cenou naměřil 776 px,
+  vlastní událost s jen typem/časem/polohou naměřila 271 px — přesně „velké" vs.
+  „poloviční" okno, jak uživatel popsal.
+- **Fix**: `max-h-[92dvh]` → `h-[85dvh]` (pevná výška, ne jen horní limit) —
+  detail teď má stejně velké okno bez ohledu na množství obsahu uvnitř; sparší
+  obsah (vlastní událost) nechá jen prázdné místo dole, obsahově bohatý kroužek
+  scroluje beze změny.
+- Spec: `.github/specs/design_review_101.md`. Ověřeno: `tsc --noEmit` čisté (web),
+  plná 6profilová E2E sada = **780 passed / 252 skipped / 0 failed** (vizuální
+  baseline `sheet-glass-on/off`, T-403, mobile + mobile-small, regenerována —
+  rozměr modálu se legitimně změnil).
+
 ### Editace kroužku měla jiné okno pro úpravu než vlastní událost (CHANGE-107)
 
 Trigger: uživatel nahlásil, že kroužek vybraný z katalogu má jiné okno pro úpravu než

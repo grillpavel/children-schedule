@@ -567,7 +567,7 @@ export default function Page() {
             aria-modal="true"
             aria-label="Detail kroužku"
             onClick={(e) => e.stopPropagation()}
-            className="glass flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl animate-in zoom-in-95 duration-150"
+            className="glass flex h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl animate-in zoom-in-95 duration-150"
           >
             <div className="flex items-center justify-end px-3 pt-2">
               <button

@@ -1,7 +1,11 @@
 # Analýza: ukládání dat kalendářů v Rozvrhni
 
-Datum: 2026-09-01
+Datum: 2026-09-01 (aktualizováno pro CHANGE-106 — export/import per dítě)
 Rozsah: `packages/domain` (schéma, migrace) + `apps/web` (store, autosave, export)
+
+> Širší technický pohled na kompletní tvar dat a jejich propagaci appkou je
+> v [docs/architektura-dat.md](architektura-dat.md) — tento dokument zůstává
+> zaměřený na to, KDE přesně data fyzicky žijí a jak se chovají pro 1/2/N dětí.
 
 ## 1. Kde data žijí — tři nezávislé cesty
 
@@ -19,7 +23,7 @@ Zdroj pravdy: [packages/domain/src/model/schema.ts](../packages/domain/src/model
 
 ```ts
 PlannerState {
-  schemaVersion: 9                        // aktuální verze, viz migrace níž
+  schemaVersion: 10                       // aktuální verze, viz migrace níž
   children: Child[]                       // VŠECHNY kalendáře (děti) pohromadě
   schedules: NamedSchedule[]               // "varianty" rozvrhu (min. 1)
   activeScheduleId: string                 // která varianta je právě aktivní
@@ -28,6 +32,8 @@ PlannerState {
   sessionOverrides: SessionOverride[]       // uživatelské přepisy termínů
   schoolYear: { start: string; end: string }
   districtCode: string                     // okres (svátky/prázdniny)
+  revision: number                         // čítač změn (design_review_99.md, CHANGE-106)
+  updatedAt?: string                       // ISO čas poslední změny; chybí u starších souborů
 }
 ```
 
@@ -72,8 +78,8 @@ NamedSchedule {
 - `addChild()` ([plannerStore.ts:672](../apps/web/src/store/plannerStore.ts)) přidá nový `Child` do **stejného** pole `children` a přepne `activeChildId` na něj — **nevytváří** nový `NamedSchedule`.
 - Zápisy do rozvrhu pro různé děti **žijí ve stejné variantě** vedle sebe, rozlišené `childId`. UI (`ScheduleGrid`) je filtruje podle `activeChildId` (a volitelně přimíchá i „sourozence“ přes `showFamily`).
 - `removeChild(childId)` ([plannerStore.ts:694](../apps/web/src/store/plannerStore.ts)) prochází **VŠECHNY** `schedules` (ne jen aktivní variantu) a z každé odstraní `enrollments`/`customEntries` daného dítěte — cascade delete napříč všemi variantami.
-- **Export .ics zůstává per-dítě**: „Kalendář (.ics)“ exportuje jen aktivní dítě; „Kalendář — všechny děti (.ics)“ vygeneruje N samostatných souborů (jeden `generateIcs()` volání na dítě, filtrující `enrollments`/`customEntries` podle `childId`).
-- **Uložení/JSON export je ale VŽDY celý stav najednou** — jeden `.json` soubor obsahuje všechny děti i všechny varianty současně. Není možné exportovat/uložit „jen jedno dítě“ do JSON (jen do .ics).
+- **Export .ics zůstává per-dítě**: „Kalendář (.ics)“ exportuje jen aktivní dítě; „Kalendář — všechny děti (.ics)“ vygeneruje N samostatných souborů (jeden `generateIcs()` volání na dítě, filtrující `enrollments`/`customEntries` podle `childId`). Od CHANGE-106 navíc „Sdílený rodinný kalendář (.ics)“ — JEDEN soubor pro všechny děti najednou (`generateFamilyIcs()`).
+- **Uložení/JSON export je od CHANGE-106 volitelné**: dialog „Uložit“ nabízí buď celou rodinu, nebo JEDNO vybrané dítě (`ExportEnvelope` s `exportType: 'family' | 'single-child'`). Import podle typu — `family` vždy vyžádá potvrzení (nikdy tiché), `single-child` bezpečně sloučí jen dané dítě podle `childId` (obsahové porovnání, ne revize — viz `design_review_99.md`). Předchozí omezení „nejde exportovat jen jedno dítě do JSON“ už neplatí.
 
 ### Varianty (NamedSchedule) vs. děti — nezaměňovat
 „Přidat kalendář“ (dítě) ≠ „Nový“ (varianta). Druhé vytvoří **kopii** aktuální varianty (`duplicateSchedule`) se VŠEMI dětmi uvnitř — používá se třeba pro „co kdyby“ scénář celé rodiny, ne pro oddělení dětí od sebe.
@@ -105,6 +111,7 @@ NamedSchedule {
 | 6→7 | `ActivityOverride.allowOnHolidays` (volitelné) |
 | 7→8 | `sessionOverrides: []` |
 | 8→9 | `Enrollment.sessionIds` (volitelné) |
+| 9→10 | `revision: 0` (`updatedAt` se NEDOPLŇUJE, zůstává `undefined` u starších souborů) |
 
 Většina kroků je jen bump verze + zodí default — žádná destruktivní transformace dat.
 

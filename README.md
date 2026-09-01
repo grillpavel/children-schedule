@@ -16,6 +16,8 @@ neukládá na server. To zásadně zjednodušuje hosting (viz [Nasazení](#nasaz
 i jako [PDF](docs/navod-pouziti.pdf)).
 **Jak se ukládají data:** [docs/ukladani-dat.md](docs/ukladani-dat.md) (přesná
 struktura stavu, chování pro 1/2/N dětí, migrace schémat).
+**Technický přehled dat:** [docs/architektura-dat.md](docs/architektura-dat.md)
+(kompletní tvar dat + jak přesně propagují appkou od kliknutí po uložení).
 
 ## Funkce
 
@@ -122,7 +124,7 @@ aby webpack rozřešil ESM importy s příponou `.js` na zdrojové `.ts`.
 | `apps/web/src/hooks` | Odvozený pohled na rozvrh (`useScheduleView`), breakpointy, Escape-to-close. |
 | `packages/chat` | LLM adaptér (M1, zatím prázdný). |
 | `test/` | Kompletní E2E sada (Playwright) — viz [test/README.md](test/README.md). |
-| `docs/` | Návod k použití, analýza ukládání dat, backlog a jeho konvence. |
+| `docs/` | Návod k použití, analýza ukládání dat, technický přehled dat (architektura-dat.md), backlog a jeho konvence. |
 | `.github/docs/` | Specifikace produktu 00–08. |
 | `.github/specs/` | Design review na každou změnu (`CHANGE-<id>`). |
 | `.github/instructions/` | Procesní smlouva (spec → build → test → changelog → ship). |
@@ -141,7 +143,8 @@ cestami, vždy stejná struktura:
 | Soubor | `.json` stažení/nahrání | tlačítka „Uložit"/„Otevřít" |
 | Odkaz | URL fragment `#share=...` (gzip+base64url) | „Sdílet odkaz na rozvrh" |
 
-Klíčové body (podrobně v [docs/ukladani-dat.md](docs/ukladani-dat.md)):
+Klíčové body (podrobně v [docs/ukladani-dat.md](docs/ukladani-dat.md) a
+[docs/architektura-dat.md](docs/architektura-dat.md)):
 
 - **Více dětí ≠ více souborů.** `children: Child[]` je pole nezávislých
   kalendářů v jednom stavu; **varianta rozvrhu** (`NamedSchedule`) je sdílený

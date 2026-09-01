@@ -841,7 +841,7 @@ export function Toolbar({
               </button>
             </div>
             <p className="px-4 pb-3 text-xs text-slate-500">
-              Vyberte, co se má uložit do souboru (design_review_99.md).
+              Vyberte, co se má uložit.
             </p>
             <div className="flex-1 space-y-1 overflow-y-auto px-4 pb-2">
               <label className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">

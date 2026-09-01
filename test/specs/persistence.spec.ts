@@ -25,10 +25,26 @@ async function enrollFirst(page: import('@playwright/test').Page, width: number)
 async function saveAndRead(page: import('@playwright/test').Page, width: number): Promise<string> {
   // Na mobilu je Uložit v mobilním menu „Další ▾".
   if (isCompact(width)) await page.getByRole('button', { name: /Další ▾/ }).click();
-  const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Uložit', exact: true }).click();
+  // FR-3 (design_review_99.md): "Uložit" teď nabízí explicitní volbu rozsahu —
+  // dialog defaultuje na aktivní dítě, testy chtějí celý rodinný export.
+  const dialog = page.getByRole('dialog', { name: 'Uložit rozvrh' });
+  await dialog.getByRole('radio', { name: 'Celá rodina' }).check();
+  const pending = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Uložit', exact: true }).click();
   const download = await pending;
-  return readFileSync((await download.path())!, 'utf8');
+  const raw = readFileSync((await download.path())!, 'utf8');
+  // Export je od design_review_99.md obalený v `ExportEnvelope` — testy níže
+  // porovnávají syrový `PlannerState`, ne obálku, proto se tu odbalí zpět.
+  const envelope = JSON.parse(raw) as { data: unknown };
+  return JSON.stringify(envelope.data, null, 2);
+}
+
+/** FR-2 (design_review_99.md): import celorodinného/staršího formátu už nikdy
+ * tiše nepřepíše — potvrdí přes dialog "Přepsat". */
+async function confirmFamilyImport(page: import('@playwright/test').Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Potvrdit import' });
+  await dialog.getByRole('button', { name: 'Přepsat' }).click();
 }
 
 function tempFile(name: string, content: string): string {
@@ -87,6 +103,7 @@ test('T-152: export → import → export dá bajtově shodný JSON včetně ove
   // Import souboru A a čekání, až se zápis obnoví.
   const fileA = tempFile('rozvrh-a.json', jsonA);
   await page.locator('input[type="file"]').setInputFiles(fileA);
+  await confirmFamilyImport(page);
   await openCatalog(page, width);
   await expect(page.getByText('Přidáno')).toHaveCount(1);
 
@@ -136,6 +153,7 @@ test('T-154: soubor se starším schemaVersion se načte přes migraci', async (
   });
 
   await page.locator('input[type="file"]').setInputFiles(fileV2);
+  await confirmFamilyImport(page);
 
   // Migrace proběhne bez chyby a zápis se načte.
   await expect(page.getByText('Uloženo', { exact: true })).toBeVisible();

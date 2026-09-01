@@ -471,10 +471,16 @@ test('T-180: kalendář lze přejmenovat, přidat další s vlastním názvem a 
   // Zavřít sheet, než klikneme na „Další ▾" (jinak backdrop klik zablokuje).
   await closeCalendarMenuIfCompact(page, width);
   if (isCompact(width)) await banner.getByRole('button', { name: /Další ▾/ }).click();
-  const pending = page.waitForEvent('download');
   await banner.getByRole('button', { name: 'Uložit', exact: true }).click();
+  // FR-3 (design_review_99.md): dialog defaultuje na aktivní dítě, test chce
+  // ověřit celý rodinný export (odebraný kalendář zmizel ze seznamu dětí).
+  const saveDialog = page.getByRole('dialog', { name: 'Uložit rozvrh' });
+  await saveDialog.getByRole('radio', { name: 'Celá rodina' }).check();
+  const pending = page.waitForEvent('download');
+  await saveDialog.getByRole('button', { name: 'Uložit', exact: true }).click();
   const download = await pending;
-  const saved = JSON.parse(readFileSync((await download.path())!, 'utf8'));
+  const envelope = JSON.parse(readFileSync((await download.path())!, 'utf8'));
+  const saved = envelope.data;
   expect(saved.children, 'odebraný kalendář zmizel ze seznamu').toHaveLength(1);
   expect(saved.children[0].name).toBe('Anežka');
   const allCustomEntries = saved.schedules.flatMap((s: { customEntries: { name: string }[] }) => s.customEntries);

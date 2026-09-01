@@ -26,6 +26,8 @@ import type {
   calendarExceptionSchema,
   namedScheduleSchema,
   plannerStateSchema,
+  singleChildExportPayloadSchema,
+  exportEnvelopeSchema,
   catalogSchema,
   exceptionsFileSchema,
 } from './schema.js';
@@ -68,6 +70,10 @@ export type ExceptionsFile = z.infer<typeof exceptionsFileSchema>;
 // ---------- Stav ----------
 export type NamedSchedule = z.infer<typeof namedScheduleSchema>;
 export type PlannerState = z.infer<typeof plannerStateSchema>;
+
+// ---------- Export jednoho dítěte / celé rodiny (design_review_99.md, CHANGE-106) ----------
+export type SingleChildExportPayload = z.infer<typeof singleChildExportPayloadSchema>;
+export type ExportEnvelope = z.infer<typeof exportEnvelopeSchema>;
 
 // ---------- Odvozené typy (výstupy výpočtů, neserializují se jako vstup) ----------
 

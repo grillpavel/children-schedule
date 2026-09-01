@@ -388,7 +388,7 @@ export const namedScheduleSchema = z.object({
 });
 
 export const plannerStateSchema = z.object({
-  schemaVersion: z.literal(9),
+  schemaVersion: z.literal(10),
   children: z.array(childSchema),
   schedules: z.array(namedScheduleSchema).min(1),
   activeScheduleId: z.string(),
@@ -397,7 +397,53 @@ export const plannerStateSchema = z.object({
   sessionOverrides: z.array(sessionOverrideSchema),
   schoolYear: z.object({ start: isoDate, end: isoDate }),
   districtCode: z.string(),
+  /** Monotónně rostoucí čítač změn (design_review_99.md, CHANGE-106) — inkrementuje
+   * se při každém `commit()` v app store. Slouží k odhalení "toto NENÍ nejnovější
+   * stav" před tichým přepsáním při importu (FR-2); NENÍ vhodný pro per-dítě
+   * rozhodnutí (viz FR-8 — na to slouží obsahové porovnání, ne tento čítač). */
+  revision: z.number().int().nonnegative().default(0),
+  /** ISO čas poslední změny (design_review_99.md) — appka (ne doména) ho nastavuje
+   * při každém `commit()`. Chybí-li (starší/migrovaný soubor), zůstává `undefined` —
+   * nikdy se nedopočítává ani nefabrikuje aktuální čas (Pravidlo #1 tohoto repa). */
+  updatedAt: z.string().optional(),
 });
+
+// ---------- Export jednoho dítěte / celé rodiny (design_review_99.md, CHANGE-106) ----------
+
+/** Obsah exportu „Toto dítě" (FR-4) — podmnožina `PlannerState` patřící jednomu
+ * dítěti + katalogové přepisy, které se ho týkají. Na rozdíl od `PlannerState`
+ * nemá vlastní `schemaVersion` — obaluje ho `exportEnvelopeSchema`, který nese
+ * verzi celé obálky (`exportVersion`), ne dat uvnitř. */
+export const singleChildExportPayloadSchema = z.object({
+  child: childSchema,
+  enrollments: z.array(enrollmentSchema),
+  customEntries: z.array(customEntrySchema),
+  overrides: z.array(activityOverrideSchema),
+  sessionOverrides: z.array(sessionOverrideSchema),
+});
+
+/**
+ * Obálka rozlišující typ exportu (FR-3) — `family` je dnešní celorodinný export
+ * (zpětně kompatibilní i BEZ obálky, viz `parseImportedFile` ve `state/io.ts`),
+ * `single-child` nese jen data jednoho dítěte + `sourceUpdatedAt` (snímek
+ * `PlannerState.updatedAt` v okamžiku exportu, JEN jako doplňkový kontext v
+ * potvrzovacím dialogu při zpětném importu — FR-8, NIKDY jako rozhodovací
+ * podmínka mergu).
+ */
+export const exportEnvelopeSchema = z.discriminatedUnion('exportType', [
+  z.object({
+    exportType: z.literal('family'),
+    exportVersion: z.literal(1),
+    data: plannerStateSchema,
+  }),
+  z.object({
+    exportType: z.literal('single-child'),
+    exportVersion: z.literal(1),
+    childId: z.string(),
+    sourceUpdatedAt: z.string().optional(),
+    data: singleChildExportPayloadSchema,
+  }),
+]);
 
 // ---------- Katalog jako celek ----------
 

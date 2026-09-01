@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ICAL from 'ical.js';
-import { generateIcs, type CustomEntry, type Enrollment } from '../src/index.js';
+import { generateIcs, generateFamilyIcs, type CustomEntry, type Enrollment } from '../src/index.js';
 import {
   TEST_CATALOG,
   TEST_CHILD,
@@ -249,5 +249,86 @@ describe('generateIcs — allowOnHolidays (design_review_68.md FR-7, AC-5)', () 
     const overrides = [{ activityId: 'TEST_keramika', allowOnHolidays: true }];
     const ics = generateOpts({ overrides, mode: 'expanded' });
     expect(ics).toContain('20260907T150000');
+  });
+});
+
+describe('generateFamilyIcs (design_review_99.md FR-6, CHANGE-106)', () => {
+  const child2 = { ...TEST_CHILD, id: 'TEST_child2', name: 'TEST Jonda' };
+  // Obě děti zapsané do STEJNÉ katalogové aktivity/skupiny — přesně scénář,
+  // kde by UID odvozené jen ze sessionId kolidovalo mezi dětmi.
+  const sharedEnrollments: Enrollment[] = [
+    {
+      id: 'e_ker_child1',
+      childId: TEST_CHILD.id,
+      activityId: 'TEST_keramika',
+      sessionGroupId: 'TEST_keramika_po',
+      status: 'selected',
+      pinned: false,
+    },
+    {
+      id: 'e_ker_child2',
+      childId: child2.id,
+      activityId: 'TEST_keramika',
+      sessionGroupId: 'TEST_keramika_po',
+      status: 'selected',
+      pinned: false,
+    },
+  ];
+  const customEntry: CustomEntry = {
+    id: 'ce_lekar',
+    childId: child2.id,
+    name: 'TEST Lékař',
+    kind: 'doctor',
+    sessions: [
+      {
+        id: 'ce_s1',
+        weekday: 2,
+        startMinutes: 600,
+        endMinutes: 630,
+        validFrom: '2026-09-01',
+        validTo: '2027-06-30',
+      },
+    ],
+  };
+
+  function generateFamily(): string {
+    return generateFamilyIcs({
+      children: [TEST_CHILD, child2],
+      schedule: makeSchedule({ enrollments: sharedEnrollments, customEntries: [customEntry] }),
+      catalog: TEST_CATALOG,
+      schoolYear: TEST_SCHOOL_YEAR,
+      exceptions: TEST_EXCEPTIONS,
+      districtCode: TEST_DISTRICT,
+      dtstamp: '20260807T120000Z',
+    });
+  }
+
+  it('sdílená katalogová aktivita dvou dětí dá 2 VEVENTy s ROZDÍLNÝM UID', () => {
+    const ics = generateFamily();
+    const comp = new ICAL.Component(ICAL.parse(ics));
+    const events = comp.getAllSubcomponents('vevent');
+    const uids = events.map((e) => String(e.getFirstPropertyValue('uid')));
+    expect(new Set(uids).size).toBe(uids.length); // žádná kolize UID
+    expect(uids.some((u) => u.includes('e_ker_child1'))).toBe(true);
+    expect(uids.some((u) => u.includes('e_ker_child2'))).toBe(true);
+  });
+
+  it('SUMMARY je prefixované jménem dítěte', () => {
+    const ev1 = eventByUid(generateFamily(), 'e_ker_child1');
+    const ev2 = eventByUid(generateFamily(), 'e_ker_child2');
+    expect(ev1.getFirstPropertyValue('summary')).toBe('TEST Julinka: TEST Keramika (DDM)');
+    expect(ev2.getFirstPropertyValue('summary')).toBe('TEST Jonda: TEST Keramika (DDM)');
+  });
+
+  it('CATEGORIES nese jméno dítěte, ne obecné "Kroužek"', () => {
+    const ev1 = eventByUid(generateFamily(), 'e_ker_child1');
+    expect(ev1.getFirstPropertyValue('categories')).toBe('TEST Julinka');
+  });
+
+  it('CustomEntry je ve stejném souboru se stejným prefixovým schématem (ne jen Enrollment)', () => {
+    const ics = generateFamily();
+    const ev = eventByUid(ics, 'ce_lekar');
+    expect(ev.getFirstPropertyValue('summary')).toBe('TEST Jonda: TEST Lékař');
+    expect(ev.getFirstPropertyValue('categories')).toBe('TEST Jonda');
   });
 });

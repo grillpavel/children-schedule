@@ -2,7 +2,10 @@
 
 import { toPng } from 'html-to-image';
 import {
+  buildSingleChildExportPayload,
+  generateFamilyIcs,
   generateIcs,
+  familyIcsFileName,
   icsFileName,
   serializePlannerState,
   slugify,
@@ -10,6 +13,7 @@ import {
   type CalendarException,
   type Catalog,
   type Child,
+  type ExportEnvelope,
   type IcsColorMode,
   type IcsExportMode,
   type NamedSchedule,
@@ -122,6 +126,81 @@ export function downloadStateJson(state: PlannerState, child: Child): void {
     serializePlannerState(state),
     'application/json',
   );
+}
+
+/** Export celé rodiny (FR-3 volba "Celá rodina") — obalí stav do `ExportEnvelope`
+ * s discriminatorem `exportType: 'family'`, ať ho import (FR-2) nikdy nesplete
+ * s exportem jednoho dítěte (design_review_99.md). Název souboru: při JEDNOM
+ * dítěti zachovává původní schéma (jméno dítěte), jinak obecné "rodina". */
+export function downloadFamilyJson(state: PlannerState): void {
+  const envelope: ExportEnvelope = { exportType: 'family', exportVersion: 1, data: state };
+  const name = state.children.length === 1 ? slugify(state.children[0]!.name) : 'rodina';
+  download(`rozvrh-${name}.json`, JSON.stringify(envelope, null, 2), 'application/json');
+}
+
+/** Export jednoho dítěte (FR-4) — jen jeho data + katalogové přepisy, které se
+ * ho týkají, obalené do `ExportEnvelope` s discriminatorem `exportType:
+ * 'single-child'`. `sourceUpdatedAt` je snímek `state.updatedAt` v okamžiku
+ * exportu — použitý při zpětném importu JEN jako doplňkový kontext (FR-8),
+ * nikdy jako rozhodovací podmínka mergu. */
+export function downloadSingleChildJson(
+  child: Child,
+  schedule: NamedSchedule,
+  catalog: Catalog,
+  state: PlannerState,
+): void {
+  const payload = buildSingleChildExportPayload(
+    child,
+    schedule,
+    catalog,
+    state.overrides,
+    state.sessionOverrides,
+  );
+  const envelope: ExportEnvelope = {
+    exportType: 'single-child',
+    exportVersion: 1,
+    childId: child.id,
+    ...(state.updatedAt ? { sourceUpdatedAt: state.updatedAt } : {}),
+    data: payload,
+  };
+  download(`rozvrh-${slugify(child.name)}.json`, JSON.stringify(envelope, null, 2), 'application/json');
+}
+
+/** Sdílený rodinný kalendář (FR-6) — JEDEN `.ics` soubor pro VŠECHNY děti
+ * najednou (na rozdíl od dnešního "Všechny děti" tlačítka, které stáhne N
+ * samostatných souborů). */
+export interface FamilyIcsDownloadInput {
+  children: readonly Child[];
+  schedule: NamedSchedule;
+  catalog: Catalog;
+  schoolYear: { start: string; end: string };
+  exceptions: readonly CalendarException[];
+  districtCode: string;
+  mode?: IcsExportMode;
+  calendarTitle?: string;
+  colorMode?: IcsColorMode;
+  overrides?: readonly ActivityOverride[];
+  sequence?: number;
+  sessionOverrides?: readonly SessionOverride[];
+}
+
+export function downloadFamilyIcs(input: FamilyIcsDownloadInput): void {
+  const content = generateFamilyIcs({
+    children: input.children,
+    schedule: input.schedule,
+    catalog: input.catalog,
+    schoolYear: input.schoolYear,
+    exceptions: input.exceptions,
+    districtCode: input.districtCode,
+    dtstamp: formatDtStamp(),
+    ...(input.mode ? { mode: input.mode } : {}),
+    ...(input.calendarTitle ? { calendarTitle: input.calendarTitle } : {}),
+    ...(input.colorMode ? { colorMode: input.colorMode } : {}),
+    ...(input.overrides ? { overrides: input.overrides } : {}),
+    ...(input.sequence !== undefined ? { sequence: input.sequence } : {}),
+    ...(input.sessionOverrides ? { sessionOverrides: input.sessionOverrides } : {}),
+  });
+  download(familyIcsFileName(input.calendarTitle), content, 'text/calendar;charset=utf-8');
 }
 
 export async function downloadPng(

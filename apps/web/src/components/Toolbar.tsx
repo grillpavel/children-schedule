@@ -3,16 +3,21 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   parseIcs,
-  parsePlannerState,
+  parseExportEnvelope,
+  mergeSingleChildImport,
   serializePlannerState,
   type CustomEntry,
   type IcsColorMode,
+  type PlannerState,
+  type SingleChildMergeResult,
 } from '@krouzky/domain';
 import { usePlannerStore, activeSchedule } from '@/store/plannerStore';
 import {
   downloadIcs,
   downloadPng,
-  downloadStateJson,
+  downloadFamilyJson,
+  downloadSingleChildJson,
+  downloadFamilyIcs,
   printSchedule,
   printAgenda,
   isIosDevice,
@@ -40,6 +45,18 @@ import {
   IconClose,
 } from './Icons';
 
+// FR-2/FR-5/FR-7/FR-8 (design_review_99.md): import už nikdy tiše nepřepíše —
+// 'family' čeká na potvrzení s porovnáním počtu dětí/data; 'single-child' čeká
+// na potvrzení jen když merge NENÍ 'silent' (viz `importJson` v komponentě níže).
+type PendingImport =
+  | { kind: 'family'; data: PlannerState }
+  | {
+      kind: 'single-child';
+      merge: SingleChildMergeResult;
+      childId: string;
+      sourceUpdatedAt?: string;
+    };
+
 export function Toolbar({
   gridRef,
   isDirty,
@@ -62,6 +79,7 @@ export function Toolbar({
   const renameChild = usePlannerStore((s) => s.renameChild);
   const removeChild = usePlannerStore((s) => s.removeChild);
   const loadState = usePlannerStore((s) => s.loadState);
+  const applySingleChildMerge = usePlannerStore((s) => s.applySingleChildMerge);
   const addCustomEntries = usePlannerStore((s) => s.addCustomEntries);
   const undo = usePlannerStore((s) => s.undo);
   const redo = usePlannerStore((s) => s.redo);
@@ -77,6 +95,14 @@ export function Toolbar({
   const [newCalName, setNewCalName] = useState('');
   const [colorMode, setColorMode] = useState<IcsColorMode>('per_activity');
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  // FR-3 (design_review_99.md): "Uložit" nabídne explicitní volbu rozsahu —
+  // "Celá rodina" nebo konkrétní dítě — místo tichého vždy-celá-rodina exportu.
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveScope, setSaveScope] = useState<string>('family');
+  // FR-2/FR-5/FR-7/FR-8 (design_review_99.md): import už nikdy tiše nepřepíše —
+  // 'family' čeká na potvrzení s porovnáním počtu dětí/data; 'single-child' čeká
+  // na potvrzení jen když merge NENÍ 'silent' (viz `importJson`).
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   // Ruční odkazy pro export více kalendářů na iOS (design_review_98.md) — místo
   // automatického stažení, viz komentář u `exportAllChildrenIcs`. Každé `href` je
   // `blob:` URL, kterou je třeba při zavření/změně uvolnit (viz efekt níže).
@@ -139,6 +165,8 @@ export function Toolbar({
     setMobileMenuOpen(false);
     setCalendarMenuOpen(false);
     setIosExportLinks(null);
+    setSaveDialogOpen(false);
+    setPendingImport(null);
   });
 
   // `icsExportHref` vrací `blob:` URL — uvolnit při zavření dialogu i při
@@ -288,16 +316,60 @@ export function Toolbar({
       return;
     }
     try {
-      const parsed = parsePlannerState(JSON.parse(text));
-      if (parsed.ok) {
-        loadState(parsed.value);
-        onMarkSaved(serializePlannerState(parsed.value));
-      } else {
-        alert(`Soubor nelze načíst: ${parsed.error}`);
+      const parsedInput: unknown = JSON.parse(text);
+      const envelope = parseExportEnvelope(parsedInput);
+      if (!envelope.ok) {
+        alert(`Soubor nelze načíst: ${envelope.error}`);
+        return;
       }
+      if (envelope.value.exportType === 'family') {
+        // FR-2: nikdy tiché — vždy potvrzení s porovnáním počtu dětí/data.
+        setPendingImport({ kind: 'family', data: envelope.value.data });
+        return;
+      }
+      // single-child (FR-5/FR-7/FR-8) — merge je čistá doménová funkce, appka
+      // jen rozhodne, jestli výsledek potřebuje potvrzení, nebo je 'silent'.
+      const merge = mergeSingleChildImport(state, envelope.value.data, catalog);
+      const warnSkipped = () => {
+        if (merge.skipped.length === 0) return;
+        alert(
+          `${merge.skipped.length} položka(y) byly při slučování vynechány (katalogová položka už neexistuje):\n` +
+            merge.skipped.map((s) => `- ${s.reason}`).join('\n'),
+        );
+      };
+      if (merge.resolution.kind === 'silent') {
+        applySingleChildMerge(merge.nextState, envelope.value.childId);
+        warnSkipped();
+        return;
+      }
+      setPendingImport({
+        kind: 'single-child',
+        merge,
+        childId: envelope.value.childId,
+        ...(envelope.value.sourceUpdatedAt ? { sourceUpdatedAt: envelope.value.sourceUpdatedAt } : {}),
+      });
     } catch {
       alert('Soubor není platný JSON ani .ics.');
     }
+  };
+
+  const confirmFamilyImport = () => {
+    if (!pendingImport || pendingImport.kind !== 'family') return;
+    loadState(pendingImport.data);
+    onMarkSaved(serializePlannerState(pendingImport.data));
+    setPendingImport(null);
+  };
+
+  const confirmSingleChildMerge = () => {
+    if (!pendingImport || pendingImport.kind !== 'single-child') return;
+    applySingleChildMerge(pendingImport.merge.nextState, pendingImport.childId);
+    if (pendingImport.merge.skipped.length > 0) {
+      alert(
+        `${pendingImport.merge.skipped.length} položka(y) byly při slučování vynechány (katalogová položka už neexistuje):\n` +
+          pendingImport.merge.skipped.map((s) => `- ${s.reason}`).join('\n'),
+      );
+    }
+    setPendingImport(null);
   };
 
   // Sdílené položky exportu pro desktopové i mobilní menu.
@@ -329,6 +401,31 @@ export function Toolbar({
             <div className="flex items-center gap-2">
               <IconDownload className="h-4 w-4 text-slate-500" />
               <span>Kalendář — všechny děti (.ics)</span>
+            </div>
+          </MenuItem>
+        )}
+        {state.children.length > 1 && (
+          <MenuItem
+            onClick={() => {
+              downloadFamilyIcs({
+                children: state.children,
+                schedule: activeSchedule(state),
+                catalog,
+                schoolYear: state.schoolYear,
+                exceptions,
+                districtCode: state.districtCode,
+                colorMode,
+                overrides: state.overrides,
+                sequence: editCount,
+                sessionOverrides: state.sessionOverrides,
+              });
+              setMenuOpen(false);
+              setMobileMenuOpen(false);
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <IconDownload className="h-4 w-4 text-slate-500" />
+              <span>Sdílený rodinný kalendář (.ics)</span>
             </div>
           </MenuItem>
         )}
@@ -633,8 +730,8 @@ export function Toolbar({
           <button
             type="button"
             onClick={() => {
-              downloadStateJson(state, child);
-              onMarkSaved();
+              setSaveScope(activeChildId);
+              setSaveDialogOpen(true);
             }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white shadow-sm hover:bg-slate-800 transition active:scale-98"
             title="Uložit rozvrh do souboru (.json)"
@@ -701,8 +798,8 @@ export function Toolbar({
                   </MenuItem>
                   <MenuItem
                     onClick={() => {
-                      downloadStateJson(state, child);
-                      onMarkSaved();
+                      setSaveScope(activeChildId);
+                      setSaveDialogOpen(true);
                       setMobileMenuOpen(false);
                     }}
                   >
@@ -720,6 +817,170 @@ export function Toolbar({
         </div>
       </div>
       {privacyOpen && <PrivacyDialog onClose={() => setPrivacyOpen(false)} />}
+      {saveDialogOpen && (
+        <div
+          className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+          onClick={() => setSaveDialogOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Uložit rozvrh"
+            onClick={(e) => e.stopPropagation()}
+            className="glass flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between px-4 pt-4">
+              <h2 className="text-sm font-semibold text-slate-800">Uložit rozvrh</h2>
+              <button
+                type="button"
+                onClick={() => setSaveDialogOpen(false)}
+                aria-label="Zavřít"
+                className="flex h-8 w-8 items-center justify-center text-slate-400 hover:text-slate-700"
+              >
+                <IconClose className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="px-4 pb-3 text-xs text-slate-500">
+              Vyberte, co se má uložit do souboru (design_review_99.md).
+            </p>
+            <div className="flex-1 space-y-1 overflow-y-auto px-4 pb-2">
+              <label className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                <input
+                  type="radio"
+                  name="save-scope"
+                  checked={saveScope === 'family'}
+                  onChange={() => setSaveScope('family')}
+                />
+                <span>Celá rodina</span>
+              </label>
+              {state.children.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50"
+                >
+                  <input
+                    type="radio"
+                    name="save-scope"
+                    checked={saveScope === c.id}
+                    onChange={() => setSaveScope(c.id)}
+                  />
+                  <span>{c.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setSaveDialogOpen(false)}
+                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+              >
+                Zrušit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (saveScope === 'family') {
+                    downloadFamilyJson(state);
+                    onMarkSaved();
+                  } else {
+                    const c = state.children.find((c) => c.id === saveScope);
+                    if (c) downloadSingleChildJson(c, activeSchedule(state), catalog, state);
+                  }
+                  setSaveDialogOpen(false);
+                }}
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                Uložit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingImport && (
+        <div
+          className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+          onClick={() => setPendingImport(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Potvrdit import"
+            onClick={(e) => e.stopPropagation()}
+            className="glass flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between px-4 pt-4">
+              <h2 className="text-sm font-semibold text-slate-800">Potvrdit import</h2>
+              <button
+                type="button"
+                onClick={() => setPendingImport(null)}
+                aria-label="Zavřít"
+                className="flex h-8 w-8 items-center justify-center text-slate-400 hover:text-slate-700"
+              >
+                <IconClose className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto px-4 pb-3 text-sm text-slate-700">
+              {pendingImport.kind === 'family' && (
+                <>
+                  <p>Soubor obsahuje CELÝ rodinný rozvrh — nahradí aktuální stav.</p>
+                  <p className="text-xs text-slate-500">
+                    Aktuální stav: {state.children.length} dětí, naposledy upraveno{' '}
+                    {state.updatedAt ?? 'neznámo (starší formát)'}.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Soubor: {pendingImport.data.children.length} dětí, naposledy upraveno{' '}
+                    {pendingImport.data.updatedAt ?? 'neznámo (starší formát)'}.
+                  </p>
+                </>
+              )}
+              {pendingImport.kind === 'single-child' && pendingImport.merge.resolution.kind === 'new-child' && (
+                <p>
+                  Přidat „{pendingImport.merge.nextState.children.find((c) => c.id === pendingImport.childId)?.name}"
+                  jako nové dítě?
+                </p>
+              )}
+              {pendingImport.kind === 'single-child' && pendingImport.merge.resolution.kind === 'name-mismatch' && (
+                <p>
+                  Importovaná data pro „{pendingImport.merge.resolution.sourceName}" sloučit do „
+                  {pendingImport.merge.resolution.targetName}"?
+                </p>
+              )}
+              {pendingImport.kind === 'single-child' && pendingImport.merge.resolution.kind === 'content-differs' && (
+                <>
+                  <p>
+                    Data dítěte „{state.children.find((c) => c.id === pendingImport.childId)?.name}" v appce se
+                    liší od dat v souboru — přesto přepsat?
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Soubor exportován {pendingImport.sourceUpdatedAt ?? 'neznámo (starší formát)'}, aktuální data
+                    upravena {state.updatedAt ?? 'neznámo (starší formát)'}.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setPendingImport(null)}
+                className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+              >
+                Zrušit
+              </button>
+              <button
+                type="button"
+                onClick={pendingImport.kind === 'family' ? confirmFamilyImport : confirmSingleChildMerge}
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                {pendingImport.kind === 'single-child' && pendingImport.merge.resolution.kind === 'new-child'
+                  ? 'Přidat'
+                  : pendingImport.kind === 'single-child' && pendingImport.merge.resolution.kind === 'name-mismatch'
+                    ? 'Sloučit'
+                    : 'Přepsat'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {iosExportLinks && (
         <div
           className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"

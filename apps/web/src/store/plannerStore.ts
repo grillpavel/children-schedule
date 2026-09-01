@@ -122,6 +122,11 @@ interface PlannerStore {
   loadState(state: PlannerState): void;
   /** Obnovení z autosave — nastaví stav bez zápisu do historie (BL-030). */
   hydrate(state: PlannerState): void;
+  /** Zapíše výsledek `mergeSingleChildImport()` (design_review_99.md, FR-5) —
+   * nahradí jen `children`/`schedules`/`sessionOverrides` z připraveného
+   * `nextState`, přepne aktivní dítě na to sloučené. Jde přes `commit()`, ať
+   * merge dostane vlastní krok historie (undo) i bump `revision`/`updatedAt`. */
+  applySingleChildMerge(nextState: PlannerState, childId: string): void;
   /** `age: undefined` smaže známý věk (design_review_88.md — věk se nikdy nativně
    * nevyplňuje a lze ho i kdykoli zase vymazat). */
   setChildAge(childId: string, age: number | undefined): void;
@@ -167,6 +172,12 @@ export const usePlannerStore = create<PlannerStore>()(
         // popisku (`after` ji případně přepíše — CHANGE-61).
         store.lastActionLabel = null;
         mutate(store.state);
+        // Revize/čas poslední změny (design_review_99.md, CHANGE-106) — appka
+        // (ne doména) je nastavuje při KAŽDÉM commitu, ať FR-2 dialog má co
+        // porovnat. `revision` je rodinná, ne per-dítě (FR-8 na ni proto
+        // NESPOLÉHÁ jako na rozhodovací podmínku, viz `export-merge.ts`).
+        store.state.revision = (store.state.revision ?? 0) + 1;
+        store.state.updatedAt = new Date().toISOString();
         after?.(store);
       });
     };
@@ -613,6 +624,24 @@ export const usePlannerStore = create<PlannerStore>()(
           s.history = [];
           s.future = [];
         }),
+
+      applySingleChildMerge: (nextState, childId) =>
+        commit(
+          (draft) => {
+            draft.children = nextState.children;
+            draft.schedules = nextState.schedules;
+            draft.sessionOverrides = nextState.sessionOverrides;
+          },
+          (store) => {
+            store.catalog = applySessionOverrides(
+              NOVE_STRASECI_CATALOG,
+              store.state.sessionOverrides,
+            );
+            store.activeChildId = childId;
+            store.lastActionLabel = 'Kalendář sloučen';
+            store.lastActionNonce += 1;
+          },
+        ),
 
       setChildAge: (childId, age) =>
         commit((draft) => {

@@ -54,6 +54,9 @@ export interface IcsExportOptions {
 /** Vnitřní tvar jedné události připravené k zápisu do ICS. */
 interface ResolvedEvent {
   sessionId: string;
+  /** `Enrollment.id`/`CustomEntry.id` — jedinečné i když dvě děti sdílí stejnou
+   * katalogovou `sessionId` (design_review_99.md FR-6, sdílený rodinný export). */
+  ownerId: string;
   weekday: Weekday;
   startMinutes: number;
   endMinutes: number;
@@ -192,6 +195,7 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
       const addressText = address ? formatAddress(address) : undefined;
       events.push({
         sessionId: session.id,
+        ownerId: enrollment.id,
         weekday: session.weekday,
         startMinutes: session.startMinutes,
         endMinutes: session.endMinutes,
@@ -228,6 +232,7 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
       const addressText = address ? formatAddress(address) : undefined;
       events.push({
         sessionId: session.id,
+        ownerId: entry.id,
         weekday: session.weekday,
         startMinutes: session.startMinutes,
         endMinutes: session.endMinutes,
@@ -274,7 +279,7 @@ function alarmLines(minutesBefore: number, summary: string): string[] {
   ];
 }
 
-function eventBodyLines(event: ResolvedEvent, alarm: number | null): string[] {
+function eventBodyLines(event: ResolvedEvent, alarm: number | null, categories = 'Kroužek'): string[] {
   const lines: string[] = [`SUMMARY:${escapeText(event.summary)}`];
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
   if (event.geo) {
@@ -288,7 +293,7 @@ function eventBodyLines(event: ResolvedEvent, alarm: number | null): string[] {
   if (event.descriptionLines.length > 0) {
     lines.push(`DESCRIPTION:${escapeText(event.descriptionLines.join('\n'))}`);
   }
-  lines.push('CATEGORIES:Kroužek');
+  lines.push(`CATEGORIES:${escapeText(categories)}`);
   lines.push(`COLOR:${event.colorCss}`);
   if (alarm !== null) lines.push(...alarmLines(alarm, event.summary));
   return lines;
@@ -297,10 +302,11 @@ function eventBodyLines(event: ResolvedEvent, alarm: number | null): string[] {
 /** VEVENT s RRULE + EXDATE (výchozí, kompaktní režim). */
 function buildRecurringEvent(
   event: ResolvedEvent,
-  options: IcsExportOptions,
+  options: Pick<IcsExportOptions, 'schoolYear' | 'dtstamp' | 'sequence'>,
   exceptionDates: Set<string>,
-  childSlug: string,
+  uidBase: string,
   alarm: number | null,
+  categories?: string,
 ): string[] | undefined {
   const from = maxIso(event.validFrom, options.schoolYear.start);
   const until = minIso(event.validTo, options.schoolYear.end);
@@ -320,7 +326,7 @@ function buildRecurringEvent(
 
   const lines: string[] = [
     'BEGIN:VEVENT',
-    `UID:krouzky-${childSlug}-${event.sessionId}@krouzky-planner.local`,
+    `UID:krouzky-${uidBase}-${event.sessionId}@krouzky-planner.local`,
     `DTSTAMP:${options.dtstamp}`,
     `SEQUENCE:${options.sequence ?? 0}`,
     `DTSTART;TZID=${TZID}:${localDateTime(dtstartDate, event.startMinutes)}`,
@@ -335,17 +341,18 @@ function buildRecurringEvent(
     lines.push(`EXDATE;TZID=${TZID}:${values}`);
   }
 
-  lines.push(...eventBodyLines(event, alarm), 'END:VEVENT');
+  lines.push(...eventBodyLines(event, alarm, categories), 'END:VEVENT');
   return lines;
 }
 
 /** Jedna VEVENT na každý výskyt (fallback pro klienty, kterým vadí EXDATE). */
 function buildExpandedEvents(
   event: ResolvedEvent,
-  options: IcsExportOptions,
+  options: Pick<IcsExportOptions, 'schoolYear' | 'dtstamp' | 'sequence'>,
   exceptionDates: Set<string>,
-  childSlug: string,
+  uidBase: string,
   alarm: number | null,
+  categories?: string,
 ): string[] {
   const from = maxIso(event.validFrom, options.schoolYear.start);
   const until = minIso(event.validTo, options.schoolYear.end);
@@ -357,12 +364,12 @@ function buildExpandedEvents(
     if (exceptionDates.has(occ)) continue;
     lines.push(
       'BEGIN:VEVENT',
-      `UID:krouzky-${childSlug}-${event.sessionId}-${compactDate(occ)}@krouzky-planner.local`,
+      `UID:krouzky-${uidBase}-${event.sessionId}-${compactDate(occ)}@krouzky-planner.local`,
       `DTSTAMP:${options.dtstamp}`,
       `SEQUENCE:${options.sequence ?? 0}`,
       `DTSTART;TZID=${TZID}:${localDateTime(occ, event.startMinutes)}`,
       `DTEND;TZID=${TZID}:${localDateTime(occ, event.endMinutes)}`,
-      ...eventBodyLines(event, alarm),
+      ...eventBodyLines(event, alarm, categories),
       'END:VEVENT',
     );
   }
@@ -417,4 +424,97 @@ export function generateIcs(options: IcsExportOptions): string {
 /** Název souboru pro export jednoho dítěte, např. `Julinka.ics`. */
 export function icsFileName(child: Child, calendarTitle?: string): string {
   return `${calendarTitle ?? child.name}.ics`;
+}
+
+export interface FamilyIcsExportOptions {
+  children: readonly Child[];
+  schedule: NamedSchedule;
+  catalog: Catalog;
+  schoolYear: { start: string; end: string };
+  exceptions: readonly CalendarException[];
+  districtCode: string;
+  dtstamp: string;
+  mode?: IcsExportMode;
+  /** Výchozí „Rodina", pokud nezadáno. */
+  calendarTitle?: string;
+  colorMode?: IcsColorMode;
+  overrides?: readonly ActivityOverride[];
+  alarmMinutesBefore?: number | null;
+  sequence?: number;
+  sessionOverrides?: readonly SessionOverride[];
+}
+
+/**
+ * Vygeneruje JEDEN sdílený `.ics` pro VŠECHNY děti najednou (design_review_99.md
+ * FR-6, CHANGE-106) — na rozdíl od `generateIcs()` (jeden soubor na dítě) tu
+ * `UID` musí být odvozený z `enrollment.id`/`customEntry.id`, NIKDY ze sdíleného
+ * `sessionId` — dvě děti běžně sdílí stejnou katalogovou aktivitu, takže by
+ * jinak jejich UID kolidovaly a cílová appka by jednu z událostí zahodila.
+ * `SUMMARY`/`CATEGORIES` nesou jméno dítěte, ať jde v jednom kalendáři rozlišit.
+ */
+export function generateFamilyIcs(options: FamilyIcsExportOptions): string {
+  const calendarTitle = options.calendarTitle ?? 'Rodina';
+  const exceptionDates = relevantExceptionDates(
+    options.exceptions,
+    options.districtCode,
+  );
+  const alarm =
+    options.alarmMinutesBefore === null
+      ? null
+      : options.alarmMinutesBefore ?? DEFAULT_ALARM_MINUTES;
+  const mode = options.mode ?? 'recurring';
+  const noExceptions = new Set<string>();
+
+  const events = options.children.flatMap((child) =>
+    resolveEvents({
+      child,
+      schedule: options.schedule,
+      catalog: options.catalog,
+      schoolYear: options.schoolYear,
+      exceptions: options.exceptions,
+      districtCode: options.districtCode,
+      dtstamp: options.dtstamp,
+      ...(options.colorMode ? { colorMode: options.colorMode } : {}),
+      ...(options.overrides ? { overrides: options.overrides } : {}),
+      ...(options.sequence !== undefined ? { sequence: options.sequence } : {}),
+      ...(options.sessionOverrides ? { sessionOverrides: options.sessionOverrides } : {}),
+    }).map((event) => ({
+      ...event,
+      summary: `${child.name}: ${event.summary}`,
+      childName: child.name,
+    })),
+  );
+  // Stabilní pořadí přes celou rodinu — ownerId je jedinečný per zápis.
+  events.sort(
+    (a, b) => a.ownerId.localeCompare(b.ownerId) || a.sessionId.localeCompare(b.sessionId),
+  );
+
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//krouzky-planner//CS//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeText(calendarTitle)}`,
+    `X-WR-TIMEZONE:${TZID}`,
+    ...VTIMEZONE_EUROPE_PRAGUE,
+  ];
+
+  for (const event of events) {
+    const effectiveExceptionDates = event.allowOnHolidays ? noExceptions : exceptionDates;
+    const uidBase = `family-${event.ownerId}`;
+    const veventLines =
+      mode === 'expanded'
+        ? buildExpandedEvents(event, options, effectiveExceptionDates, uidBase, alarm, event.childName)
+        : buildRecurringEvent(event, options, effectiveExceptionDates, uidBase, alarm, event.childName);
+    if (veventLines) lines.push(...veventLines);
+  }
+
+  lines.push('END:VCALENDAR');
+  return joinIcsLines(lines);
+}
+
+/** Název souboru pro sdílený rodinný export, např. `Rodina.ics`. */
+export function familyIcsFileName(calendarTitle?: string): string {
+  return `${calendarTitle ?? 'Rodina'}.ics`;
 }

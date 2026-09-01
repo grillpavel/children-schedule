@@ -1,11 +1,13 @@
 import {
   catalogSchema,
   exceptionsFileSchema,
+  exportEnvelopeSchema,
   plannerStateSchema,
 } from '../model/schema.js';
 import type {
   Catalog,
   ExceptionsFile,
+  ExportEnvelope,
   PlannerState,
 } from '../model/types.js';
 import { err, ok, type Result } from '../model/result.js';
@@ -44,6 +46,10 @@ export function parseExceptionsFile(input: unknown): Result<ExceptionsFile> {
  * pokud chybí.
  * v8 → v9: `Enrollment.sessionIds` (design_review_87.md, CHANGE-94) — volitelné
  * (`undefined` = všechny termíny skupiny, beze změny chování), žádná transformace dat potřeba.
+ * v9 → v10: `revision`/`updatedAt` (design_review_99.md, CHANGE-106) — `revision`
+ * doplní `0` (zod default by ho doplnil i tak, ale explicitně kvůli čitelnosti
+ * migračního řetězce), `updatedAt` NEDOPLŇUJE (zůstává `undefined` — nikdy se
+ * nefabrikuje aktuální čas u dat, jejichž skutečné poslední úpravy neznáme).
  */
 function migrateToCurrent(input: unknown): unknown {
   if (typeof input !== 'object' || input === null) return input;
@@ -61,6 +67,7 @@ function migrateToCurrent(input: unknown): unknown {
     schedules?: { enrollments?: unknown; customEntries?: { sessions?: unknown[] }[] }[];
     overrides?: unknown;
     sessionOverrides?: unknown;
+    revision?: number;
   };
 
   // v1 → v2: přepis biweekly u vlastních událostí (katalog migruje volající zvlášť).
@@ -110,6 +117,12 @@ function migrateToCurrent(input: unknown): unknown {
     clone = { ...clone, schemaVersion: 9 };
   }
 
+  // v9 → v10: revision/updatedAt (design_review_99.md) — revision doplní 0,
+  // updatedAt zůstává nedoplněné (chybí, nikdy se nedopočítává).
+  if (clone.schemaVersion === 9) {
+    clone = { ...clone, schemaVersion: 10, revision: clone.revision ?? 0 };
+  }
+
   return clone;
 }
 
@@ -126,4 +139,38 @@ export function parsePlannerState(input: unknown): Result<PlannerState> {
 /** Serializuje `PlannerState` do JSON řetězce pro stažení do souboru. */
 export function serializePlannerState(state: PlannerState): string {
   return JSON.stringify(state, null, 2);
+}
+
+/**
+ * Naparsuje a zvaliduje importovaný soubor jako `ExportEnvelope` (design_review_99.md
+ * FR-3). Starší/beze-obálkový formát (přímý `PlannerState`, bez `exportType`) se
+ * považuje za `family` typ — zpětná kompatibilita se VŠEMI dřívějšími exporty.
+ * Vnitřní `PlannerState` u `family` obálky se stejně jako `parsePlannerState`
+ * nejdřív zmigruje na aktuální `schemaVersion`.
+ */
+export function parseExportEnvelope(input: unknown): Result<ExportEnvelope> {
+  const hasExportType =
+    input !== null &&
+    typeof input === 'object' &&
+    ((input as { exportType?: unknown }).exportType === 'single-child' ||
+      (input as { exportType?: unknown }).exportType === 'family');
+
+  if (!hasExportType) {
+    const migrated = migrateToCurrent(input);
+    const parsed = exportEnvelopeSchema.safeParse({
+      exportType: 'family',
+      exportVersion: 1,
+      data: migrated,
+    });
+    if (!parsed.success) return err(zodMessage(parsed.error.issues));
+    return ok(parsed.data);
+  }
+
+  const withMigratedData =
+    (input as { exportType: string }).exportType === 'family'
+      ? { ...(input as object), data: migrateToCurrent((input as { data?: unknown }).data) }
+      : input;
+  const parsed = exportEnvelopeSchema.safeParse(withMigratedData);
+  if (!parsed.success) return err(zodMessage(parsed.error.issues));
+  return ok(parsed.data);
 }

@@ -6,6 +6,49 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Export/import mohl tiše přepsat data jiných dětí — explicitní typ exportu + bezpečný merge (CHANGE-106)
+
+Trigger: uživatel nahlásil, že se mu data "občas přepisují/mizí" a přiložil dva soubory
+(`rozvrh-julie.json`/`rozvrh-jonda.json`), které si pletl s "kalendářem per dítě" —
+appka ale doteď takový export neuměla, `.json` byl vždy CELÝ rodinný stav. Zároveň
+přiložil externí analýzu ztráty dat a spec návrh typů exportu.
+
+- **Root cause (potvrzeno)**: `loadState`/`hydrate` dělaly nepodmíněný `s.state = state`
+  (žádný merge, žádné potvrzení) — import staršího/cizího celorodinného exportu tiše
+  smazal rozestavěné změny u VŠECH ostatních dětí. Jedna claim externí analýzy
+  (`sessionOverrides` má "poziční" precedenci, tedy bug) byla ověřením kódu **vyvrácena**
+  — per-dítě přepis vždy deterministicky vítězí nad globálním (CHANGE-103), pořadí v
+  poli nehraje roli.
+- **`@krouzky/domain` 0.11.0 → 0.12.0, `schemaVersion` 9 → 10** (migrace je no-op bump,
+  doplní `revision: 0`, `updatedAt` nechá nedoplněné u starších souborů):
+  - `PlannerState.revision`/`updatedAt` — čítač změn + čas poslední úpravy (FR-1).
+  - Nová obálka `ExportEnvelope` (`exportType: 'family' | 'single-child'`,
+    `parseExportEnvelope()` ve `state/io.ts`) — starší/holé `.json` (bez `exportType`) se
+    zpětně kompatibilně považuje za `family`.
+  - Nový `packages/domain/src/state/export-merge.ts`: `buildSingleChildExportPayload()`
+    (export jen dat jednoho dítěte, FR-4), `mergeSingleChildImport()` (bezpečný merge podle
+    `childId` — nová/shodné jméno/jiné jméno/obsahově odlišné, FR-5), `canonicalize()` +
+    `sameCanonical()` (obsahové, na pořadí polí i klíčů necitlivé porovnání — FR-8; **ne**
+    přes `PlannerState.revision`, ten je family-wide a pro per-dítě rozhodnutí nevhodný),
+    filtrování osiřelých zápisů na smazané katalogové položky (FR-7).
+  - `ics/generate.ts`: `generateFamilyIcs()` — sdílený `.ics` se všemi dětmi, UID podle
+    `ownerId` (žádná kolize mezi dětmi sdílejícími stejnou katalogovou položku), `SUMMARY`
+    s prefixem jména dítěte, `CATEGORIES` = jméno dítěte (FR-6).
+- **App**: `plannerStore.commit()` teď při každé změně bumpuje `revision`/`updatedAt`;
+  nová akce `applySingleChildMerge()`. `exportClient.ts`: `downloadFamilyJson`/
+  `downloadSingleChildJson`/`downloadFamilyIcs`. `Toolbar.tsx`: „Uložit" teď nabízí
+  explicitní volbu rozsahu (celá rodina / konkrétní dítě, FR-3); import staršího/
+  celorodinného souboru vždy vyžaduje potvrzení (FR-2); import exportu jednoho dítěte
+  potichu projde jen když je obsahově shodný se stavem v appce, jinak potvrzovací dialog
+  rozlišující nové dítě / shodu jména / obsahový rozdíl (FR-2/5/7/8).
+- Spec: `.github/specs/design_review_99.md`. Ověřeno: doménový vitest 155/155 (+20 nových
+  — export-merge.test.ts 15, +1 migrace, +4 generateFamilyIcs), `tsc --noEmit` čisté
+  (domain+web), plná 6profilová E2E sada = **744 passed / 252 skipped / 0 failed** (beze
+  změny oproti CHANGE-105 baseline — T-152/T-154/T-180 upraveny na nový dialogový tok
+  „Uložit"/import, nová regrese nalezena a opravena: `revision`/`updatedAt` v app
+  literálech `demoData.ts`/`novestraseci.ts` musely přijít za `districtCode`, aby
+  odpovídaly pořadí polí ve schématu — jinak import/export nebyl bajtově identický).
+
 ### Export kalendáře (.ics) na iOS tiše selhával u dětí s hodně kroužky (CHANGE-105)
 
 Trigger: uživatel nahlásil, že export kalendáře funguje na jednom iPhonu a na druhém ne — identický

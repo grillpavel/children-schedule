@@ -1,7 +1,8 @@
 # Design Review 99 — Explicitní typy exportu (per dítě / rodina) + bezpečný import
 
-**Status:** IMPLEMENTED (2026-09-01) — domain + store + UI hotovo, doménový
-vitest 155/155, plná 6profilová E2E sada 744 passed / 252 skipped / 0 failed
+**Status:** IMPLEMENTED (2026-09-01) — domain + store + UI + E2E hotovo, doménový
+vitest 155/155, plná 6profilová E2E sada 780 passed / 252 skipped / 0 failed
+(včetně 6 nových testů T-234..T-239 kryjících AC-2/3/5/7/8)
 **Change ID:** CHANGE-106 (engine `@krouzky/domain` + app `@krouzky/web`)
 **Date:** 2026-09-01
 **Repo:** monorepo `Children_schedule` (`packages/domain/src/model/schema.ts`, `state/io.ts`,

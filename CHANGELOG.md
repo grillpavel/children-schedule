@@ -43,8 +43,9 @@ přiložil externí analýzu ztráty dat a spec návrh typů exportu.
   rozlišující nové dítě / shodu jména / obsahový rozdíl (FR-2/5/7/8).
 - Spec: `.github/specs/design_review_99.md`. Ověřeno: doménový vitest 155/155 (+20 nových
   — export-merge.test.ts 15, +1 migrace, +4 generateFamilyIcs), `tsc --noEmit` čisté
-  (domain+web), plná 6profilová E2E sada = **744 passed / 252 skipped / 0 failed** (beze
-  změny oproti CHANGE-105 baseline — T-152/T-154/T-180 upraveny na nový dialogový tok
+  (domain+web), plná 6profilová E2E sada = **780 passed / 252 skipped / 0 failed** (+36 =
+  6 nových testů T-234..T-239 kryjících AC-2/3/5/7/8 × 6 profilů, beze změny oproti
+  CHANGE-105 baseline jinak — T-152/T-154/T-180 upraveny na nový dialogový tok
   „Uložit"/import, nová regrese nalezena a opravena: `revision`/`updatedAt` v app
   literálech `demoData.ts`/`novestraseci.ts` musely přijít za `districtCode`, aby
   odpovídaly pořadí polí ve schématu — jinak import/export nebyl bajtově identický).

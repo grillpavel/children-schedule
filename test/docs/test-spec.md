@@ -131,6 +131,12 @@ Doporučuji definovat viewporty explicitně místo pojmenovaných device descrip
 | T-152 | C8-E5, C6-B4 | Round-trip | Export, import, export dá **bajtově shodný** JSON včetně overrides, poznámky a vybraného termínu |
 | T-153 | C6-B5 | Poškozený soubor | Import nevalidního JSON zobrazí českou chybovou hlášku, nespadne, nesmaže stav |
 | T-154 | C6-B4 | Starší schéma | Soubor s předchozím `schemaVersion` se načte přes migraci |
+| T-234 | design_review_99.md FR-2 | Potvrzení celorodinného importu | Import staršího/celorodinného souboru s jiným počtem dětí zobrazí dialog s oběma počty; Zrušit nechá stav, Přepsat ho vymění |
+| T-235 | design_review_99.md FR-3 | Volba rozsahu exportu | Exportní dialog nabízí VŠECHNY děti + „Celá rodina“, aktivní dítě je předvybrané; stažený soubor nese `exportType`/`exportVersion` |
+| T-236 | design_review_99.md FR-5 | Merge nedotýká ostatních dětí | Import „toto dítě“ obnoví jen dané dítě; zápis druhého dítěte přežije beze změny |
+| T-237 | design_review_99.md FR-5 | Kolize `childId` | Neznámé `childId` nabídne „přidat jako nové dítě“; stejné `childId` s jiným jménem nabídne sloučení, ne tichý přepis |
+| T-238 | design_review_99.md FR-7 | Osiřelý zápis | Import se zápisem na smazanou katalogovou položku ho vynechá a appka ukáže varování se jmény vynechaných položek |
+| T-239 | design_review_99.md FR-8 | Obsahové porovnání | Import „toto dítě“ s obsahově odlišnými daty zobrazí potvrzení s `updatedAt` obou stran jako kontextem |
 
 ---
 

@@ -6,6 +6,28 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Editace kroužku měla jiné okno pro úpravu než vlastní událost (CHANGE-107)
+
+Trigger: uživatel nahlásil, že kroužek vybraný z katalogu má jiné okno pro úpravu než
+přidaná vlastní událost.
+
+- **Potvrzeno**: editace vlastní události vždy otevírá modální okno `CustomEntryDialog`
+  (ztmavené pozadí, centrovaný box) — stejný vzor, na který CHANGE-102/104 sjednotily
+  VŠECHNA ostatní vyskakovací okna appky. Editace katalogového kroužku (`ActivityEditor`
+  — název/adresa/telefon/cena, `SessionTimeEditor` — termíny) na tento refaktor nikdy
+  nedošla a zůstala jen INLINE rozbalovacím panelem bez backdropu.
+- **Fix**: oba editory (`ActivityEditor`, `SessionTimeEditor` v `DetailsPanel.tsx`)
+  převedeny na stejný modální vzor jako `CustomEntryDialog` — hlavička s nadpisem +
+  `IconClose` tlačítkem „Zavřít“, ztmavené pozadí, centrovaný box. Vnitřní logika
+  (commit onBlur, geokódování adresy, „Obnovit z katalogu“/„Obnovit“ per termín,
+  validace start<konec) beze změny.
+- Spec: `.github/specs/design_review_100.md`. Test fallout: T-178/T-179
+  (`schedule.spec.ts`) — zavírací tlačítko je teď „Zavřít“ (aria-label), ne text
+  „Hotovo“; T-179 navíc musí modál explicitně zavřít, než klikne mimo něj (backdrop
+  jinak blokuje). Ověřeno: `tsc --noEmit` čisté (web, engine nedotčen), plná
+  6profilová E2E sada = **780 passed / 252 skipped / 0 failed** (shodné s CHANGE-106
+  baseline, nulová regrese).
+
 ### Export/import mohl tiše přepsat data jiných dětí — explicitní typ exportu + bezpečný merge (CHANGE-106)
 
 Trigger: uživatel nahlásil, že se mu data "občas přepisují/mizí" a přiložil dva soubory

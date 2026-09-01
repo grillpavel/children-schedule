@@ -30,6 +30,7 @@ import {
   IconClock,
   IconUser,
   IconChevronDown,
+  IconClose,
 } from './Icons';
 
 /**
@@ -680,7 +681,20 @@ function ActivityEditor({
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 animate-in fade-in-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+          <h2 className="text-base font-bold text-slate-900">Upravit údaje kroužku</h2>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Zavřít"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition desk:h-8 desk:w-8"
+          >
+            <IconClose className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-2 text-xs">
       <label className="block text-xs text-slate-600 font-medium">
         Název
         <input
@@ -794,6 +808,8 @@ function ActivityEditor({
         >
           Hotovo
         </button>
+      </div>
+        </div>
       </div>
     </div>
   );
@@ -922,19 +938,20 @@ function SessionTimeEditor({
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 animate-in fade-in-50">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Časy termínů
-        </span>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50"
-        >
-          Hotovo
-        </button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+          <h2 className="text-base font-bold text-slate-900">Časy termínů</h2>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Zavřít"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition desk:h-8 desk:w-8"
+          >
+            <IconClose className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-2 text-xs">
       {groups.flatMap((g) =>
         g.sessions.map((session) => (
           <SessionTimeRow
@@ -946,6 +963,8 @@ function SessionTimeEditor({
           />
         )),
       )}
+        </div>
+      </div>
     </div>
   );
 }

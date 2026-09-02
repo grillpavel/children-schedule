@@ -6,6 +6,38 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Jeden render, ne dvě funkce volající sdílené kusy (CHANGE-116)
+
+Trigger: uživatel po CHANGE-114/115 řekl přesně: „Chci, abys provedl SOTA analýzu
+a aby to fungovalo přes 1 universální template."
+
+- **SOTA analýza** (design_review_109.md): CHANGE-114 vytvořilo sdílené SEKCE, ale
+  `SelectedActivity` a `CustomEntryDetail` pořád byly dvě samostatné funkce, které
+  si ručně psaly vlastní obal a pořadí volání těch sekcí — sdílené byly jen listy
+  stromu, ne kořen. Nic strukturálně nebránilo, aby se to znovu rozešlo (a
+  rozešlo se — CHANGE-115 musel dohledávat rozdíl ručním diffem dvou funkcí).
+- **Fix**: nová `EventDetail` (`EventDetailSections.tsx`) je JEDINÁ funkce, která
+  vlastní celý strom detailu — hlavičku, primární kartu, pořadí všech sekcí,
+  patičku s akcemi. `SelectedActivity` a `CustomEntryDetail` už nevrací JSX
+  stromu vůbec — jen sestaví data (view model) a zavolají `<EventDetail
+  model={...} />`. Strukturálně teď není možné, aby se pořadí/obal příště
+  rozešly, protože existuje jen jedno místo, které o layoutu rozhoduje — stejný
+  princip, jaký CHANGE-110 aplikovalo na `DialogShell`, teď o úroveň výš.
+- Obsahuje i CHANGE-115 (jednotný popisek „Popis", sdílená `DetailPrimaryCard`)
+  — nebylo dosud mergnuté, nahrazeno stejným, ale architektonicky pevnějším
+  řešením.
+- Vědomě zůstávají tři pojmenované sloty (`primaryCard`/`scheduleSection`/
+  `actions`) s obsahem specifickým pro každý typ — reflektují SKUTEČNÝ rozdíl
+  (stav zápisu vs. žádný, výběr z variant vs. pevný termín, dva editory vs.
+  jeden) — šablona určuje jejich POZICI pevně, obsah uvnitř zůstává jiný záměrně.
+- Ověřeno: `tsc --noEmit` čisté, doménový vitest 155/155 (nedotčeno, patch se
+  `packages/domain` netýká), `next build` čistý, plná 6profilová E2E sada =
+  **780 passed / 252 skipped / 0 failed** (nulová regrese — refaktor přesunul
+  existující markup beze změny DOM pořadí/tříd). Ručně dodatečně ověřeno
+  (headless Chromium): katalogová aktivita ukazuje všech 5 sekcí, vlastní
+  událost bez volitelných polí korektně skrývá prázdné sekce i celou primární
+  kartu (ne prázdný rám).
+
 ### Jeden sdílený template pro detail položky místo dvou nezávislých (CHANGE-114)
 
 Trigger: uživatel po CHANGE-112/113 řekl přímo: „mělo by to být tak, že existuje

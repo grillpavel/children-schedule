@@ -29,13 +29,8 @@ import {
   PRICE_PERIOD_LABELS,
   EditedMark,
   DetailSectionCard,
-  DetailDescriptionAccordion,
-  DetailLocationCard,
-  DetailPriceAgeCard,
-  DetailContactCard,
-  DetailColorSection,
-  DetailHolidaySection,
   DetailApplicationLink,
+  EventDetail,
 } from './EventDetailSections';
 import {
   IconCheck,
@@ -170,20 +165,191 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const ageMatches =
     child?.age !== undefined ? child.age >= activity.ageMin && child.age <= activity.ageMax : undefined;
 
+  const primaryCard = (
+    <>
+      {isEnrolled ? (
+        <>
+          <div className="flex items-center justify-between text-xs">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">
+              <IconCheck className="h-3 w-3" />
+              <span>V rozvrhu</span>
+            </span>
+            <span className="text-slate-500 text-[11px]">Termín změníte níže</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => enrolled.forEach((e) => removeEnrollment(e.id))}
+            className="w-full rounded-lg border border-red-200 bg-white py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
+          >
+            Odebrat z rozvrhu
+          </button>
+        </>
+      ) : (
+        <>
+          {effectiveGroups.length > 1 && (
+            <label className="block text-xs font-medium text-slate-600">
+              Vyberte termín
+              <select
+                value={chosenVariant}
+                onChange={(e) => setVariantChoice(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                {effectiveGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {groupDisplayLabel(g, childSessionOverrides)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            type="button"
+            disabled={!chosenVariant}
+            onClick={() => {
+              if (!chosenVariant) return;
+              enrollGroup(activity.id, chosenVariant);
+              clearCatalogSearch();
+              onEnrolled?.();
+            }}
+            className="w-full rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition"
+          >
+            Přidat do rozvrhu
+          </button>
+        </>
+      )}
+      <DetailApplicationLink url={signupUrl} className="text-center pt-0.5" />
+    </>
+  );
+
+  const scheduleSection = (
+    <>
+      {/* Varianty docházky */}
+      <div className="space-y-1.5">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Varianty docházky
+        </div>
+        <p className="text-[11px] text-slate-500">
+          Můžete vybrat i víc termínů najednou.
+        </p>
+        <div className="space-y-1">
+          {effectiveGroups.map((g) => {
+            const selected = enrolledGroupIds.has(g.id);
+            const label = groupDisplayLabel(g, childSessionOverrides);
+            const groupEnrollment = enrolled.find((e) => e.sessionGroupId === g.id);
+            return (
+              <div key={g.id}>
+                <button
+                  type="button"
+                  onClick={() => enrollGroup(activity.id, g.id)}
+                  className={clsx(
+                    'w-full rounded-lg border p-2 text-left text-xs font-medium transition',
+                    selected
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className={clsx('h-3.5 w-3.5 rounded border flex items-center justify-center text-[10px]', selected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white')}>
+                      {selected && '✓'}
+                    </span>
+                    <span>{label}</span>
+                  </div>
+                </button>
+                {/* Částečná docházka (design_review_87.md): skupina se schází víckrát
+                    týdně (např. basketbal Po+St) — dítě může chodit jen na NĚKTERÉ z
+                    nich, ne jen na celou skupinu najednou. */}
+                {selected && groupEnrollment && g.sessions.length > 1 && (
+                  <div className="ml-5 mt-1 space-y-1 border-l-2 border-emerald-200 pl-2">
+                    {g.sessions.map((s) => {
+                      const allIds = g.sessions.map((x) => x.id);
+                      const checked = groupEnrollment.sessionIds?.includes(s.id) ?? true;
+                      const dayLabel = `${WEEKDAYS[s.weekday - 1]?.long} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`;
+                      return (
+                        <label key={s.id} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const current = groupEnrollment.sessionIds ?? allIds;
+                              const next = e.target.checked
+                                ? [...current, s.id]
+                                : current.filter((id) => id !== s.id);
+                              setEnrollmentSessions(
+                                groupEnrollment.id,
+                                next.length === allIds.length ? undefined : next,
+                              );
+                            }}
+                          />
+                          <span>{dayLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {enrolled.length > 0 && (
+          <button
+            type="button"
+            onClick={() => enrolled.forEach((e) => removeEnrollment(e.id))}
+            className="mt-1 text-xs font-medium text-red-600 hover:underline"
+          >
+            Odebrat vše z rozvrhu
+          </button>
+        )}
+      </div>
+
+      {/* FR-W3-2 (design_review_73.md): bezkolizní alternativa místo pouhého hlášení kolize. */}
+      {activityHardConflicts.length > 0 && (
+        <div className="space-y-1.5 rounded-xl border border-red-200 bg-red-50/60 p-2.5">
+          <div className="text-xs font-bold uppercase tracking-wider text-red-700">
+            Kolize s jiným kroužkem
+          </div>
+          <p className="text-[11px] text-red-700">{activityHardConflicts[0]?.message}</p>
+          {dedupedSuggestions.length === 0 ? (
+            <p className="text-xs text-red-600">
+              Žádný jiný termín tohoto kroužku kolizi neřeší. Zvolte jiný kroužek nebo jeden odeberte.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {dedupedSuggestions.map((sug) => (
+                <button
+                  key={`${sug.enrollmentId}-${sug.toGroupId}`}
+                  type="button"
+                  onClick={() => changeVariant(sug.enrollmentId, sug.toGroupId)}
+                  className="block w-full rounded-lg border border-red-200 bg-white p-2 text-left text-xs font-medium text-slate-700 hover:bg-red-50 transition"
+                >
+                  Přepnout na {sug.toLabel}
+                  {sug.remainingOverlaps === 0 ? ' (bez kolize)' : ` (zbyde ${sug.remainingOverlaps} kolizí)`}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <SessionTimeEditor
+        key={`times-${activity.id}`}
+        groups={effectiveGroups}
+        sessionOverrides={childSessionOverrides}
+        onChange={(sessionId, patch) => setSessionOverride(sessionId, patch)}
+        onReset={(sessionId) => clearSessionOverride(sessionId)}
+      />
+    </>
+  );
+
   return (
-    <section className="border-b border-slate-200/80 bg-white">
-      <div className="sticky top-0 z-10 space-y-2 border-b border-slate-200/80 bg-white p-3">
-        <button
-          type="button"
-          onClick={() => selectActivity(null)}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
-        >
-          ← Zpět na souhrn
-        </button>
-        <h2 className="text-base font-bold text-slate-900 leading-snug">
+    <EventDetail
+      onBack={() => selectActivity(null)}
+      title={
+        <>
           {effName}
           {nameEdited && <EditedMark />}
-        </h2>
+        </>
+      }
+      subtitle={
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
           <span className="font-medium text-slate-700">{provider?.name}</span>
           <span>·</span>
@@ -191,206 +357,27 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
             {CATEGORY_LABELS[activity.category]}
           </span>
         </div>
-
-        {/* Primární akce */}
-        <div className="space-y-2 rounded-xl border border-slate-200/90 bg-slate-50/80 p-2.5">
-          {isEnrolled ? (
-            <>
-              <div className="flex items-center justify-between text-xs">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">
-                  <IconCheck className="h-3 w-3" />
-                  <span>V rozvrhu</span>
-                </span>
-                <span className="text-slate-500 text-[11px]">Termín změníte níže</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => enrolled.forEach((e) => removeEnrollment(e.id))}
-                className="w-full rounded-lg border border-red-200 bg-white py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
-              >
-                Odebrat z rozvrhu
-              </button>
-            </>
-          ) : (
-            <>
-              {effectiveGroups.length > 1 && (
-                <label className="block text-xs font-medium text-slate-600">
-                  Vyberte termín
-                  <select
-                    value={chosenVariant}
-                    onChange={(e) => setVariantChoice(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {effectiveGroups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {groupDisplayLabel(g, childSessionOverrides)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <button
-                type="button"
-                disabled={!chosenVariant}
-                onClick={() => {
-                  if (!chosenVariant) return;
-                  enrollGroup(activity.id, chosenVariant);
-                  clearCatalogSearch();
-                  onEnrolled?.();
-                }}
-                className="w-full rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition"
-              >
-                Přidat do rozvrhu
-              </button>
-            </>
-          )}
-          <DetailApplicationLink url={signupUrl} className="text-center pt-0.5" />
-        </div>
-      </div>
-
-      <div className="space-y-3 p-3 text-xs">
-        {/* Varianty docházky */}
-        <div className="space-y-1.5">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Varianty docházky
-          </div>
-          <p className="text-[11px] text-slate-500">
-            Můžete vybrat i víc termínů najednou.
-          </p>
-          <div className="space-y-1">
-            {effectiveGroups.map((g) => {
-              const selected = enrolledGroupIds.has(g.id);
-              const label = groupDisplayLabel(g, childSessionOverrides);
-              const groupEnrollment = enrolled.find((e) => e.sessionGroupId === g.id);
-              return (
-                <div key={g.id}>
-                  <button
-                    type="button"
-                    onClick={() => enrollGroup(activity.id, g.id)}
-                    className={clsx(
-                      'w-full rounded-lg border p-2 text-left text-xs font-medium transition',
-                      selected
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className={clsx('h-3.5 w-3.5 rounded border flex items-center justify-center text-[10px]', selected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white')}>
-                        {selected && '✓'}
-                      </span>
-                      <span>{label}</span>
-                    </div>
-                  </button>
-                  {/* Částečná docházka (design_review_87.md): skupina se schází víckrát
-                      týdně (např. basketbal Po+St) — dítě může chodit jen na NĚKTERÉ z
-                      nich, ne jen na celou skupinu najednou. */}
-                  {selected && groupEnrollment && g.sessions.length > 1 && (
-                    <div className="ml-5 mt-1 space-y-1 border-l-2 border-emerald-200 pl-2">
-                      {g.sessions.map((s) => {
-                        const allIds = g.sessions.map((x) => x.id);
-                        const checked = groupEnrollment.sessionIds?.includes(s.id) ?? true;
-                        const dayLabel = `${WEEKDAYS[s.weekday - 1]?.long} ${formatTime(s.startMinutes)}–${formatTime(s.endMinutes)}`;
-                        return (
-                          <label key={s.id} className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                const current = groupEnrollment.sessionIds ?? allIds;
-                                const next = e.target.checked
-                                  ? [...current, s.id]
-                                  : current.filter((id) => id !== s.id);
-                                setEnrollmentSessions(
-                                  groupEnrollment.id,
-                                  next.length === allIds.length ? undefined : next,
-                                );
-                              }}
-                            />
-                            <span>{dayLabel}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {enrolled.length > 0 && (
-            <button
-              type="button"
-              onClick={() => enrolled.forEach((e) => removeEnrollment(e.id))}
-              className="mt-1 text-xs font-medium text-red-600 hover:underline"
-            >
-              Odebrat vše z rozvrhu
-            </button>
-          )}
-        </div>
-
-        {/* FR-W3-2 (design_review_73.md): bezkolizní alternativa místo pouhého hlášení kolize. */}
-        {activityHardConflicts.length > 0 && (
-          <div className="space-y-1.5 rounded-xl border border-red-200 bg-red-50/60 p-2.5">
-            <div className="text-xs font-bold uppercase tracking-wider text-red-700">
-              Kolize s jiným kroužkem
-            </div>
-            <p className="text-[11px] text-red-700">{activityHardConflicts[0]?.message}</p>
-            {dedupedSuggestions.length === 0 ? (
-              <p className="text-xs text-red-600">
-                Žádný jiný termín tohoto kroužku kolizi neřeší. Zvolte jiný kroužek nebo jeden odeberte.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {dedupedSuggestions.map((sug) => (
-                  <button
-                    key={`${sug.enrollmentId}-${sug.toGroupId}`}
-                    type="button"
-                    onClick={() => changeVariant(sug.enrollmentId, sug.toGroupId)}
-                    className="block w-full rounded-lg border border-red-200 bg-white p-2 text-left text-xs font-medium text-slate-700 hover:bg-red-50 transition"
-                  >
-                    Přepnout na {sug.toLabel}
-                    {sug.remainingOverlaps === 0 ? ' (bez kolize)' : ` (zbyde ${sug.remainingOverlaps} kolizí)`}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <SessionTimeEditor
-          key={`times-${activity.id}`}
-          groups={effectiveGroups}
-          sessionOverrides={childSessionOverrides}
-          onChange={(sessionId, patch) => setSessionOverride(sessionId, patch)}
-          onReset={(sessionId) => clearSessionOverride(sessionId)}
-        />
-
-        {/* Popis */}
-        <DetailDescriptionAccordion description={activity.description} label="Popis kroužku" />
-
-        <DetailLocationCard venueName={venue?.name} address={effAddress} edited={addressEdited} />
-
-        <DetailPriceAgeCard
-          price={effPrice}
-          ageMin={activity.ageMin}
-          ageMax={activity.ageMax}
-          edited={priceEdited}
-          childName={child?.name}
-          childAge={child?.age}
-        />
-
-        <DetailContactCard contactPerson={contactPerson} phone={effPhone} email={email} web={web} />
-
-        <DetailColorSection
-          value={effColorCss}
-          onPick={(css) => setActivityOverride(activity.id, { colorCss: css })}
-        />
-
-        <DetailHolidaySection
-          checked={override?.allowOnHolidays ?? false}
-          onChange={(checked) => setActivityOverride(activity.id, { allowOnHolidays: checked })}
-          entityLabel="Aktivita"
-        />
-
+      }
+      primaryCard={primaryCard}
+      scheduleSection={scheduleSection}
+      description={activity.description}
+      location={{ venueName: venue?.name, address: effAddress, edited: addressEdited }}
+      priceAge={{
+        price: effPrice,
+        ageMin: activity.ageMin,
+        ageMax: activity.ageMax,
+        edited: priceEdited,
+        childName: child?.name,
+        childAge: child?.age,
+      }}
+      contact={{ contactPerson, phone: effPhone, email, web }}
+      color={{ value: effColorCss, onPick: (css) => setActivityOverride(activity.id, { colorCss: css }) }}
+      holidays={{
+        checked: override?.allowOnHolidays ?? false,
+        onChange: (checked) => setActivityOverride(activity.id, { allowOnHolidays: checked }),
+        entityLabel: 'Aktivita',
+      }}
+      actions={
         <ActivityEditor
           key={activity.id}
           activity={activity}
@@ -403,8 +390,8 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
           onChange={(patch) => setActivityOverride(activity.id, patch)}
           onReset={() => clearActivityOverride(activity.id)}
         />
-      </div>
-    </section>
+      }
+    />
   );
 }
 
@@ -767,20 +754,29 @@ function CustomEntryDetail() {
   if (!selectedCustomEntryId || !entry) return null;
   const kindMeta = CUSTOM_KIND_META[entry.kind];
 
+  const scheduleSection = (
+    // Termín — vlastní událost nemá "variantu k výběru", má jeden pevný
+    // rozpis; proto vlastní karta, ne sekce s enroll tokem jako u aktivity.
+    <DetailSectionCard title="Termín">
+      <div className="space-y-1 text-xs text-slate-700 font-medium">
+        {entry.sessions.map((s) => (
+          <div key={s.id} className="flex items-center gap-1">
+            <IconClock className="h-3 w-3 text-slate-400" />
+            <span>
+              {WEEKDAYS[s.weekday - 1]?.long} {formatTime(s.startMinutes)}–{formatTime(s.endMinutes)}
+              {s.everyWeeks && s.everyWeeks > 1 ? ` · každé ${s.everyWeeks} týdny` : ''}
+            </span>
+          </div>
+        ))}
+      </div>
+    </DetailSectionCard>
+  );
+
   return (
-    <section className="border-b border-slate-200/80 bg-white">
-      {/* Stejná struktura hlavičky jako SelectedActivity (design_review_90.md) — bez
-          tohoto back-linku byl nadpis o ~34px výš než u kroužku, sheet tak "otevíral
-          na jiném místě" podle typu položky. */}
-      <div className="sticky top-0 z-10 space-y-2 border-b border-slate-200/80 bg-white p-3">
-        <button
-          type="button"
-          onClick={() => selectCustomEntry(null)}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
-        >
-          ← Zpět na souhrn
-        </button>
-        <h2 className="text-base font-bold text-slate-900 leading-snug">✎ {entry.name}</h2>
+    <EventDetail
+      onBack={() => selectCustomEntry(null)}
+      title={<>✎ {entry.name}</>}
+      subtitle={
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
             <span aria-hidden>{kindMeta.icon}</span>
@@ -795,77 +791,51 @@ function CustomEntryDetail() {
             </span>
           )}
         </div>
-        <DetailApplicationLink url={entry.applicationUrl} />
-      </div>
-
-      {/* Od tohoto místa dolů je pořadí i komponenty ZÁMĚRNĚ identické se
-          SelectedActivity (CHANGE-114, design_review_107.md, sdíleno přes
-          EventDetailSections.tsx) — jediné, co zůstává vlastní vlastní
-          události, je "Termín" (pevný rozpis) místo "Varianty docházky"
-          (výběr z nabídky) a akční tlačítka na konci (Upravit/Odebrat místo
-          odkazu na ActivityEditor). */}
-      <div className="space-y-2 p-3">
-        <DetailDescriptionAccordion description={entry.description} />
-
-        {/* Termín — vlastní událost nemá "variantu k výběru", má jeden pevný
-            rozpis; proto vlastní karta, ne DetailSectionCard s enroll tokem. */}
-        <DetailSectionCard title="Termín">
-          <div className="space-y-1 text-xs text-slate-700 font-medium">
-            {entry.sessions.map((s) => (
-              <div key={s.id} className="flex items-center gap-1">
-                <IconClock className="h-3 w-3 text-slate-400" />
-                <span>
-                  {WEEKDAYS[s.weekday - 1]?.long} {formatTime(s.startMinutes)}–{formatTime(s.endMinutes)}
-                  {s.everyWeeks && s.everyWeeks > 1 ? ` · každé ${s.everyWeeks} týdny` : ''}
-                </span>
-              </div>
-            ))}
+      }
+      // Na rozdíl od aktivity nemá vlastní událost stav "zapsáno/nezapsáno" —
+      // neexistuje mimo rozvrh, není co "přidávat"/"odebírat ze zápisu"
+      // (design_review_108.md §2). Karta se proto ukáže jen když je co v ní
+      // zobrazit (odkaz na přihlášku), ne vždy jako u aktivity.
+      primaryCard={
+        entry.applicationUrl ? <DetailApplicationLink url={entry.applicationUrl} className="text-center" /> : undefined
+      }
+      scheduleSection={scheduleSection}
+      description={entry.description}
+      location={{ address: entry.location }}
+      priceAge={{ price: entry.price, ageMin: entry.ageMin, ageMax: entry.ageMax }}
+      contact={{ contactPerson: entry.sessions[0]?.instructor, phone: entry.contact?.phone }}
+      note={entry.note}
+      color={{ value: entry.colorOverride, onPick: (css) => updateCustomEntry({ ...entry, colorOverride: css }) }}
+      holidays={{
+        checked: entry.allowOnHolidays ?? false,
+        onChange: (checked) => updateCustomEntry({ ...entry, allowOnHolidays: checked }),
+        entityLabel: 'Událost',
+      }}
+      actions={
+        <>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 shadow-2xs hover:bg-slate-50"
+            >
+              Upravit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                removeCustomEntry(entry.id);
+                selectCustomEntry(null);
+              }}
+              className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50"
+            >
+              Odebrat
+            </button>
           </div>
-        </DetailSectionCard>
-
-        <DetailLocationCard address={entry.location} />
-
-        <DetailPriceAgeCard price={entry.price} ageMin={entry.ageMin} ageMax={entry.ageMax} />
-
-        <DetailContactCard contactPerson={entry.sessions[0]?.instructor} phone={entry.contact?.phone} />
-
-        {entry.note && <div className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg">{entry.note}</div>}
-
-        <DetailColorSection
-          value={entry.colorOverride}
-          onPick={(css) => updateCustomEntry({ ...entry, colorOverride: css })}
-        />
-
-        <DetailHolidaySection
-          checked={entry.allowOnHolidays ?? false}
-          onChange={(checked) => updateCustomEntry({ ...entry, allowOnHolidays: checked })}
-          entityLabel="Událost"
-        />
-
-        <div className="flex gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 shadow-2xs hover:bg-slate-50"
-          >
-            Upravit
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              removeCustomEntry(entry.id);
-              selectCustomEntry(null);
-            }}
-            className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50"
-          >
-            Odebrat
-          </button>
-        </div>
-        {editing && (
-          <CustomEntryDialog editEntry={entry} onClose={() => setEditing(false)} />
-        )}
-      </div>
-    </section>
+          {editing && <CustomEntryDialog editEntry={entry} onClose={() => setEditing(false)} />}
+        </>
+      }
+    />
   );
 }
 

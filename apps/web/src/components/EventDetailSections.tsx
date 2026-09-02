@@ -350,3 +350,97 @@ export function DetailApplicationLink({
     </a>
   );
 }
+
+/** Karta primární akce hned pod hlavičkou. U katalogové aktivity nese stav
+ * zápisu/tlačítko, u vlastní události (jen když má odkaz na přihlášku) jen
+ * ten odkaz — ale OBAL je stejný, takže první věc pod hlavičkou má vždy
+ * stejnou vizuální váhu bez ohledu na typ položky. */
+export function DetailPrimaryCard({ children }: { children: ReactNode }) {
+  return <div className="space-y-2 rounded-xl border border-slate-200/90 bg-slate-50/80 p-2.5">{children}</div>;
+}
+
+type PriceAgeProps = Omit<Parameters<typeof DetailPriceAgeCard>[0], never>;
+type ContactProps = Parameters<typeof DetailContactCard>[0];
+type LocationProps = Parameters<typeof DetailLocationCard>[0];
+type ColorProps = Parameters<typeof DetailColorSection>[0];
+type HolidaysProps = Parameters<typeof DetailHolidaySection>[0];
+
+/**
+ * JEDINÝ render pro detail položky (CHANGE-116, design_review_109.md) —
+ * nahrazuje dřívější stav, kdy `SelectedActivity` a `CustomEntryDetail` byly
+ * dvě samostatné funkce, které jen VOLALY sdílené sekce (CHANGE-114), ale
+ * samy si psaly obal/pořadí ručně — a i tak se to znovu rozjelo (CHANGE-115).
+ * Teď existuje jedna cesta, která vykresluje hlavičku, primární kartu i
+ * pořadí sekcí — volající komponenty dodávají jen DATA a obsah pro
+ * pojmenované sloty, ne vlastní JSX strom. Strukturálně už není možné, aby
+ * se pořadí nebo mezery mezi oběma typy položek znovu rozešly, protože
+ * existuje jen jedno místo, které o tom rozhoduje.
+ *
+ * Sloty, které jsou u obou typů OPRAVDU jiný doménový koncept (ne jen jiný
+ * vzhled téhož) — `scheduleSection` (výběr z variant vs. pevný termín),
+ * `primaryCard` (stav zápisu vs. nanejvýš odkaz na přihlášku) a `actions`
+ * (dva editory vs. upravit/odebrat) — zůstávají jako `ReactNode` sloty, které
+ * si obsah řídí samy, ale template určuje JEJICH POZICI v layoutu pevně.
+ */
+export function EventDetail({
+  onBack,
+  title,
+  subtitle,
+  primaryCard,
+  scheduleSection,
+  description,
+  descriptionLabel,
+  location,
+  priceAge,
+  contact,
+  note,
+  color,
+  holidays,
+  actions,
+}: {
+  onBack: () => void;
+  title: ReactNode;
+  subtitle: ReactNode;
+  /** Vynech úplně, když není co zobrazit (u vlastní události bez odkazu na
+   * přihlášku) — šablona pak kartu nevykreslí vůbec, místo prázdného rámu. */
+  primaryCard?: ReactNode;
+  scheduleSection: ReactNode;
+  description: string | undefined;
+  descriptionLabel?: string;
+  location: LocationProps;
+  priceAge: PriceAgeProps;
+  contact: ContactProps;
+  note?: string;
+  color: ColorProps;
+  holidays: HolidaysProps;
+  actions: ReactNode;
+}) {
+  return (
+    <section className="border-b border-slate-200/80 bg-white">
+      <div className="sticky top-0 z-10 space-y-2 border-b border-slate-200/80 bg-white p-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+        >
+          ← Zpět na souhrn
+        </button>
+        <h2 className="text-base font-bold text-slate-900 leading-snug">{title}</h2>
+        {subtitle}
+        {primaryCard && <DetailPrimaryCard>{primaryCard}</DetailPrimaryCard>}
+      </div>
+
+      <div className="space-y-3 p-3 text-xs">
+        {scheduleSection}
+        <DetailDescriptionAccordion description={description} label={descriptionLabel} />
+        <DetailLocationCard {...location} />
+        <DetailPriceAgeCard {...priceAge} />
+        <DetailContactCard {...contact} />
+        {note && <div className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg">{note}</div>}
+        <DetailColorSection {...color} />
+        <DetailHolidaySection {...holidays} />
+        {actions}
+      </div>
+    </section>
+  );
+}

@@ -15,15 +15,14 @@ jedné rodiny (všechny děti, celý rozvrh, všechny přepisy). Katalog kroužk
 v buildu appky (`packages/domain/data/`) — nikdy se needituje, nikdy neputuje
 přes localStorage/export.
 
-```
-Catalog (read-only, v buildu)  +  PlannerState (mutable, v paměti/localStorage)
-         │                                    │
-         └──────────────┬─────────────────────┘
-                         ▼
-              derivované view (React hooks)
-                         │
-                         ▼
-                     vykreslení UI
+```mermaid
+flowchart TD
+    Catalog["Catalog
+(read-only, v buildu)"] --> Derived["derivované view
+(React hooks)"]
+    State["PlannerState
+(mutable, v paměti/localStorage)"] --> Derived
+    Derived --> UI["vykreslení UI"]
 ```
 
 ## 1. Datový model — kompletní tvar
@@ -142,6 +141,36 @@ Catalog {
 na něj se váže `SessionOverride`. `Activity.id` je stabilní identifikátor
 napříč katalogem — na něj se váže `ActivityOverride` i `Enrollment.activityId`.
 
+### 1.7 Entitní diagram — jak vše souvisí
+
+```mermaid
+erDiagram
+    PLANNER_STATE ||--o{ CHILD : "children[]"
+    PLANNER_STATE ||--o{ NAMED_SCHEDULE : "schedules[]"
+    PLANNER_STATE ||--o{ ACTIVITY_OVERRIDE : "overrides[]"
+    PLANNER_STATE ||--o{ SESSION_OVERRIDE : "sessionOverrides[]"
+    PLANNER_STATE ||--o{ CONSTRAINT_RECORD : "constraints[]"
+    NAMED_SCHEDULE ||--o{ ENROLLMENT : "enrollments[]"
+    NAMED_SCHEDULE ||--o{ CUSTOM_ENTRY : "customEntries[]"
+    CHILD ||--o{ ENROLLMENT : "childId"
+    CHILD ||--o{ CUSTOM_ENTRY : "childId"
+    CHILD ||--o{ SESSION_OVERRIDE : "childId (volitelné)"
+    CATALOG ||--o{ PROVIDER : "providers[]"
+    CATALOG ||--o{ VENUE : "venues[]"
+    CATALOG ||--o{ ACTIVITY : "activities[]"
+    CATALOG ||--o{ SESSION_GROUP : "sessionGroups[]"
+    ACTIVITY ||--o{ SESSION_GROUP : "activityId"
+    SESSION_GROUP ||--o{ SESSION : "sessions[]"
+    ENROLLMENT }o--|| ACTIVITY : "activityId"
+    ENROLLMENT }o--|| SESSION_GROUP : "sessionGroupId"
+    ACTIVITY_OVERRIDE }o--|| ACTIVITY : "activityId"
+    SESSION_OVERRIDE }o--|| SESSION : "sessionId"
+```
+
+`PlannerState` (mutable, rodinný stav) a `Catalog` (read-only, v buildu) jsou
+dvě NEZÁVISLÉ stromové struktury — propojuje je jen `activityId`/`sessionId`
+jako cizí klíč, nikdy přímá reference/objekt.
+
 ### 1.6 Export — obálka rozlišující rozsah (design_review_99.md, CHANGE-106)
 
 ```ts
@@ -184,23 +213,27 @@ appka žádný nemá.
 Zdroj: [plannerStore.ts](../apps/web/src/store/plannerStore.ts) (Zustand +
 immer middleware).
 
-```
-uživatelská akce (klik, form submit)
-  → store akce (např. enrollGroup, setActivityOverride, addChild)
-    → commit(mutate, after?)
-        1. history.push(current(state))     // snapshot PŘED mutací → undo
-        2. future = []                       // nová větev historie → redo se zahodí
-        3. mutate(draft: PlannerState)       // immer draft — přímé mutace čitelné jako JS
-        4. state.revision += 1               // VŽDY, i pro merge/import (design_review_99.md)
-        5. state.updatedAt = new Date().toISOString()
-        6. after?.(store)                    // ephemerální pole MIMO PlannerState:
-                                              //   - store.catalog (přepočet po session override)
-                                              //   - store.activeChildId (přepnutí po addChild/merge)
-                                              //   - store.lastActionLabel (toast text)
-  → Zustand notifikuje VŠECHNY subscribery (React hooky i ruční subscribe)
-    → komponenty čtoucí usePlannerStore(s => …) se re-renderují
-    → usePlannerStore.subscribe(…) v page.tsx spustí saveAutosave(s.state)
-      → localStorage.setItem('krouzky:autosave:v1', serializePlannerState(state))
+```mermaid
+sequenceDiagram
+    participant U as Uživatel
+    participant C as Komponenta (UI)
+    participant S as plannerStore
+    participant Commit as commit()
+    participant L as localStorage
+
+    U->>C: klik / submit formuláře
+    C->>S: store akce (enrollGroup, setActivityOverride, addChild, …)
+    S->>Commit: commit(mutate, after?)
+    Commit->>Commit: history.push(current(state)) — snapshot PŘED mutací (undo)
+    Commit->>Commit: future = [] — redo se zahodí
+    Commit->>Commit: mutate(draft) přes immer
+    Commit->>Commit: state.revision += 1 (VŽDY, i merge/import)
+    Commit->>Commit: state.updatedAt = now()
+    Commit->>Commit: after?.(store) — catalog / activeChildId / toast
+    Commit-->>S: nový state
+    S-->>C: re-render (usePlannerStore)
+    S->>L: subscribe → saveAutosave(state)
+    L->>L: localStorage.setItem('krouzky:autosave:v1', …)
 ```
 
 **Klíčový architektonický bod** (CHANGE-74): `store.catalog` je ODVOZENÉ pole,
@@ -214,16 +247,23 @@ skrz 5+ doménových funkcí.
 
 ## 4. Jak data PROPAGUJÍ appkou — čtení (read path)
 
-```
-usePlannerStore(s => s.state) + usePlannerStore(s => s.catalog)
-  → useScheduleView() (hooks/useScheduleView.ts)
-      buildCatalogIndex(catalog)                    // rychlé vyhledávání activity/group/session
-      resolvePlacedSessions(schedule, catalog, …)    // Enrollment/CustomEntry → konkrétní Block[]
-      detectConflicts(…)                             // H1..H10 pravidla → Conflict[]
-      scheduleSummary(…)                              // agregace (náklady, obsazenost týdne)
-  → ScheduleGrid / CatalogPanel / DetailsPanel / HomeScreen
-      čtou VÝSLEDEK hooků (Block[], Conflict[], ScheduleSummary), nikdy
-      neprovádí vlastní výpočet nad syrovým PlannerState
+```mermaid
+flowchart TD
+    State["state (PlannerState)"] --> Hook["useScheduleView()"]
+    Catalog["catalog (odvozeno ze store)"] --> Hook
+    Hook --> Index["buildCatalogIndex
+(rychlé vyhledávání activity/group/session)"]
+    Hook --> Placed["resolvePlacedSessions
+→ Block[]"]
+    Hook --> Conf["detectConflicts
+(H1–H10) → Conflict[]"]
+    Hook --> Sum["scheduleSummary
+(náklady, obsazenost týdne)"]
+    Placed --> Grid["ScheduleGrid"]
+    Conf --> Grid
+    Conf --> CatalogPanel["CatalogPanel
+(náhled kolize na kartě)"]
+    Sum --> Home["HomeScreen / DetailsPanel"]
 ```
 
 Všechny domain funkce (`resolvePlacedSessions`, `detectConflicts`,
@@ -235,41 +275,45 @@ nevyžaduje měnit víc než tuto jednu vrstvu (plus samotné schéma).
 
 ## 5. Import: family vs. single-child (design_review_99.md, CHANGE-106)
 
+```mermaid
+flowchart TD
+    F["soubor .json"] --> P["parseExportEnvelope()
+(state/io.ts)"]
+    P -->|bez exportType| Fam0["obal jako family
++ migrateToCurrent()"]
+    P -->|"exportType: family"| Fam["migrateToCurrent()
+uvnitř obálky"]
+    P -->|"exportType: single-child"| SC["zod validace
+SingleChildExportPayload"]
+
+    Fam0 --> D1["dialog „Potvrdit import“
+(VŽDY, FR-2)"]
+    Fam --> D1
+    D1 -->|potvrzeno| LoadState["loadState(data)
+plný přepis CELÉHO PlannerState"]
+
+    SC --> Merge["mergeSingleChildImport()
+(export-merge.ts, čistá fce)"]
+    Merge -->|"child.id NENÍ v state.children"| R1["'new-child'"]
+    Merge -->|"JE, jméno nesedí"| R2["'name-mismatch'"]
+    Merge -->|"JE, jméno sedí, obsah shodný"| R3["'silent'"]
+    Merge -->|"JE, jméno sedí, obsah se liší"| R4["'content-differs'"]
+
+    R3 --> Apply["applySingleChildMerge()"]
+    R1 --> D2["dialog „Potvrdit import“
+s textem podle resolution"]
+    R2 --> D2
+    R4 --> D2
+    D2 -->|potvrzeno| Apply
+
+    Apply --> Commit["commit(): nahradí JEN
+draft.children / aktivní schedule / sessionOverrides
+catalog + activeChildId přepočteny v after"]
 ```
-soubor .json
-  → parseExportEnvelope(JSON.parse(text))   (state/io.ts)
-      - bez pole `exportType` → obal jako { exportType:'family', data: migrateToCurrent(input) }
-      - exportType:'family'   → migrateToCurrent(data) uvnitř obálky
-      - exportType:'single-child' → zod validace SingleChildExportPayload (bez migrace —
-        payload nemá vlastní schemaVersion, nese ho jen obálka rodiny)
-  → Toolbar.importJson() rozhodne podle exportType:
 
-    'family' ─────────────────────────────────────────────► VŽDY dialog „Potvrdit import“
-        │  (FR-2 — NIKDY tiché, i kdyby byl obsah identický; ukazuje počet dětí + updatedAt obou stran)
-        └─ potvrzeno → loadState(data)  (plný přepis CELÉHO PlannerState)
-
-    'single-child' → mergeSingleChildImport(state, payload, catalog)  (export-merge.ts, ČISTÁ fce)
-        │
-        ├─ payload.child.id NENÍ v state.children     → resolution 'new-child'
-        ├─ JE, ale existingChild.name ≠ payload.child.name
-        │     (srážka dvou nezávisle vzniklých „child-1“, viz §0.2 spec)  → 'name-mismatch'
-        ├─ JE, jméno sedí, obsah (enrollments/customEntries/per-dítě
-        │     sessionOverrides) KANONICKY shodný s aktuálním stavem       → 'silent'
-        └─ JE, jméno sedí, obsah se liší                                  → 'content-differs'
-        │
-        └─ (mimo hlavní rozhodnutí) enrollments odkazující na SMAZANOU
-              katalogovou položku (activityId/sessionGroupId) se PŘESKOČÍ,
-              appka po dokončení ukáže varování se jmény vynechaných (FR-7)
-
-  'silent' → rovnou applySingleChildMerge(nextState, childId)  (žádný dialog)
-  jinak    → dialog „Potvrdit import“ s textem podle resolution
-             → po potvrzení stejné applySingleChildMerge(nextState, childId)
-
-applySingleChildMerge (plannerStore.ts) přes commit():
-  - nahradí JEN draft.children / draft.schedules[activní].enrollments+customEntries / draft.sessionOverrides
-  - NIKDY se nedotkne ostatních dětí, globálních overrides, ostatních variant rozvrhu
-  - after: přepočet store.catalog, store.activeChildId = childId (přepne na sloučené dítě)
-```
+(Mimo hlavní rozhodnutí: `enrollments` odkazující na SMAZANOU katalogovou
+položku — `activityId`/`sessionGroupId` — se PŘESKOČÍ, appka po dokončení
+ukáže varování se jmény vynechaných, FR-7.)
 
 ### 5.1 Kanonické porovnání obsahu (FR-8) — proč ne `JSON.stringify`
 

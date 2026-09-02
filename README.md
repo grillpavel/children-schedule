@@ -96,6 +96,61 @@ struktura stavu, chování pro 1/2/N dětí, migrace schémat).
 - **„Soukromí a data"** dialog — žádné cookies, žádný server, jen `localStorage`
   a explicitní export; jasně popsaná výjimka (geokódování adresy přes Nominatim).
 
+## Architektura
+
+Appka běží **výhradně v prohlížeči** — žádný vlastní backend, žádná databáze.
+Doménové jádro (`packages/domain`) je čistý, deterministický TypeScript bez
+Reactu a bez sítě; `apps/web` ho jen volá a vykresluje výsledek. Podrobný
+technický rozbor (kompletní tvar dat, migrace, merge logika) je v
+[docs/architektura-dat.md](docs/architektura-dat.md).
+
+```mermaid
+flowchart TB
+    subgraph Browser["Prohlížeč uživatele (jediné běhové prostředí)"]
+        direction TB
+        subgraph Engine["packages/domain — čisté jádro"]
+            Model["model/ (zod schéma, typy)"]
+            Calendar["calendar/ (svátky, prázdniny, RRULE)"]
+            Conflicts["conflicts/ (H1–H10)"]
+            Matching["matching/ (doporučení)"]
+            Ics["ics/ (generování, parsování)"]
+            State["state/ (migrace, merge, export obálky)"]
+        end
+        subgraph App["apps/web — Next.js + React"]
+            Store["plannerStore.ts (Zustand + immer)"]
+            Hooks["useScheduleView + hooky"]
+            UI["komponenty: Katalog / Mřížka / Detail / Toolbar"]
+        end
+        Store -->|"volá čisté funkce"| Engine
+        Hooks --> Store
+        UI --> Hooks
+        UI --> Store
+        Store -->|autosave| LS[("localStorage\nkrouzky:autosave:v1")]
+        UI -->|"Uložit / Otevřít"| File[(".json / .ics soubor")]
+        UI -->|"Sdílet odkaz"| Url[("URL fragment #share=…")]
+    end
+    UI -.->|"jen adresa, na žádost"| Nominatim["Nominatim / OpenStreetMap"]
+    UI -.->|odkaz| Maps["Apple / Google Maps / Mapy.cz"]
+```
+
+Typický průchod appkou od výběru kroužku po export:
+
+```mermaid
+flowchart LR
+    A["Katalog: filtrování,\ndoporučení"] --> B{"Vybrat kroužek\nnebo vlastní událost"}
+    B -->|kroužek| C["Detail: varianty\ndocházky, cena, adresa"]
+    B -->|vlastní| D["Dialog: název, čas,\nadresa, barva"]
+    C --> E["Přidat do rozvrhu"]
+    D --> E
+    E --> F{"Detekce kolizí\n(H1–H10)"}
+    F -->|tvrdá kolize| G["🔴 zvýraznění v mřížce"]
+    F -->|těsná návaznost| H["🟡 upozornění"]
+    F -->|bez kolize| I["🟢 v rozvrhu"]
+    G --> J["Export: .ics / .json / .png / tisk\nnebo sdílený odkaz"]
+    H --> J
+    I --> J
+```
+
 ## Technologie
 
 | Vrstva | Stack |

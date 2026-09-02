@@ -6,6 +6,24 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### README bez diagramů, technická dokumentace dat bez vizualizace (CHANGE-109, docs-only)
+
+Trigger: uživatel nahlásil, že README nemá "SOTA kvalitu" — chybí flowcharty/diagramy
+architektury a datového toku; technická dokumentace o správě dat (`docs/architektura-dat.md`,
+`docs/ukladani-dat.md`) už existovala z CHANGE-106, ale byla čistě textová/ASCII.
+
+- **README.md**: nová sekce „Architektura" s Mermaid diagramem (jádro `packages/domain`
+  vs. `apps/web`, tři nezávislé cesty ukládání dat, externí služby jen na vyžádání) a
+  flowchartem typického průchodu appkou (katalog → detekce kolizí → export).
+- **docs/architektura-dat.md**: existující ASCII schéma (§0) a tři ASCII sekvence
+  (zápis §3, čtení §4, rozhodovací strom importu §5) převedeny na Mermaid
+  flowchart/sequenceDiagram; nová entitní diagram (§1.7, `erDiagram`) vizualizující
+  celý datový model (`PlannerState`/`Child`/`NamedSchedule`/`Enrollment`/`CustomEntry`
+  vs. read-only `Catalog`).
+- Docs-only, žádná změna chování/enginu/testů — dle
+  `.github/instructions/dev-process.instructions.md` §2 (docs-only smí přeskočit spec,
+  ale dostává CHANGELOG záznam).
+
 ### Mobilní detail kroužku a vlastní události měly různě velké okno (CHANGE-108)
 
 Trigger: uživatel upřesnil, že CHANGE-107 problém nevyřešilo — na mobilu kroužek

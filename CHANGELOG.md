@@ -6,6 +6,39 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vyskakovací okna neměla jednotnou implementaci (CHANGE-110)
+
+Trigger: uživatel opakovaně hlásil nekonzistentní chování popup oken napříč appkou
+(po dřívějších opravách jednoho konkrétního mobilního modálu, design_review_97/100/101)
+a hodnotil to jako „nedotaženou, amatérskou práci“.
+
+- **Kořenová příčina**: čtyři nezávislé implementace (`CustomEntryDialog`,
+  `PrintRangeDialog`, `PrivacyDialog`, mobilní detail v `page.tsx`) měly každá
+  vlastní ručně psaný backdrop/kartu/close-tlačítko — nezávisle se rozjely v
+  barvě podkladu, animaci, velikosti close tlačítka a v tom, jestli vůbec šlo
+  zavřít Escape/kliknutím mimo. Dva z rozdílů byly reálné bugy:
+  `CustomEntryDialog` (appka ho jinde označuje jako „referenční“ chování) šlo
+  zavřít JEN tlačítkem; `PrintRangeDialog`/`PrivacyDialog` měly close tlačítko
+  ~28×28 px, pod vlastním README standardem „dotykové cíle ≥44 px“.
+- **Fix**: nová sdílená komponenta `DialogShell.tsx` — backdrop (`slate-900/50`
+  + blur), klik mimo i Escape zavírá, `role="dialog" aria-modal`, vstupní
+  animace, close tlačítko vždy 44×44 px. `CustomEntryDialog`, `PrintRangeDialog`,
+  `PrivacyDialog` a mobilní detail migrovány na `DialogShell` — obsah beze
+  změny, mění se jen obálka. `PopoverBackdrop` (ukotvené dropdown menu Toolbaru)
+  zůstává mimo — jiný, oprávněně odlišný vzor.
+- Zachovány existující API rozdíly, na kterých závisí E2E: mobilní detail
+  nadále `aria-label="Detail kroužku"`/`"Zavřít detail"`, `PrivacyDialog`
+  nadále přístupné jméno „Soukromí a data“, mobilní detail nadále pevná výška
+  `h-[85dvh]` a `glass` efekt, backdrop/karta všech dialogů nadále
+  `.fixed.inset-0.z-50` (16 existujících E2E testů na tento selektor cílí).
+- Spec: `.github/specs/design_review_102.md`. Ověřeno: `tsc --noEmit` čisté
+  (web, engine nedotčen), `next build` čistý, plná 6profilová E2E sada =
+  **780 passed / 252 skipped / 0 failed** (shodné s CHANGE-108 baseline, nulová
+  regrese; žádná vizuální baseline nevyžadovala regeneraci — žádný snímek
+  necílí přímo na `PrintRangeDialog`/`PrivacyDialog`). Doporučené nové regresní
+  testy (Escape/klik-mimo, 44px close napříč všemi dialogy) sledovány jako
+  `BL-067`.
+
 ### README bez diagramů, technická dokumentace dat bez vizualizace (CHANGE-109, docs-only)
 
 Trigger: uživatel nahlásil, že README nemá "SOTA kvalitu" — chybí flowcharty/diagramy

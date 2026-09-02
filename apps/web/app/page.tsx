@@ -13,7 +13,8 @@ import { HomeScreen } from '@/components/HomeScreen';
 import { CatalogPanel } from '@/components/CatalogPanel';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { CustomEntryDialog } from '@/components/CustomEntryDialog';
-import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconClose, IconPlus } from '@/components/Icons';
+import { IconHome, IconFolderOpen, IconCalendar, IconUser, IconPlus } from '@/components/Icons';
+import { DialogShell } from '@/components/DialogShell';
 import { useIsMobile, useIsWide, useIsLandscapeCompact } from '@/hooks/useBreakpoint';
 
 // Mřížka odvozuje zobrazený týden z aktuálního data. Kdyby ji Next vykreslil na
@@ -556,33 +557,21 @@ export default function Page() {
           typ zobrazení jako referenční CustomEntryDialog — plná obrazovka, zbytek
           needitovatelný, dokud se nezavře. Nahrazuje dřívější "peek" spodní sheet
           (CHANGE-27/54/55/102/103) — na mobilu se s ním nekonzistentně otevíral jinde
-          a nechal ovladatelnou horní i spodní lištu. Tablet/desktop nedotčeny. */}
+          a nechal ovladatelnou horní i spodní lištu. Tablet/desktop nedotčeny.
+          Pevná výška `height="fixed"` (design_review_101.md) — kroužek i vlastní
+          událost tak vždy otevřou stejně velké okno bez ohledu na množství obsahu.
+          Obálka sjednocena přes `DialogShell` (design_review_102.md, CHANGE-110). */}
       {isMobileLayout && hasSelection && mobileTab !== 'details' && (
-        <div
-          className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
-          onClick={closeMobileSheet}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Detail kroužku"
-            onClick={(e) => e.stopPropagation()}
-            className="glass flex h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xl animate-in zoom-in-95 duration-150"
+        <div className="no-print">
+          <DialogShell
+            onClose={closeMobileSheet}
+            ariaLabel="Detail kroužku"
+            closeLabel="Zavřít detail"
+            height="fixed"
+            glass
           >
-            <div className="flex items-center justify-end px-3 pt-2">
-              <button
-                type="button"
-                onClick={closeMobileSheet}
-                className="flex h-11 w-11 items-center justify-center text-slate-400 hover:text-slate-700"
-                aria-label="Zavřít detail"
-              >
-                <IconClose className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto bg-white">
-              <DetailsPanel onEnrolled={closeMobileSheet} />
-            </div>
-          </div>
+            <DetailsPanel onEnrolled={closeMobileSheet} />
+          </DialogShell>
         </div>
       )}
 

@@ -23,6 +23,8 @@
     "test:e2e:report": "playwright show-report test/.report"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "turbo": "^2.1.0",
     "typescript": "^5.6.0"
   }

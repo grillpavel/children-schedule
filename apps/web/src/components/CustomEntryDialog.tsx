@@ -72,6 +72,7 @@ export function CustomEntryDialog({
       : '',
   );
   const [phone, setPhone] = useState(editEntry?.contact?.phone ?? '');
+  const [email, setEmail] = useState(editEntry?.contact?.email ?? '');
   const [note, setNote] = useState(editEntry?.note ?? '');
   const [instructor, setInstructor] = useState(first?.instructor ?? '');
   const [priceAmount, setPriceAmount] = useState(
@@ -109,12 +110,14 @@ export function CustomEntryDialog({
       return false;
     }
   };
+  const isValidEmail = (v: string) => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
   const valid =
     name.trim().length > 0 &&
     rows.length > 0 &&
     rows.every((r) => toMinutes(r.start) < toMinutes(r.end)) &&
-    isValidUrl(applicationUrl);
+    isValidUrl(applicationUrl) &&
+    isValidEmail(email);
 
   const save = () => {
     if (!valid) return;
@@ -142,7 +145,9 @@ export function CustomEntryDialog({
         ...(instructor.trim() ? { instructor: instructor.trim() } : {}),
       })),
       ...(location ? { location } : {}),
-      ...(phone ? { contact: { phone: phone.trim() } } : {}),
+      ...(phone || email
+        ? { contact: { ...(phone ? { phone: phone.trim() } : {}), ...(email ? { email: email.trim() } : {}) } }
+        : {}),
       ...(priceAmount && Number.isFinite(amount)
         ? { price: { amount, period: pricePeriod } }
         : {}),
@@ -415,6 +420,23 @@ export function CustomEntryDialog({
             placeholder="+420 123 456 789"
             className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
           />
+        </label>
+
+        <label className="block">
+          <span className="font-semibold text-slate-700">
+            E-mail <span className="font-normal text-slate-400">(nepovinné)</span>
+          </span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="lektor@example.cz"
+            aria-invalid={!isValidEmail(email)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs aria-[invalid=true]:border-red-300"
+          />
+          {!isValidEmail(email) && (
+            <span className="mt-1 block text-[11px] font-medium text-red-600">Neplatný formát e-mailu</span>
+          )}
         </label>
 
         <label className="block">

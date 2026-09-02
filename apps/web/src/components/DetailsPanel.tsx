@@ -371,6 +371,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
         childAge: child?.age,
       }}
       contact={{ contactPerson, phone: effPhone, email, web }}
+      note={override?.note}
       color={{ value: effColorCss, onPick: (css) => setActivityOverride(activity.id, { colorCss: css }) }}
       holidays={{
         checked: override?.allowOnHolidays ?? false,
@@ -386,6 +387,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
           effAddress={effAddress}
           effPhone={effPhone}
           effPrice={effPrice}
+          effNote={override?.note}
           hasOverride={hasOverride}
           onChange={(patch) => setActivityOverride(activity.id, patch)}
           onReset={() => clearActivityOverride(activity.id)}
@@ -403,6 +405,7 @@ function ActivityEditor({
   effAddress,
   effPhone,
   effPrice,
+  effNote,
   hasOverride,
   onChange,
   onReset,
@@ -413,12 +416,14 @@ function ActivityEditor({
   effAddress: Address | undefined;
   effPhone: string | undefined;
   effPrice: { amount: number; period: PricePeriod };
+  effNote: string | undefined;
   hasOverride: boolean;
   onChange: (patch: {
     name?: string;
     address?: Address;
     contactPhone?: string;
     price?: { amount: number; period: PricePeriod };
+    note?: string;
   }) => void;
   onReset: () => void;
 }) {
@@ -430,6 +435,7 @@ function ActivityEditor({
   const [phone, setPhone] = useState(effPhone ?? '');
   const [amount, setAmount] = useState(String(effPrice.amount));
   const [period, setPeriod] = useState<PricePeriod>(effPrice.period);
+  const [note, setNote] = useState(effNote ?? '');
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -461,6 +467,9 @@ function ActivityEditor({
   const commitPrice = () => {
     const value = Number(amount);
     if (Number.isFinite(value)) onChange({ price: { amount: value, period } });
+  };
+  const commitNote = () => {
+    onChange({ note: note.trim() || undefined });
   };
 
   if (!open) {
@@ -563,6 +572,17 @@ function ActivityEditor({
           </select>
         </label>
       </div>
+      <label className="block text-xs text-slate-600 font-medium">
+        Poznámka <span className="font-normal text-slate-400">(nepovinné, jen pro vás)</span>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={commitNote}
+          placeholder="Soukromá poznámka ke kroužku…"
+          rows={2}
+          className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-2xs"
+        />
+      </label>
       <div className="flex items-center justify-between pt-1">
         {hasOverride ? (
           <button
@@ -576,6 +596,7 @@ function ActivityEditor({
               setPhone(provider?.contact.phone ?? '');
               setAmount(String(activity.price.amount));
               setPeriod(activity.price.period);
+              setNote('');
             }}
             className="text-xs font-semibold text-red-600"
           >
@@ -803,7 +824,7 @@ function CustomEntryDetail() {
       description={entry.description}
       location={{ address: entry.location }}
       priceAge={{ price: entry.price, ageMin: entry.ageMin, ageMax: entry.ageMax }}
-      contact={{ contactPerson: entry.sessions[0]?.instructor, phone: entry.contact?.phone }}
+      contact={{ contactPerson: entry.sessions[0]?.instructor, phone: entry.contact?.phone, email: entry.contact?.email }}
       note={entry.note}
       color={{ value: entry.colorOverride, onPick: (css) => updateCustomEntry({ ...entry, colorOverride: css }) }}
       holidays={{

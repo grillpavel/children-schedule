@@ -6,6 +6,56 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Chybějící testovací závislosti doplněny do root package.json (CHANGE-118)
+
+Bez specifikace — triviální oprava nástrojů dle `dev-process` §2.
+
+- `test:e2e` skripty i `test/specs/**` používaly `@playwright/test` a
+  `@axe-core/playwright`, ale ani jedna závislost nebyla deklarovaná v žádném
+  `package.json`. `@axe-core/playwright` neměl v `pnpm-lock.yaml` záznam vůbec,
+  `@playwright/test` tam byl jen jako nevyžádaný optional peer u Next.js.
+  Na čerstvém klonu proto `pnpm run test:e2e` skončilo na
+  `playwright: command not found` a `a11y.spec.ts` nešel naresolvovat.
+- Přidáno do root `devDependencies` (`^1.62.1` / `^4.13.0`) včetně lockfile.
+- Ověřeno: `pnpm install --frozen-lockfile` projde, `playwright test --list`
+  vypíše 1032 testů ve 12 souborech (z toho 90 z `a11y.spec.ts`), plná sada
+  přes `pnpm run test:e2e` = 780 passed / 252 skipped / 0 failed.
+
+### Audit celého datového toku odhalil skutečný bug v .ics exportu (CHANGE-117)
+
+Trigger: uživatel po CHANGE-116 řekl: „Stále to nefunguje přesně… Analyzuj celý
+projekt včetně dat, která se ukládají!" — audit prošel schéma → formuláře →
+.ics export → perzistenci, ne jen zobrazovací komponentu.
+
+- **Skutečný bug** (design_review_110.md §1.1): `.ics` export pro vlastní
+  událost posílal do popisu `entry.note` místo `entry.description`
+  (CHANGE-112 pole) — `entry.description` se do exportovaného kalendáře
+  NIKDY nedostalo, ať ho uživatel vyplnil nebo ne. `category`/`ageMin`/
+  `ageMax` se u vlastní události do exportu vůbec nepropisovaly, na rozdíl
+  od katalogové aktivity. Ověřeno přímým spuštěním `generateIcs()` mimo
+  prohlížeč — po opravě `DESCRIPTION` obsahuje popis, lektora, telefon,
+  e-mail, cenu, věk, kategorii i poznámku zvlášť, stejně jako u aktivity.
+- **`ActivityOverride.note`** — mrtvé pole ve schématu, žádné UI ho nikdy
+  nečetlo ani nezapisovalo; kroužek z katalogu nešlo okomentovat, i když to
+  schéma umožňovalo. Přidáno pole „Poznámka" do `ActivityEditor`; zobrazuje
+  se ve stejné pozici/stylu jako u vlastní události díky sdílené `EventDetail`
+  šabloně (CHANGE-116) bez jakékoli úpravy šablony.
+- **`CustomEntry.contact.email`** — mrtvé pole ve schématu, formulář ho
+  neuměl vyplnit. Přidáno pole „E-mail" do `CustomEntryDialog`, propojeno do
+  zobrazení i `.ics` exportu.
+- **Ověřeno beze změny**: perzistence/migrace (`state/io.ts`) — všechna pole
+  optional, žádná migrace potřeba; JSON export/import (bug byl izolovaný na
+  `.ics` cestu); `applicationUrl` se symetricky nepoužívá v `.ics` popisu u
+  ANI JEDNÉ strany (není to nová asymetrie).
+- **`contact.personName` — původní nález vyvrácen**: audit ho označil za další
+  mrtvé pole, ověření to nepotvrdilo. Nepatří `CustomEntry`, ale sdílenému
+  `contactSchema`, který používá i povinné `Provider.contact` — je vyplněné u
+  5 pořadatelů, zobrazuje se v detailu (`DetailsPanel.tsx`) a exportuje do
+  `.ics` jako „Kontakt:". Odstranit nelze, neměněno.
+- Ověřeno: `tsc --noEmit` čisté, doménový vitest 155/155, přímé ověření
+  `.ics` výstupu, vizuální ověření nových formulářových polí v headless
+  Chromiu.
+
 ### Jeden render, ne dvě funkce volající sdílené kusy (CHANGE-116)
 
 Trigger: uživatel po CHANGE-114/115 řekl přesně: „Chci, abys provedl SOTA analýzu

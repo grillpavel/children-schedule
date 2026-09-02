@@ -129,6 +129,9 @@ function buildDescription(f: {
   price?: { amount: number; period: PricePeriod };
   ageRange?: string;
   category?: string;
+  /** Soukromá poznámka rodiče — odlišná od `description` (co událost/kroužek
+   * JE) — `note` je jeho vlastní připomínka k ní (CHANGE-117, design_review_110.md). */
+  note?: string;
 }): string[] {
   const lines: string[] = [];
   if (f.description) lines.push(f.description);
@@ -144,6 +147,7 @@ function buildDescription(f: {
   }
   if (f.ageRange) lines.push(`Věk: ${f.ageRange}`);
   if (f.category) lines.push(`Kategorie: ${f.category}`);
+  if (f.note) lines.push(`Poznámka: ${f.note}`);
   return lines;
 }
 
@@ -244,11 +248,28 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
         geo: geoOf(address),
         url: undefined,
         descriptionLines: buildDescription({
-          description: entry.note,
+          // CHANGE-117 (design_review_110.md): dřív se sem posílalo `entry.note`
+          // jako `description` — `entry.description` (CHANGE-112, skutečný popis
+          // události) se do exportu NIKDY nedostalo, ať ho uživatel vyplnil nebo
+          // ne. `note` teď jde do vlastního pole (jako u aktivity by šla
+          // `ActivityOverride.note`, kdyby ji appka někde umožňovala zapsat —
+          // nikde neumožňuje, viz DR-110 §2 — u CustomEntry naštěstí `note` UI
+          // má, takže sem patří).
+          description: entry.description,
           address: addressText,
           instructor: session.instructor,
           phone: entry.contact?.phone,
           price: entry.price,
+          email: entry.contact?.email,
+          // Stejná pole jako u katalogové aktivity (category/ageRange) — dřív se
+          // u vlastní události do exportu nedostala vůbec, i když CHANGE-112
+          // umožnil je vyplnit.
+          category: entry.category ? CATEGORY_CS[entry.category] : undefined,
+          ageRange:
+            entry.ageMin !== undefined || entry.ageMax !== undefined
+              ? `${entry.ageMin ?? '?'}–${entry.ageMax ?? '?'} let`
+              : undefined,
+          note: entry.note,
         }),
         colorCss: eventCss(entry.id, entry.colorOverride),
         // CustomEntry teď (CHANGE-113) může mít vlastní `allowOnHolidays` — dřív

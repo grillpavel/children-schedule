@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { useEscapeToClose } from '@/hooks/useEscapeToClose';
 import { IconClose } from './Icons';
@@ -54,7 +55,16 @@ export function DialogShell({
   useEscapeToClose(onClose);
   const titleId = useId();
 
-  return (
+  // Portál do document.body (design_review_102.md dodatek, CHANGE-111): editace
+  // kroužku/vlastní události otevírá TENTO dialog VNOŘENĚ uvnitř už otevřeného
+  // mobilního detailu (jiného DialogShellu). Ten má `animate-in zoom-in-95`,
+  // což Tailwindu/tailwindcss-animate NIKDY nezruší zpět na `transform: none`
+  // (finální keyframe je identitní `scale(1) translate(0)`, ne `none`) — jakýkoli
+  // definovaný `transform` na předkovi ho ale dělá "containing blockem" pro
+  // `position: fixed` potomky (CSS spec). Bez portálu se tak vnořený dialog
+  // ořízne na rozměry vnějšího boxu místo celé obrazovky. Portál tomu zabrání
+  // bez ohledu na to, odkud je DialogShell vyvolán.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
       onClick={closeOnBackdrop ? onClose : undefined}
@@ -98,7 +108,8 @@ export function DialogShell({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

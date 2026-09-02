@@ -24,13 +24,13 @@ import { WEEKDAYS, formatTime } from '@/lib/grid';
 import { geocodeAddress } from '@/lib/geocode';
 import { ColorSwatches } from './ColorSwatches';
 import { CustomEntryDialog } from './CustomEntryDialog';
+import { DialogShell } from './DialogShell';
 import {
   IconMapPin,
   IconCheck,
   IconClock,
   IconUser,
   IconChevronDown,
-  IconClose,
 } from './Icons';
 
 /**
@@ -681,19 +681,7 @@ function ActivityEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl animate-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-          <h2 className="text-base font-bold text-slate-900">Upravit údaje kroužku</h2>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Zavřít"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition desk:h-8 desk:w-8"
-          >
-            <IconClose className="h-4 w-4" />
-          </button>
-        </div>
+    <DialogShell onClose={() => setOpen(false)} title="Upravit údaje kroužku">
         <div className="space-y-2 text-xs">
       <label className="block text-xs text-slate-600 font-medium">
         Název
@@ -810,8 +798,7 @@ function ActivityEditor({
         </button>
       </div>
         </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 
@@ -938,19 +925,7 @@ function SessionTimeEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl animate-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-          <h2 className="text-base font-bold text-slate-900">Časy termínů</h2>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Zavřít"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition desk:h-8 desk:w-8"
-          >
-            <IconClose className="h-4 w-4" />
-          </button>
-        </div>
+    <DialogShell onClose={() => setOpen(false)} title="Časy termínů">
         <div className="space-y-2 text-xs">
       {groups.flatMap((g) =>
         g.sessions.map((session) => (
@@ -964,8 +939,7 @@ function SessionTimeEditor({
         )),
       )}
         </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

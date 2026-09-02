@@ -377,17 +377,21 @@ test('T-178: čas katalogové aktivity lze upravit — katalog nemusí odrážet
   const detail = isCompact(width) ? page.getByRole('dialog', { name: 'Detail kroužku' }) : page.getByRole('main');
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
+  // SessionTimeEditor je od CHANGE-111 sdílený DialogShell portalovaný do
+  // document.body (oprava oříznutého vnořeného dialogu) — jeho vlastní pole/značky/
+  // close tlačítko už NEJSOU potomkem `detail`, cílíme na jeho vlastní role="dialog".
+  const editor = page.getByRole('dialog', { name: 'Časy termínů' });
   // Fotbal — mini přípravka má termín v úterý (16:00–17:00) — posuneme na 18:30–19:30.
   // Obě pole se mění spolu, ať zůstane začátek < konec (validace, design_review_69.md).
-  await detail.locator('input[type="time"]').nth(0).fill('18:30');
-  await detail.locator('input[type="time"]').nth(0).blur();
-  await detail.locator('input[type="time"]').nth(1).fill('19:30');
-  await detail.locator('input[type="time"]').nth(1).blur();
-  await expect(detail.getByText('upraveno vámi').first()).toBeVisible();
+  await editor.locator('input[type="time"]').nth(0).fill('18:30');
+  await editor.locator('input[type="time"]').nth(0).blur();
+  await editor.locator('input[type="time"]').nth(1).fill('19:30');
+  await editor.locator('input[type="time"]').nth(1).blur();
+  await expect(editor.getByText('upraveno vámi').first()).toBeVisible();
   // Okno editace časů je od design_review_99.md modelní jako CustomEntryDialog
   // (design_review_99.md, oprava reportu "jiné okno pro úpravu než vlastní událost") —
   // zavírá se X ikonou s aria-label "Zavřít", ne textem "Hotovo".
-  await detail.getByRole('button', { name: 'Zavřít', exact: true }).click();
+  await editor.getByRole('button', { name: 'Zavřít', exact: true }).click();
 
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Zavřít detail' }).click();
@@ -415,13 +419,15 @@ test('T-179: editace času odmítne neplatný rozsah (začátek po konci) beze z
   const detail = isCompact(width) ? page.getByRole('dialog', { name: 'Detail kroužku' }) : page.getByRole('main');
 
   await detail.getByRole('button', { name: 'Upravit časy' }).click();
+  // SessionTimeEditor je od CHANGE-111 sdílený DialogShell portalovaný do document.body.
+  const editor = page.getByRole('dialog', { name: 'Časy termínů' });
   // Začátek (18:30) po dosavadním konci (17:00, nezměněn) — neplatné, nesmí se zapsat.
-  await detail.locator('input[type="time"]').nth(0).fill('18:30');
-  await detail.locator('input[type="time"]').nth(0).blur();
-  await expect(detail.getByText('upraveno vámi')).toHaveCount(0);
+  await editor.locator('input[type="time"]').nth(0).fill('18:30');
+  await editor.locator('input[type="time"]').nth(0).blur();
+  await expect(editor.getByText('upraveno vámi')).toHaveCount(0);
   // Okno editace časů je od design_review_99.md modelní — musí se zavřít, než
   // přejdeme mimo něj (jinak backdrop klik na "Zavřít detail" zablokuje).
-  await detail.getByRole('button', { name: 'Zavřít', exact: true }).click();
+  await editor.getByRole('button', { name: 'Zavřít', exact: true }).click();
 
   if (isCompact(width)) {
     await page.getByRole('button', { name: 'Zavřít detail' }).click();

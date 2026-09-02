@@ -141,7 +141,10 @@ test('T-145: úprava ceny přidá značku „upraveno vámi"', async ({ page }, 
   await selectFirstCard(page, width);
   const detail = detailScope(page, width);
   await detail.getByRole('button', { name: 'Upravit údaje' }).click();
-  const price = detail.getByRole('spinbutton', { name: 'Cena (Kč)' });
+  // ActivityEditor je od CHANGE-111 sdílený DialogShell portalovaný do document.body
+  // (oprava oříznutého vnořeného dialogu) — jeho obsah už NENí potomkem `detail`.
+  const editor = page.getByRole('dialog', { name: 'Upravit údaje kroužku' });
+  const price = editor.getByRole('spinbutton', { name: 'Cena (Kč)' });
   await price.fill('4321');
   await price.press('Tab');
   await expect(detail.getByText('upraveno vámi').first()).toBeVisible();

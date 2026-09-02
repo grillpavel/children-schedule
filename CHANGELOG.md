@@ -6,6 +6,35 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vnořený dialog se ořezával kvůli CSS transformu na předkovi (CHANGE-111)
+
+Trigger: uživatel otestoval CHANGE-110 a nahlásil, že vlastní události „Zpěv“ a „Angličtina“
+otevírají „jiné okno než zbytek událostí“.
+
+- **Kořenová příčina** (potvrzeno přímou reprodukcí): kliknutí na „Upravit“ u vlastní události
+  (nebo „Upravit údaje“/„Upravit časy“ u katalogového kroužku) zevnitř mobilního detailu
+  vykreslí DRUHÝ `DialogShell` VNOŘENĚ do prvního. Vnější dialog má `animate-in zoom-in-95`
+  (tailwindcss-animate) — jeho finální keyframe je identitní `transform: scale(1) translate(0)`,
+  ne `transform: none`, a tato hodnota se po animaci nikdy neodstraní. Jakýkoliv nenulový
+  `transform` na předkovi ho ale dělá CSS „containing blockem“ pro `position: fixed` potomky —
+  vnořený dialog se tak ořezal na rozměry vnějšího boxu (~356×707) místo celé obrazovky
+  (390×844). **Stejný bug měla i editace katalogového kroužku** (`ActivityEditor`/
+  `SessionTimeEditor`) — ty CHANGE-110 vůbec nemigroval na `DialogShell`, měly identický ruční
+  vzor se stejným důsledkem.
+- **Fix**: `DialogShell` renderuje přes `createPortal(..., document.body)` — vnořený dialog už
+  není potomkem žádného transformovaného předka. `ActivityEditor`/`SessionTimeEditor`
+  (`DetailsPanel.tsx`) migrovány na `DialogShell` — stejná unifikace jako CHANGE-110 pro ostatní
+  čtyři komponenty.
+- **Vedlejší nález**: `Toolbar.tsx` má ještě tři další ručně psané dialogy („Uložit rozvrh“/
+  „Potvrdit import“/„Otevřít kalendáře“) mimo `DialogShell` — nekolidují s tímto bugem (nejsou
+  vnořené), ale mají stejnou nekonzistenci. Zaznamenáno jako `BL-068`, nezahrnuto do tohoto CHANGE.
+- Test fallout: T-145 (`panel.spec.ts`), T-178/T-179 (`schedule.spec.ts`) používaly lokátor
+  scoped na `detail`/`main` pro dosažení na obsah těchto dvou editorů — portalovaný obsah už
+  není jejich DOM potomkem, přepsáno na `page.getByRole('dialog', {name: <titulek editoru>})`.
+- Spec: `.github/specs/design_review_103.md`. Ověřeno: `tsc --noEmit` čisté, `next build` čistý,
+  plná 6profilová E2E sada = **780 passed / 252 skipped / 0 failed** (shodné s CHANGE-110
+  baseline, nulová regrese po opravě tří testů).
+
 ### Vyskakovací okna neměla jednotnou implementaci (CHANGE-110)
 
 Trigger: uživatel opakovaně hlásil nekonzistentní chování popup oken napříč appkou

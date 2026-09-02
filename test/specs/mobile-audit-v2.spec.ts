@@ -33,7 +33,7 @@ async function addCustomEntry(
   // Výchozí mobilní pohled je ukotven na „dnešek“ (úterý ve zmrazeném čase,
   // BL-055 fix z CHANGE-97) — bez výběru dne by výchozí pondělí bylo mimo
   // 3denní okno a blok by v mřížce nebyl vidět.
-  await dialog.locator('select').first().selectOption('2');
+  await dialog.getByRole('combobox', { name: 'Den v týdnu' }).first().selectOption('2');
   const times = dialog.locator('input[type="time"]');
   await times.nth(0).fill(from);
   await times.nth(1).fill(to);

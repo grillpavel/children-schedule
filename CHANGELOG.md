@@ -6,6 +6,45 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Vlastní událost neměla obsahovou paritu s katalogovou aktivitou (CHANGE-112)
+
+Trigger: uživatel po CHANGE-110/111 (sjednocení obálky popup oken) nahlásil, že se
+otevírací okno u katalogového kroužku a vlastní události pořád „liší“. Po upřesnění
+šlo o to, že vlastní událost musí mít k dispozici STEJNÁ POLE jako katalogová
+aktivita — ne jen podobně vypadat.
+
+- **Analýza** (design_review_105.md): přímé porovnání `activitySchema` vs.
+  `customEntrySchema` (`packages/domain`) potvrdilo, že `CustomEntry` opravdu
+  neměl `category`, `ageMin`/`ageMax`, `description` ani `applicationUrl` —
+  nešlo o chybějící zobrazení, ale o chybějící data.
+- **Fix**: `customEntrySchema` rozšířen o všechna čtyři pole (`.optional()` —
+  zpětně kompatibilní, starší uložené/importované rozvrhy zůstávají platné
+  beze změny/migrace). `CustomEntryDialog` má nová pole ve formuláři (Kategorie,
+  Věk od/do, Popis, Odkaz na přihlášku s inline URL validací).
+  `CustomEntryDetail` (`DetailsPanel.tsx`) zobrazuje nová pole ve stejném
+  vizuálním jazyce jako katalogová aktivita (badge kategorie, skládací popis,
+  karta „Cena a věk“, „Oficiální přihláška →“ ve stejné pozici). `CATEGORY_LABELS`
+  přesunuto do sdíleného `apps/web/src/lib/categoryLabels.ts` (dřív duplicitně
+  jen v `DetailsPanel.tsx`).
+- **Vědomě mimo rozsah**: `providerId`, varianty docházky (víc `sessionGroups`),
+  `capacity`, `applicationDeadline` — uživatel je nejmenoval a sémanticky
+  nesedí k jednorázové vlastní události bez katalogového poskytovatele.
+- **Test fallout** (nalezeno až spuštěním plné E2E sady, ne jen typecheckem):
+  nový select „Kategorie“ v `CustomEntryDialog` se vykresluje PŘED existující
+  select dne v týdnu — 7 míst napříč `schedule.spec.ts`/`catalog.spec.ts`/
+  `ics.spec.ts`/`mobile-audit-v2.spec.ts` cílilo na den v týdnu pozičně
+  (`dialog.locator('select').first()`), což teď mířilo na Kategorii a
+  `.selectOption('2')` na ni padalo (30 testů na 5/6 profilech). Fix: select
+  dne v týdnu dostal `aria-label="Den v týdnu"`, všech 7 míst přepsáno na
+  `getByRole('combobox', {name: 'Den v týdnu'})`.
+- Ověřeno: `tsc --noEmit` čisté (`apps/web` i `packages/domain`), doménový
+  vitest **155/155 zelených** (schema změna čistě aditivní, žádný existující
+  test na těchto polích nezávisel), `next build` čistý. Ručně ověřeno v
+  headless Chromiu (390×844) — vyplněná vlastní událost má srovnatelnou
+  hustotu obsahu s katalogovou položkou. Plná 6profilová E2E sada po opravě
+  testů = **780 passed / 252 skipped / 0 failed** (shodné s CHANGE-111
+  baseline, nulová regrese).
+
 ### Vnořený dialog se ořezával kvůli CSS transformu na předkovi (CHANGE-111)
 
 Trigger: uživatel otestoval CHANGE-110 a nahlásil, že vlastní události „Zpěv“ a „Angličtina“

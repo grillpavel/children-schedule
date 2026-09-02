@@ -410,7 +410,7 @@ test('T-173: karta katalogu ukazuje náhled kolize před přidáním', async ({ 
   const dialog = page.locator('.fixed.inset-0.z-50');
   await dialog.getByPlaceholder('Např. Logopedie').fill('Celopondělní blok');
   // Pondělí (hodnota 1) pokryté téměř celým dnem — koliduje s libovolným pondělním kroužkem.
-  await dialog.locator('select').first().selectOption('1');
+  await dialog.getByRole('combobox', { name: 'Den v týdnu' }).first().selectOption('1');
   await dialog.locator('input[type="time"]').nth(0).fill('00:01');
   await dialog.locator('input[type="time"]').nth(1).fill('23:59');
   await dialog.getByRole('button', { name: 'Přidat', exact: true }).click();

@@ -262,6 +262,15 @@ export const customEntrySchema = z.object({
   price: priceSchema.optional(),
   note: z.string().optional(),
   colorOverride: z.string().optional(),
+  /** Volitelná pole pro obsahovou paritu s katalogovou `Activity` (CHANGE-112,
+   * design_review_105.md) — vlastní událost dřív v detailu vypadala nápadně
+   * "chudší" než katalogový kroužek. Všechna nová pole jsou `.optional()`, ať
+   * zůstanou zpětně kompatibilní starší uložené/importované rozvrhy bez nich. */
+  category: activityCategorySchema.optional(),
+  ageMin: z.number().int().optional(),
+  ageMax: z.number().int().optional(),
+  description: z.string().optional(),
+  applicationUrl: z.string().url().optional(),
 });
 
 /**

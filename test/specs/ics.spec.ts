@@ -35,7 +35,7 @@ async function addCustom(
   await page.getByRole('button', { name: /Vlastní událost/ }).click();
   const d = page.locator('.fixed.inset-0.z-50');
   await d.getByPlaceholder('Např. Logopedie').fill(opts.name);
-  if (opts.weekdayValue) await d.locator('select').first().selectOption(opts.weekdayValue);
+  if (opts.weekdayValue) await d.getByRole('combobox', { name: 'Den v týdnu' }).first().selectOption(opts.weekdayValue);
   await d.locator('input[type="time"]').nth(0).fill(opts.start ?? '16:00');
   await d.locator('input[type="time"]').nth(1).fill(opts.end ?? '17:00');
   if (opts.address) await d.getByPlaceholder('Ulice a číslo, Město').fill(opts.address);

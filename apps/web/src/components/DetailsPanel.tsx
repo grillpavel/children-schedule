@@ -22,6 +22,7 @@ import { useScheduleView } from '@/hooks/useScheduleView';
 import { useIsWide } from '@/hooks/useBreakpoint';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
 import { geocodeAddress } from '@/lib/geocode';
+import { CATEGORY_LABELS } from '@/lib/categoryLabels';
 import { ColorSwatches } from './ColorSwatches';
 import { CustomEntryDialog } from './CustomEntryDialog';
 import { DialogShell } from './DialogShell';
@@ -102,25 +103,6 @@ const CUSTOM_KIND_META: Record<CustomEntryKind, { label: string; icon: string }>
   school: { label: 'Škola', icon: '🏫' },
   doctor: { label: 'Lékař', icon: '🩺' },
   other: { label: 'Jiné', icon: '📌' },
-};
-
-const CATEGORY_LABELS: Record<ActivityCategory, string> = {
-  sport: 'Sport',
-  athletics: 'Atletika',
-  art: 'Výtvarka',
-  music: 'Hudba',
-  dance: 'Tanec',
-  drama: 'Divadlo',
-  language: 'Jazyky',
-  science_tech: 'Věda a technika',
-  science: 'Věda',
-  tech: 'Technika',
-  crafts: 'Rukodělky',
-  games: 'Hry',
-  outdoor: 'Příroda a turistika',
-  martial_arts: 'Bojové sporty',
-  scouting: 'Skauting',
-  other: 'Ostatní',
 };
 
 /** Popisek termínu ve výběru variant. `g.label` (např. „Termín upřesní rodič",
@@ -966,9 +948,12 @@ function CustomEntryDetail() {
   const removeCustomEntry = usePlannerStore((s) => s.removeCustomEntry);
   const selectCustomEntry = usePlannerStore((s) => s.selectCustomEntry);
   const [editing, setEditing] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
 
   if (!selectedCustomEntryId || !entry) return null;
   const kindMeta = CUSTOM_KIND_META[entry.kind];
+  const hasAge = entry.ageMin !== undefined || entry.ageMax !== undefined;
+  const priceCardTitle = hasAge ? 'Cena a věk' : 'Cena a kontakt';
 
   return (
     <section className="border-b border-slate-200/80 bg-white">
@@ -986,67 +971,133 @@ function CustomEntryDetail() {
         <h2 className="text-base font-bold text-slate-900 leading-snug">✎ {entry.name}</h2>
       </div>
       <div className="space-y-2 p-3">
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-        <span aria-hidden>{kindMeta.icon}</span>
-        <span>{kindMeta.label}</span>
-      </span>
-      <div className="space-y-1 text-xs text-slate-600 font-medium">
-        {entry.sessions.map((s) => (
-          <div key={s.id} className="flex items-center gap-1">
-            <IconClock className="h-3 w-3 text-slate-400" />
-            <span>
-              {WEEKDAYS[s.weekday - 1]?.long} {formatTime(s.startMinutes)}–{formatTime(s.endMinutes)}
-              {s.everyWeeks && s.everyWeeks > 1 ? ` · každé ${s.everyWeeks} týdny` : ''}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+            <span aria-hidden>{kindMeta.icon}</span>
+            <span>{kindMeta.label}</span>
+          </span>
+          {/* Kategorie (CHANGE-112, design_review_105.md) — volitelná, obsahová
+              parita s katalogovou aktivitou; dřív vlastní událost tuto klasifikaci
+              vůbec neměla k dispozici (chybějící pole, ne chybějící zobrazení). */}
+          {entry.category && (
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+              {CATEGORY_LABELS[entry.category]}
             </span>
+          )}
+        </div>
+
+        {entry.applicationUrl && (
+          <a
+            href={entry.applicationUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="block text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+          >
+            Oficiální přihláška →
+          </a>
+        )}
+
+        {/* Popis — stejný skládací vzor jako u katalogové aktivity (`descOpen`
+            v SelectedActivity). Odlišné od `note`/"Poznámka" níže: popis
+            charakterizuje samotnou událost, poznámka je soukromá připomínka. */}
+        {entry.description && (
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
+            <button
+              type="button"
+              onClick={() => setDescOpen((v) => !v)}
+              className="flex w-full items-center justify-between text-xs font-semibold text-slate-700"
+            >
+              <span>Popis</span>
+              <IconChevronDown className={clsx('h-3.5 w-3.5 text-slate-400 transition', descOpen && 'rotate-180')} />
+            </button>
+            {descOpen && (
+              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed border-t border-slate-200/60 pt-1.5">
+                {entry.description}
+              </p>
+            )}
           </div>
-        ))}
-      </div>
-      {entry.location && (
-        <div className="text-xs text-slate-600">
-          {entry.location.street}, {entry.location.city}
+        )}
+
+        {/* Termín — stejná karta jako „Místo konání"/"Cena a věk" u katalogového
+            kroužku (design_review_105.md, CHANGE-112) — dřív jen holý text bez karty, vedle
+            bohatě formátovaného katalogového detailu to působilo prázdně/nedodělaně. */}
+        <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Termín</div>
+          <div className="space-y-1 text-xs text-slate-700 font-medium">
+            {entry.sessions.map((s) => (
+              <div key={s.id} className="flex items-center gap-1">
+                <IconClock className="h-3 w-3 text-slate-400" />
+                <span>
+                  {WEEKDAYS[s.weekday - 1]?.long} {formatTime(s.startMinutes)}–{formatTime(s.endMinutes)}
+                  {s.everyWeeks && s.everyWeeks > 1 ? ` · každé ${s.everyWeeks} týdny` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
-      <MapLink key={entry.id} address={entry.location} />
-      {entry.sessions[0]?.instructor && (
-        <div className="text-xs text-slate-600">
-          Lektor: <span className="font-semibold text-slate-800">{entry.sessions[0].instructor}</span>
+
+        {/* Místo konání — identická karta jako SelectedActivity, ať se sekce
+            neliší podle typu položky. */}
+        <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Místo konání</div>
+          {entry.location && (entry.location.street || entry.location.city) && (
+            <div className="text-xs text-slate-600">
+              {entry.location.street}, {entry.location.city}
+            </div>
+          )}
+          <MapLink key={entry.id} address={entry.location} />
         </div>
-      )}
-      {entry.price && (
-        <div className="text-xs text-slate-700 font-medium">
-          {Number.isFinite(entry.price.amount)
-            ? `${entry.price.amount.toLocaleString('cs-CZ')} Kč / ${PRICE_PERIOD_LABELS[entry.price.period]}`
-            : 'Cena neuvedena'}
+
+        {(entry.price || hasAge || entry.sessions[0]?.instructor || entry.contact?.phone) && (
+          <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">{priceCardTitle}</div>
+            {(entry.price || hasAge) && (
+              <div className="text-xs text-slate-700 font-medium">
+                {entry.price &&
+                  (Number.isFinite(entry.price.amount)
+                    ? `${entry.price.amount.toLocaleString('cs-CZ')} Kč / ${PRICE_PERIOD_LABELS[entry.price.period]}`
+                    : 'Cena neuvedena')}
+                {entry.price && hasAge && ' · '}
+                {hasAge &&
+                  `Vhodné pro ${entry.ageMin ?? '?'}–${entry.ageMax ?? '?'} let`}
+              </div>
+            )}
+            {entry.sessions[0]?.instructor && (
+              <div className="text-xs text-slate-600">
+                Lektor: <span className="font-semibold text-slate-800">{entry.sessions[0].instructor}</span>
+              </div>
+            )}
+            {entry.contact?.phone && (
+              <a href={`tel:${entry.contact.phone}`} className="block text-xs font-semibold text-blue-600 hover:underline">
+                📞 {entry.contact.phone}
+              </a>
+            )}
+          </div>
+        )}
+
+        {entry.note && <div className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg">{entry.note}</div>}
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 shadow-2xs hover:bg-slate-50"
+          >
+            Upravit
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              removeCustomEntry(entry.id);
+              selectCustomEntry(null);
+            }}
+            className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50"
+          >
+            Odebrat
+          </button>
         </div>
-      )}
-      {entry.contact?.phone && (
-        <a href={`tel:${entry.contact.phone}`} className="block text-xs font-semibold text-blue-600 hover:underline">
-          📞 {entry.contact.phone}
-        </a>
-      )}
-      {entry.note && <div className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg">{entry.note}</div>}
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 shadow-2xs hover:bg-slate-50"
-        >
-          Upravit
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            removeCustomEntry(entry.id);
-            selectCustomEntry(null);
-          }}
-          className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50"
-        >
-          Odebrat
-        </button>
-      </div>
-      {editing && (
-        <CustomEntryDialog editEntry={entry} onClose={() => setEditing(false)} />
-      )}
+        {editing && (
+          <CustomEntryDialog editEntry={entry} onClose={() => setEditing(false)} />
+        )}
       </div>
     </section>
   );

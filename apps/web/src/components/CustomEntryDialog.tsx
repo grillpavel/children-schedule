@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import type { CustomEntry, CustomEntryKind, PricePeriod, Weekday } from '@krouzky/domain';
+import type { ActivityCategory, CustomEntry, CustomEntryKind, PricePeriod, Weekday } from '@krouzky/domain';
 import { usePlannerStore } from '@/store/plannerStore';
 import { newId } from '@/lib/ids';
 import { WEEKDAYS } from '@/lib/grid';
 import { geocodeAddress, offlineGeocode } from '@/lib/geocode';
+import { CATEGORY_LABELS } from '@/lib/categoryLabels';
 import { ColorSwatches } from './ColorSwatches';
 import { DialogShell } from './DialogShell';
 import { IconClose, IconPlus } from './Icons';
@@ -82,6 +83,13 @@ export function CustomEntryDialog({
   const [everyWeeks, setEveryWeeks] = useState(first?.everyWeeks ?? 1);
   const [repeatFrom, setRepeatFrom] = useState(first?.validFrom ?? schoolYear.start);
   const [repeatTo, setRepeatTo] = useState(first?.validTo ?? schoolYear.end);
+  // Obsahová parita s katalogovou aktivitou (CHANGE-112, design_review_105.md) —
+  // všechna volitelná, ať se dá vlastní událost uložit i bez nich jako dřív.
+  const [category, setCategory] = useState<ActivityCategory | ''>(editEntry?.category ?? '');
+  const [ageMin, setAgeMin] = useState(editEntry?.ageMin !== undefined ? String(editEntry.ageMin) : '');
+  const [ageMax, setAgeMax] = useState(editEntry?.ageMax !== undefined ? String(editEntry.ageMax) : '');
+  const [description, setDescription] = useState(editEntry?.description ?? '');
+  const [applicationUrl, setApplicationUrl] = useState(editEntry?.applicationUrl ?? '');
 
   const updateRow = (i: number, patch: Partial<TimeRow>) =>
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -92,10 +100,21 @@ export function CustomEntryDialog({
   const removeRow = (i: number) =>
     setRows((prev) => prev.filter((_, idx) => idx !== i));
 
+  const isValidUrl = (v: string) => {
+    if (!v.trim()) return true;
+    try {
+      new URL(v.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const valid =
     name.trim().length > 0 &&
     rows.length > 0 &&
-    rows.every((r) => toMinutes(r.start) < toMinutes(r.end));
+    rows.every((r) => toMinutes(r.start) < toMinutes(r.end)) &&
+    isValidUrl(applicationUrl);
 
   const save = () => {
     if (!valid) return;
@@ -129,6 +148,11 @@ export function CustomEntryDialog({
         : {}),
       ...(note ? { note: note.trim() } : {}),
       ...(colorOverride ? { colorOverride } : {}),
+      ...(category ? { category } : {}),
+      ...(ageMin.trim() && Number.isFinite(Number(ageMin)) ? { ageMin: Number(ageMin) } : {}),
+      ...(ageMax.trim() && Number.isFinite(Number(ageMax)) ? { ageMax: Number(ageMax) } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(applicationUrl.trim() ? { applicationUrl: applicationUrl.trim() } : {}),
     };
     if (isEdit) updateCustomEntry(entry);
     else addCustomEntry(entry);
@@ -173,6 +197,24 @@ export function CustomEntryDialog({
         </div>
 
         <div>
+          <label className="font-semibold text-slate-700 block mb-1">
+            Kategorie <span className="font-normal text-slate-400">(nepovinné)</span>
+          </label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as ActivityCategory | '')}
+            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-2xs"
+          >
+            <option value="">Nevybráno</option>
+            {(Object.entries(CATEGORY_LABELS) as [ActivityCategory, string][]).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <span className="font-semibold text-slate-700">Barva</span>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <ColorSwatches value={colorOverride} onPick={setColorOverride} />
@@ -207,6 +249,7 @@ export function CustomEntryDialog({
                 onChange={(e) =>
                   updateRow(i, { weekday: Number(e.target.value) as Weekday })
                 }
+                aria-label="Den v týdnu"
                 className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs"
               >
                 {WEEKDAYS.map((d) => (
@@ -339,12 +382,69 @@ export function CustomEntryDialog({
           </label>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="font-semibold text-slate-700">Věk od</span>
+            <input
+              type="number"
+              min={0}
+              value={ageMin}
+              onChange={(e) => setAgeMin(e.target.value)}
+              placeholder="např. 5"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+            />
+          </label>
+          <label className="block">
+            <span className="font-semibold text-slate-700">Věk do</span>
+            <input
+              type="number"
+              min={0}
+              value={ageMax}
+              onChange={(e) => setAgeMax(e.target.value)}
+              placeholder="např. 9"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+            />
+          </label>
+        </div>
+
         <label className="block">
           <span className="font-semibold text-slate-700">Telefonický kontakt</span>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+420 123 456 789"
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-semibold text-slate-700">
+            Odkaz na přihlášku <span className="font-normal text-slate-400">(nepovinné)</span>
+          </span>
+          <input
+            type="url"
+            value={applicationUrl}
+            onChange={(e) => setApplicationUrl(e.target.value)}
+            placeholder="https://…"
+            aria-invalid={!isValidUrl(applicationUrl)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs aria-[invalid=true]:border-red-300"
+          />
+          {!isValidUrl(applicationUrl) && (
+            <span className="mt-1 block text-[11px] font-medium text-red-600">
+              Neplatný odkaz — musí začínat http:// nebo https://
+            </span>
+          )}
+        </label>
+
+        <label className="block">
+          <span className="font-semibold text-slate-700">
+            Popis <span className="font-normal text-slate-400">(nepovinné)</span>
+          </span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Čím se událost/kroužek zabývá…"
+            rows={2}
             className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
           />
         </label>

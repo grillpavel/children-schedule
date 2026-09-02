@@ -23,79 +23,24 @@ import { useIsWide } from '@/hooks/useBreakpoint';
 import { WEEKDAYS, formatTime } from '@/lib/grid';
 import { geocodeAddress } from '@/lib/geocode';
 import { CATEGORY_LABELS } from '@/lib/categoryLabels';
-import { ColorSwatches } from './ColorSwatches';
 import { CustomEntryDialog } from './CustomEntryDialog';
 import { DialogShell } from './DialogShell';
 import {
-  IconMapPin,
+  PRICE_PERIOD_LABELS,
+  EditedMark,
+  DetailSectionCard,
+  DetailDescriptionAccordion,
+  DetailLocationCard,
+  DetailPriceAgeCard,
+  DetailContactCard,
+  DetailColorSection,
+  DetailHolidaySection,
+  DetailApplicationLink,
+} from './EventDetailSections';
+import {
   IconCheck,
   IconClock,
-  IconUser,
-  IconChevronDown,
 } from './Icons';
-
-/**
- * Poloha na mapě (Changes 11): odkaz na Mapy.cz (Seznam) a na nativní mapy podle
- * platformy — Apple Mapy na Apple zařízeních, jinde Google Mapy.
- */
-function MapLink({ address }: { address: Address | undefined }) {
-  const [isApple, setIsApple] = useState(false);
-  useEffect(() => {
-    setIsApple(/iPhone|iPad|iPod|Macintosh/i.test(navigator.userAgent));
-  }, []);
-
-  const hasAddressText = Boolean(address?.street || address?.city);
-  if (!address || (!hasAddressText && address.lat === undefined)) {
-    return <div className="text-xs text-slate-500">Poloha: neuvedeno</div>;
-  }
-
-  const lat = address.lat;
-  const lon = address.lon;
-  const hasCoords = lat !== undefined && lon !== undefined;
-  const query = encodeURIComponent(
-    [address.street, address.city].filter(Boolean).join(', '),
-  );
-  const mapyLink = hasCoords
-    ? `https://mapy.cz/zakladni?x=${lon}&y=${lat}&z=17&source=coor&id=${lon},${lat}`
-    : `https://mapy.cz/zakladni?q=${query}`;
-  const appleLink = hasCoords
-    ? `https://maps.apple.com/?ll=${lat},${lon}&q=${query || `${lat},${lon}`}`
-    : `https://maps.apple.com/?q=${query}`;
-  const googleLink = hasCoords
-    ? `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
-    : `https://www.google.com/maps/search/?api=1&query=${query}`;
-  const nativeLink = isApple ? appleLink : googleLink;
-  const nativeLabel = isApple ? 'Apple Mapy' : 'Google Mapy';
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-      <a
-        href={mapyLink}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-blue-600 transition"
-      >
-        <IconMapPin className="h-3 w-3 text-red-500" />
-        <span>Mapy.cz</span>
-      </a>
-      <a
-        href={nativeLink}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 font-medium text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-blue-600 transition"
-      >
-        <span>{nativeLabel}</span>
-      </a>
-    </div>
-  );
-}
-
-const PRICE_PERIOD_LABELS: Record<string, string> = {
-  per_semester: 'pololetí',
-  per_year: 'rok',
-  per_month: 'měsíc',
-  per_session: 'lekce',
-};
 
 /** Typ vlastní události (FR-4, design_review_58.md) — ikona a český popisek v detailu. */
 const CUSTOM_KIND_META: Record<CustomEntryKind, { label: string; icon: string }> = {
@@ -158,7 +103,6 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
   const changeVariant = usePlannerStore((s) => s.changeVariant);
   const view = useScheduleView();
   const [variantChoice, setVariantChoice] = useState('');
-  const [descOpen, setDescOpen] = useState(false);
 
   if (!selectedActivityId) return null;
   const activity = catalog.activities.find((a) => a.id === selectedActivityId);
@@ -300,16 +244,7 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
               </button>
             </>
           )}
-          {signupUrl && (
-            <a
-              href={signupUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="block text-center text-xs font-semibold text-blue-600 hover:text-blue-800 transition pt-0.5"
-            >
-              Oficiální přihláška →
-            </a>
-          )}
+          <DetailApplicationLink url={signupUrl} className="text-center pt-0.5" />
         </div>
       </div>
 
@@ -430,140 +365,31 @@ function SelectedActivity({ onEnrolled }: { onEnrolled?: () => void }) {
         />
 
         {/* Popis */}
-        {activity.description && (
-          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
-            <button
-              type="button"
-              onClick={() => setDescOpen((v) => !v)}
-              className="flex w-full items-center justify-between text-xs font-semibold text-slate-700"
-            >
-              <span>Popis kroužku</span>
-              <IconChevronDown className={clsx('h-3.5 w-3.5 text-slate-400 transition', descOpen && 'rotate-180')} />
-            </button>
-            {descOpen && (
-              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed border-t border-slate-200/60 pt-1.5">{activity.description}</p>
-            )}
-          </div>
-        )}
+        <DetailDescriptionAccordion description={activity.description} label="Popis kroužku" />
 
-        {/* Místo a adresa */}
-        <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Místo konání</div>
-          {venue && (
-            <div className="text-xs text-slate-800 font-semibold">{venue.name}</div>
-          )}
-          {effAddress && (
-            <div className="text-xs text-slate-600">
-              {effAddress.street}, {effAddress.city}
-              {effAddress.zip ? `, ${effAddress.zip}` : ''}
-              {addressEdited && <EditedMark />}
-            </div>
-          )}
-          <MapLink key={activity.id} address={effAddress} />
-        </div>
+        <DetailLocationCard venueName={venue?.name} address={effAddress} edited={addressEdited} />
 
-        {/* Cena a věk */}
-        <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 space-y-1">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Cena a věk</div>
-          <div className="text-xs text-slate-700">
-            <span className="font-semibold text-slate-900">
-              {Number.isFinite(effPrice.amount)
-                ? `${effPrice.amount.toLocaleString('cs-CZ')} Kč / ${PRICE_PERIOD_LABELS[effPrice.period]}`
-                : 'Cena neuvedena'}
-            </span>
-            <span> · Vhodné pro {activity.ageMin}–{activity.ageMax} let</span>
-            {priceEdited && <EditedMark />}
-          </div>
-          {child !== undefined && (
-            <div
-              className={clsx(
-                'flex items-center gap-1 text-[11px] font-semibold',
-                child.age === undefined
-                  ? 'text-slate-500'
-                  : ageMatches
-                    ? 'text-emerald-700'
-                    : 'text-amber-700',
-              )}
-            >
-              {child.age === undefined ? (
-                <span>Věk {child.name} není vyplněný — vhodnost neověřena</span>
-              ) : ageMatches ? (
-                <>
-                  <IconCheck className="h-3 w-3" />
-                  <span>Věk odpovídá ({child.name}, {child.age} let)</span>
-                </>
-              ) : (
-                <span>⚠ Mimo doporučený věk ({child.name}, {child.age} let)</span>
-              )}
-            </div>
-          )}
-        </div>
+        <DetailPriceAgeCard
+          price={effPrice}
+          ageMin={activity.ageMin}
+          ageMax={activity.ageMax}
+          edited={priceEdited}
+          childName={child?.name}
+          childAge={child?.age}
+        />
 
-        {/* Kontakt */}
-        {(contactPerson || effPhone || email || web) && (
-          <div className="rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs space-y-1">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Kontakt a odkazy
-            </div>
-            <div className="space-y-1 text-xs pt-0.5">
-              {contactPerson && (
-                <div className="text-slate-700 flex items-center gap-1.5 font-medium">
-                  <IconUser className="h-3.5 w-3.5 text-slate-400" />
-                  <span>{contactPerson}</span>
-                </div>
-              )}
-              {effPhone && (
-                <a href={`tel:${effPhone}`} className="block font-medium text-blue-600 hover:underline">
-                  📞 {effPhone}
-                </a>
-              )}
-              {email && (
-                <a href={`mailto:${email}`} className="block font-medium text-blue-600 hover:underline">
-                  ✉️ {email}
-                </a>
-              )}
-              {web && (
-                <a
-                  href={web}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block font-medium text-blue-600 hover:underline"
-                >
-                  🌐 Web pořadatele
-                </a>
-              )}
-            </div>
-          </div>
-        )}
+        <DetailContactCard contactPerson={contactPerson} phone={effPhone} email={email} web={web} />
 
-        {/* Barva */}
-        <div className="pt-1">
-          <div className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Barva kroužku</div>
-          <ColorSwatches
-            value={effColorCss}
-            onPick={(css) => setActivityOverride(activity.id, { colorCss: css })}
-          />
-        </div>
+        <DetailColorSection
+          value={effColorCss}
+          onPick={(css) => setActivityOverride(activity.id, { colorCss: css })}
+        />
 
-        {/* Prázdniny a svátky (design_review_68.md FR-6) */}
-        <div className="pt-1">
-          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={override?.allowOnHolidays ?? false}
-              onChange={(e) =>
-                setActivityOverride(activity.id, { allowOnHolidays: e.target.checked })
-              }
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span>Povolit i o prázdninách a státních svátcích</span>
-          </label>
-          {override?.allowOnHolidays && (
-            <p className="mt-1 text-[11px] text-slate-500">
-              Aktivita se bude zobrazovat i během školních prázdnin a státních svátků.
-            </p>
-          )}
-        </div>
+        <DetailHolidaySection
+          checked={override?.allowOnHolidays ?? false}
+          onChange={(checked) => setActivityOverride(activity.id, { allowOnHolidays: checked })}
+          entityLabel="Aktivita"
+        />
 
         <ActivityEditor
           key={activity.id}
@@ -925,18 +751,6 @@ function SessionTimeEditor({
   );
 }
 
-/** Značka uživatelské úpravy */
-function EditedMark() {
-  return (
-    <span
-      className="ml-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-      title="Tuto hodnotu jste upravili; není to ověřený údaj z katalogu."
-    >
-      upraveno vámi
-    </span>
-  );
-}
-
 /** Detail vlastní události */
 function CustomEntryDetail() {
   const selectedCustomEntryId = usePlannerStore((s) => s.selectedCustomEntryId);
@@ -946,14 +760,12 @@ function CustomEntryDetail() {
     ),
   );
   const removeCustomEntry = usePlannerStore((s) => s.removeCustomEntry);
+  const updateCustomEntry = usePlannerStore((s) => s.updateCustomEntry);
   const selectCustomEntry = usePlannerStore((s) => s.selectCustomEntry);
   const [editing, setEditing] = useState(false);
-  const [descOpen, setDescOpen] = useState(false);
 
   if (!selectedCustomEntryId || !entry) return null;
   const kindMeta = CUSTOM_KIND_META[entry.kind];
-  const hasAge = entry.ageMin !== undefined || entry.ageMax !== undefined;
-  const priceCardTitle = hasAge ? 'Cena a věk' : 'Cena a kontakt';
 
   return (
     <section className="border-b border-slate-200/80 bg-white">
@@ -969,8 +781,6 @@ function CustomEntryDetail() {
           ← Zpět na souhrn
         </button>
         <h2 className="text-base font-bold text-slate-900 leading-snug">✎ {entry.name}</h2>
-      </div>
-      <div className="space-y-2 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
             <span aria-hidden>{kindMeta.icon}</span>
@@ -985,44 +795,21 @@ function CustomEntryDetail() {
             </span>
           )}
         </div>
+        <DetailApplicationLink url={entry.applicationUrl} />
+      </div>
 
-        {entry.applicationUrl && (
-          <a
-            href={entry.applicationUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="block text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
-          >
-            Oficiální přihláška →
-          </a>
-        )}
+      {/* Od tohoto místa dolů je pořadí i komponenty ZÁMĚRNĚ identické se
+          SelectedActivity (CHANGE-114, design_review_107.md, sdíleno přes
+          EventDetailSections.tsx) — jediné, co zůstává vlastní vlastní
+          události, je "Termín" (pevný rozpis) místo "Varianty docházky"
+          (výběr z nabídky) a akční tlačítka na konci (Upravit/Odebrat místo
+          odkazu na ActivityEditor). */}
+      <div className="space-y-2 p-3">
+        <DetailDescriptionAccordion description={entry.description} />
 
-        {/* Popis — stejný skládací vzor jako u katalogové aktivity (`descOpen`
-            v SelectedActivity). Odlišné od `note`/"Poznámka" níže: popis
-            charakterizuje samotnou událost, poznámka je soukromá připomínka. */}
-        {entry.description && (
-          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
-            <button
-              type="button"
-              onClick={() => setDescOpen((v) => !v)}
-              className="flex w-full items-center justify-between text-xs font-semibold text-slate-700"
-            >
-              <span>Popis</span>
-              <IconChevronDown className={clsx('h-3.5 w-3.5 text-slate-400 transition', descOpen && 'rotate-180')} />
-            </button>
-            {descOpen && (
-              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed border-t border-slate-200/60 pt-1.5">
-                {entry.description}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Termín — stejná karta jako „Místo konání"/"Cena a věk" u katalogového
-            kroužku (design_review_105.md, CHANGE-112) — dřív jen holý text bez karty, vedle
-            bohatě formátovaného katalogového detailu to působilo prázdně/nedodělaně. */}
-        <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Termín</div>
+        {/* Termín — vlastní událost nemá "variantu k výběru", má jeden pevný
+            rozpis; proto vlastní karta, ne DetailSectionCard s enroll tokem. */}
+        <DetailSectionCard title="Termín">
           <div className="space-y-1 text-xs text-slate-700 font-medium">
             {entry.sessions.map((s) => (
               <div key={s.id} className="flex items-center gap-1">
@@ -1034,48 +821,27 @@ function CustomEntryDetail() {
               </div>
             ))}
           </div>
-        </div>
+        </DetailSectionCard>
 
-        {/* Místo konání — identická karta jako SelectedActivity, ať se sekce
-            neliší podle typu položky. */}
-        <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Místo konání</div>
-          {entry.location && (entry.location.street || entry.location.city) && (
-            <div className="text-xs text-slate-600">
-              {entry.location.street}, {entry.location.city}
-            </div>
-          )}
-          <MapLink key={entry.id} address={entry.location} />
-        </div>
+        <DetailLocationCard address={entry.location} />
 
-        {(entry.price || hasAge || entry.sessions[0]?.instructor || entry.contact?.phone) && (
-          <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-2.5">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">{priceCardTitle}</div>
-            {(entry.price || hasAge) && (
-              <div className="text-xs text-slate-700 font-medium">
-                {entry.price &&
-                  (Number.isFinite(entry.price.amount)
-                    ? `${entry.price.amount.toLocaleString('cs-CZ')} Kč / ${PRICE_PERIOD_LABELS[entry.price.period]}`
-                    : 'Cena neuvedena')}
-                {entry.price && hasAge && ' · '}
-                {hasAge &&
-                  `Vhodné pro ${entry.ageMin ?? '?'}–${entry.ageMax ?? '?'} let`}
-              </div>
-            )}
-            {entry.sessions[0]?.instructor && (
-              <div className="text-xs text-slate-600">
-                Lektor: <span className="font-semibold text-slate-800">{entry.sessions[0].instructor}</span>
-              </div>
-            )}
-            {entry.contact?.phone && (
-              <a href={`tel:${entry.contact.phone}`} className="block text-xs font-semibold text-blue-600 hover:underline">
-                📞 {entry.contact.phone}
-              </a>
-            )}
-          </div>
-        )}
+        <DetailPriceAgeCard price={entry.price} ageMin={entry.ageMin} ageMax={entry.ageMax} />
+
+        <DetailContactCard contactPerson={entry.sessions[0]?.instructor} phone={entry.contact?.phone} />
 
         {entry.note && <div className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg">{entry.note}</div>}
+
+        <DetailColorSection
+          value={entry.colorOverride}
+          onPick={(css) => updateCustomEntry({ ...entry, colorOverride: css })}
+        />
+
+        <DetailHolidaySection
+          checked={entry.allowOnHolidays ?? false}
+          onChange={(checked) => updateCustomEntry({ ...entry, allowOnHolidays: checked })}
+          entityLabel="Událost"
+        />
+
         <div className="flex gap-2 pt-1">
           <button
             type="button"

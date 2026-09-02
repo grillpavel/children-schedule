@@ -271,6 +271,13 @@ export const customEntrySchema = z.object({
   ageMax: z.number().int().optional(),
   description: z.string().optional(),
   applicationUrl: z.string().url().optional(),
+  /** Povolí generování/vykreslení výskytu i o školních prázdninách a státních
+   * svátcích (CHANGE-113, design_review_106.md) — u `Activity` totéž řeší
+   * `ActivityOverride.allowOnHolidays`; `CustomEntry` žádný override nemá
+   * (uživatel vlastní 100 % dat přímo), takže pole patří rovnou sem. Dřív
+   * `ics/generate.ts` pro CustomEntry natvrdo posílal `false` — vlastní
+   * událost tak neměla ŽÁDNOU možnost tohle nastavit, na rozdíl od kroužku. */
+  allowOnHolidays: z.boolean().optional(),
 });
 
 /**

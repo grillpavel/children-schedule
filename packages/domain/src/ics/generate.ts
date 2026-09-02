@@ -250,9 +250,11 @@ function resolveEvents(options: IcsExportOptions): ResolvedEvent[] {
           phone: entry.contact?.phone,
           price: entry.price,
         }),
-        colorCss: eventCss(undefined, undefined),
-        // CustomEntry nemá ActivityOverride — nikdy potlačeno o prázdninách/svátcích (design_review_68.md §3).
-        allowOnHolidays: false,
+        colorCss: eventCss(entry.id, entry.colorOverride),
+        // CustomEntry teď (CHANGE-113) může mít vlastní `allowOnHolidays` — dřív
+        // bylo natvrdo `false` bez ohledu na to, co si uživatel zvolil, protože
+        // CustomEntry na rozdíl od Activity neměl kam takovou volbu uložit.
+        allowOnHolidays: entry.allowOnHolidays === true,
       });
     }
   }

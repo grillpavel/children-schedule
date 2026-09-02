@@ -6,6 +6,61 @@ Formát vychází z [Keep a Changelog](https://keepachangelog.com/), verzování
 spec ↔ kód ↔ tento záznam (viz `.github/instructions/dev-process.instructions.md`).
 
 ## [Unreleased]
+### Jeden sdílený template pro detail položky místo dvou nezávislých (CHANGE-114)
+
+Trigger: uživatel po CHANGE-112/113 řekl přímo: „mělo by to být tak, že existuje
+template, který je identický pro všechny události" — místo opravování rozdílů
+jednotlivě žádal odstranění příčiny, proč vůbec mohly vznikat.
+
+- **Analýza** (design_review_107.md): `SelectedActivity` a `CustomEntryDetail` byly
+  od začátku dvě nezávislé implementace téhož obsahu (Místo konání/Cena a věk/
+  Kontakt/Popis/Barva/Prázdniny) — přesně stejný vzorec duplicity, jaký CHANGE-110
+  řešilo u obálek popup oken, jen o úroveň níž (obsah místo obálky).
+- **Fix**: nový `EventDetailSections.tsx` se sdílenými sekcemi
+  (`DetailSectionCard`, `DetailDescriptionAccordion`, `DetailLocationCard`,
+  `DetailPriceAgeCard`, `DetailContactCard`, `DetailColorSection`,
+  `DetailHolidaySection`, `DetailApplicationLink`) používanými oběma typy detailu ve
+  stejném pořadí. Vedlejší zisk: `DetailPriceAgeCard`'s child-age-match indikátor
+  (dřív jen u katalogové aktivity) teď funguje i u vlastní události bez dalšího kódu.
+- **Záměrně NEsdíleno** (skutečné doménové rozdíly, ne jen jiný vzhled): „Varianty
+  docházky" (výběr z více nabízených termínů, enroll tok) vs. „Termín" (pevný
+  autorský rozpis); „Upravit údaje"/"Upravit časy" (dva editory kvůli katalog-vs-
+  přepis rozlišení) vs. jednotné „Upravit"/"Odebrat".
+- Ověřeno: `tsc --noEmit` čisté, doménový vitest 155/155 (nedotčeno, čistě `apps/web`
+  refaktor), vizuální regrese v headless Chromiu — katalogová aktivita strukturálně
+  identická před/po refaktoru, vlastní událost se všemi poli má teď srovnatelnou
+  hustotu obsahu ve stejném vizuálním jazyce.
+- Patch obsahuje i dosud nedoručené CHANGE-113 (barva/prázdniny pro vlastní
+  událost) — staví na stejných souborech, dodáno společně.
+
+### Vlastní událost pořád chyběla dvě strukturální pole, ne jen data (CHANGE-113)
+
+Trigger: po CHANGE-112 uživatel poslal screenshoty srovnávající vlastní událost
+„Angličtina“ s katalogovým kroužkem „Atletika — přípravka“ a trval na tom, že
+rozdíl v obsahu pořád existuje.
+
+- **Dvě sekce byly u `Activity` vždy vidět bez ohledu na data, u `CustomEntry`
+  chyběly úplně** (design_review_106.md): „Barva kroužku“ (dřív jen uvnitř
+  editačního dialogu, ne inline v detailu) a „Povolit i o prázdninách a
+  státních svátcích“ — `CustomEntry` pro druhé jmenované NEMĚL vůbec pole v
+  datovém modelu; `ics/generate.ts` posílal natvrdo `allowOnHolidays: false`.
+- **Vedlejší nález, opraven zároveň**: `ics/generate.ts` volalo
+  `eventCss(undefined, undefined)` pro každou vlastní událost —
+  `entry.colorOverride` se nikdy nedostal do exportovaného `.ics`, byl čistě
+  kosmetický jen v prohlížeči. Opraveno na `eventCss(entry.id, entry.colorOverride)`.
+- `customEntrySchema` rozšířen o `allowOnHolidays: z.boolean().optional()`.
+  `CustomEntryDetail` teď zobrazuje swatch picker i checkbox vždy, zapisuje
+  přímo přes `updateCustomEntry` (bez nutnosti otevřít „Upravit“).
+- **Zbylá „prázdnota“ u konkrétní položky jako „Angličtina“ není bug**: pokud
+  nemá vyplněnou adresu/cenu/věk/kategorii/popis (CHANGE-112 pole), detail
+  bude i nadále řidší než bohatě popsaná katalogová položka — to je
+  očekávané chování pro nepovinná uživatelská data, řeší se vyplněním přes
+  „Upravit“, ne úpravou kódu.
+- Ověřeno: `tsc --noEmit` čisté, doménový vitest 155/155 zelených, ručně
+  reprodukován přesný scénář ze zaslaného screenshotu v headless Chromiu vč.
+  stáhnutého `.ics` — export nyní obsahuje `COLOR:steelblue` pro danou událost
+  (dřív barvu neobsahoval vůbec, potvrzuje opravu vedlejšího nálezu).
+
 ### Vlastní událost neměla obsahovou paritu s katalogovou aktivitou (CHANGE-112)
 
 Trigger: uživatel po CHANGE-110/111 (sjednocení obálky popup oken) nahlásil, že se
